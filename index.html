@@ -674,7 +674,16 @@ ROSTER.forEach(r => {
     b.classList.add("sel");
     joinMode = "roster";
     myPick = r;
-    clearCustomSelection(false);
+    // Auto-fill name + portrait so the picker feels intuitive (#5)
+    $("customName").value = r.first;
+    customIcon = null;
+    customAvatarPath = r.img;
+    $("customFile").value = "";
+    $("customUrl").value = "";
+    document.querySelectorAll(".avatar-pick").forEach(x => {
+      x.classList.toggle("sel", x.dataset.img === r.img);
+    });
+    setCustomPreview(thumbOf(r), r.first + " — " + r.name);
     syncJoinBtn();
   };
   pickBtns[r.name] = b;
@@ -787,6 +796,8 @@ async function applyCustomImageFile(file) {
 }
 
 $("customName").addEventListener("input", () => {
+  // Editing after a roster pick keeps the portrait as stock default but
+  // detaches from the roster identity (custom / create-your-own path).
   if (($("customName").value || "").trim()) enterCustomMode();
   syncJoinBtn();
 });

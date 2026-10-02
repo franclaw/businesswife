@@ -221,6 +221,29 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page.getByTestId('game-screen')).toBeVisible();
     await expect(page.getByTestId('boardroom')).toContainText('Nova');
   });
+
+  test('selecting a wife card auto-fills name and portrait (#5)', async ({ page }) => {
+    await createRoom(page);
+    await page.locator('[data-testid="pick"][data-first="Coco"]').click();
+    await expect(page.getByTestId('custom-name')).toHaveValue('Coco');
+    await expect(page.locator('[data-testid="avatar-pick"].sel')).toHaveCount(1);
+    await expect(page.getByTestId('custom-preview').locator('img')).toBeVisible();
+    await expect(page.getByTestId('join-btn')).toBeEnabled();
+
+    // Selecting another card updates name + image
+    await page.locator('[data-testid="pick"][data-first="Betty"]').click();
+    await expect(page.getByTestId('custom-name')).toHaveValue('Betty');
+    await expect(page.locator('[data-testid="avatar-pick"].sel')).toHaveCount(1);
+    await expect(page.getByTestId('custom-preview').locator('img')).toHaveAttribute('src', /secretary/);
+
+    // Editing name after pick keeps image, detaches roster selection
+    await page.getByTestId('custom-name').fill('Nova');
+    await expect(page.locator('[data-testid="pick"].sel')).toHaveCount(0);
+    await expect(page.locator('[data-testid="avatar-pick"].sel')).toHaveCount(1);
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.getByTestId('boardroom')).toContainText('Nova');
+  });
 });
 
 test.describe('Pomodoro PWA', () => {
