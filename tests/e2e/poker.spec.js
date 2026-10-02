@@ -174,6 +174,35 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page).toHaveURL(/\/planning-poker\/?$/);
     await expect(page.getByTestId('lobby-screen')).toBeVisible();
   });
+
+  test('next round clears question and shows Starting feedback', async ({ page }) => {
+    await createRoom(page);
+    await pickWife(page, 'Coco');
+    await page.locator('#question').fill('Estimate the launch');
+    await page.locator('#saveQ').click();
+    await expect.poll(async () => page.locator('#question').inputValue()).toBe('Estimate the launch');
+
+    await page.locator('[data-testid="card"][data-v="5"]').click();
+    await page.getByTestId('reveal-btn').click();
+    await expect(page.locator('#phaseBadge')).toHaveText('revealed');
+
+    const next = page.getByTestId('next-btn');
+    await next.click();
+    await expect(page.locator('#question')).toHaveValue('');
+    await expect.poll(async () => page.locator('#round').textContent()).toBe('2');
+    await expect(page.locator('.player.me .vote')).toHaveText('—');
+  });
+
+  test('custom wife joins with name and stock portrait', async ({ page }) => {
+    await createRoom(page);
+    await expect(page.getByTestId('custom-wife')).toBeVisible();
+    await page.getByTestId('custom-name').fill('Nova');
+    await page.locator('[data-testid="avatar-pick"]').first().click();
+    await expect(page.getByTestId('join-btn')).toBeEnabled();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.getByTestId('boardroom')).toContainText('Nova');
+  });
 });
 
 test.describe('Pomodoro PWA', () => {

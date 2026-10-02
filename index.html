@@ -300,6 +300,142 @@
     margin-top: 40px; color: var(--faint); font-size: 0.8rem;
     text-align: center; line-height: 1.6; letter-spacing: 0.02em;
   }
+
+  /* Next-round feedback */
+  .btn.busy, .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .btn.primary.busy {
+    opacity: 0.85;
+  }
+  @keyframes board-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(196, 61, 110, 0.35); }
+    40% { box-shadow: 0 0 0 10px rgba(196, 61, 110, 0.12); }
+    100% { box-shadow: 0 0 0 0 rgba(196, 61, 110, 0); }
+  }
+  .table.pulse {
+    animation: board-pulse 0.5s ease-out;
+    border-radius: 8px;
+  }
+  .card.round-flash {
+    transition: border-color 0.35s ease;
+    border-color: var(--accent);
+  }
+  /* Custom wife join */
+  .custom-wife {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    text-align: left;
+  }
+  .custom-wife h3 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--faint);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .custom-wife .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .custom-wife label {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .custom-wife input[type="text"],
+  .custom-wife input[type="url"] {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+  }
+  .custom-wife input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .custom-wife .pic-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .custom-wife .file-btn {
+    position: relative;
+    overflow: hidden;
+  }
+  .custom-wife .file-btn input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .custom-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 4px;
+    min-height: 54px;
+  }
+  .custom-preview img {
+    width: 40px;
+    height: 56px;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 4px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2);
+  }
+  .custom-preview .hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .avatar-pick {
+    padding: 0;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-2);
+    cursor: pointer;
+    overflow: hidden;
+    aspect-ratio: 36 / 50;
+  }
+  .avatar-pick img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
+  }
+  .avatar-pick.sel {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .avatar-pick:hover { border-color: var(--border-strong); }
+  .custom-note {
+    font-size: 0.75rem;
+    color: var(--faint);
+    margin-top: 6px;
+  }
+  @media (max-width: 480px) {
+    .custom-wife .pic-row { flex-direction: column; align-items: stretch; }
+    .custom-wife .pic-row .btn { width: 100%; }
+  }
   @media (max-width: 480px) {
     .lobby-row { flex-wrap: wrap; }
     .lobby-row .btn { width: 100%; }
@@ -337,6 +473,30 @@
         <h2 class="taken-h">Already in the boardroom</h2>
         <div class="grid-names" id="takenGrid" data-testid="taken-grid"></div>
       </div>
+
+      <div class="custom-wife" data-testid="custom-wife">
+        <h3>Or create your own</h3>
+        <div class="field">
+          <label for="customName">Display name</label>
+          <input id="customName" data-testid="custom-name" type="text" maxlength="24" placeholder="Your Business Wife name" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Picture <span style="color:var(--faint)">(optional)</span></label>
+          <div class="pic-row">
+            <button type="button" class="btn file-btn" data-testid="custom-upload-btn">Upload image
+              <input id="customFile" data-testid="custom-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+            </button>
+            <input id="customUrl" data-testid="custom-url" type="url" placeholder="Or image URL" autocomplete="off">
+            <button type="button" class="btn" id="customUrlBtn" data-testid="custom-url-btn">Use URL</button>
+          </div>
+          <div class="custom-preview" id="customPreview" data-testid="custom-preview">
+            <span class="hint" id="customPreviewHint">No custom picture yet — pick a boardroom portrait below.</span>
+          </div>
+          <p class="custom-note">No picture? Select one of the portraits below as your avatar.</p>
+          <div class="avatar-grid" id="avatarGrid" data-testid="avatar-grid"></div>
+        </div>
+      </div>
+
       <button class="join-btn" id="joinBtn" data-testid="join-btn" disabled style="margin-top:16px">Enter the boardroom</button>
       <div class="obs-row">
         <input id="obsName" data-testid="observer-name" placeholder="Your name" maxlength="24" autocomplete="off">
@@ -406,14 +566,43 @@ const ROSTER_BY_NAME = Object.fromEntries(ROSTER.map(r => [r.name, r]));
 function thumbOf(r) {
   return r && r.img ? r.img.replace("/img/", "/img/thumb/").replace(/\.png$/, ".jpg") : null;
 }
+function thumbPath(imgPath) {
+  if (!imgPath || !imgPath.startsWith("/img/")) return imgPath;
+  return imgPath.replace("/img/", "/img/thumb/").replace(/\.png$/, ".jpg");
+}
+function escapeAttr(x) {
+  return String(x).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+function isImageIcon(icon) {
+  return !!(icon && (
+    icon.startsWith("data:image/") ||
+    icon.startsWith("/img/") ||
+    /^https?:\/\//i.test(icon)
+  ));
+}
 function picOrIcon(r, cls) {
   const t = thumbOf(r);
   if (t) return `<img class="${cls}" src="${t}" alt="" data-fb="${r.icon}" title="${r.first} — ${r.name}">`;
   return `<span class="ico">${r ? r.icon : "❔"}</span>`;
 }
+function playerAvatar(p, cls) {
+  if (p.role === "observer") return `<span class="ico">${p.icon || "👁️"}</span>`;
+  const r = ROSTER_BY_NAME[p.name];
+  if (r) return picOrIcon(r, cls);
+  if (isImageIcon(p.icon)) {
+    const src = p.icon.startsWith("/img/") ? thumbPath(p.icon) : p.icon;
+    return `<img class="${cls}" src="${escapeAttr(src)}" alt="" data-fb="👤">`;
+  }
+  return `<span class="ico">${escapeHtml(p.icon || "👤")}</span>`;
+}
+function playerLabel(p) {
+  if (p.role === "observer") return p.name;
+  const r = ROSTER_BY_NAME[p.name];
+  return r ? (r.first + " · " + r.name) : p.name;
+}
 function bindImgFallback(root) {
   root.querySelectorAll("img.pic").forEach(i => { i.onerror = () => {
-    const s = document.createElement("span"); s.className = "ico"; s.textContent = i.dataset.fb;
+    const s = document.createElement("span"); s.className = "ico"; s.textContent = i.dataset.fb || "👤";
     i.replaceWith(s);
   }; });
 }
@@ -457,6 +646,10 @@ function setShare() {
 }
 
 // --- Join screen ---
+let joinMode = "roster"; // "roster" | "custom"
+let customIcon = null; // data URL, /img path, or http(s)
+let customAvatarPath = null; // built-in /img/*.png when no upload
+
 const pickBtns = {};
 ROSTER.forEach(r => {
   const b = document.createElement("button");
@@ -470,26 +663,176 @@ ROSTER.forEach(r => {
     if (b.classList.contains("taken")) return;
     document.querySelectorAll(".pick").forEach(x => x.classList.remove("sel"));
     b.classList.add("sel");
+    joinMode = "roster";
     myPick = r;
-    $("joinBtn").disabled = false;
+    clearCustomSelection(false);
+    syncJoinBtn();
   };
   pickBtns[r.name] = b;
   $("nameGrid").appendChild(b);
 });
+
+(function paintAvatarGrid() {
+  const grid = $("avatarGrid");
+  if (!grid) return;
+  ROSTER.forEach(r => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "avatar-pick";
+    b.dataset.testid = "avatar-pick";
+    b.dataset.img = r.img;
+    b.title = r.first + " — " + r.name;
+    b.innerHTML = `<img src="${thumbOf(r)}" alt="">`;
+    b.onclick = () => {
+      document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
+      b.classList.add("sel");
+      customAvatarPath = r.img;
+      // Choosing a stock portrait means we are not using an uploaded/URL picture
+      customIcon = null;
+      $("customFile").value = "";
+      $("customUrl").value = "";
+      setCustomPreview(thumbOf(r), "Boardroom portrait selected");
+      enterCustomMode();
+      syncJoinBtn();
+    };
+    grid.appendChild(b);
+  });
+})();
+
+function setCustomPreview(src, hint) {
+  const box = $("customPreview");
+  if (!src) {
+    box.innerHTML = `<span class="hint" id="customPreviewHint">${hint || "No custom picture yet — pick a boardroom portrait below."}</span>`;
+    return;
+  }
+  box.innerHTML = `<img src="${escapeAttr(src)}" alt=""><span class="hint" id="customPreviewHint">${hint || ""}</span>`;
+}
+
+function clearCustomSelection(clearName) {
+  customIcon = null;
+  customAvatarPath = null;
+  if (clearName) $("customName").value = "";
+  $("customFile").value = "";
+  $("customUrl").value = "";
+  document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
+  setCustomPreview(null);
+}
+
+function enterCustomMode() {
+  joinMode = "custom";
+  myPick = null;
+  document.querySelectorAll(".pick").forEach(x => x.classList.remove("sel"));
+}
+
+function syncJoinBtn() {
+  if (joinMode === "roster" && myPick) {
+    $("joinBtn").disabled = false;
+    return;
+  }
+  if (joinMode === "custom") {
+    const name = ($("customName").value || "").trim();
+    const hasPic = !!(customIcon || customAvatarPath);
+    $("joinBtn").disabled = !(name && hasPic);
+    return;
+  }
+  $("joinBtn").disabled = true;
+}
+
+async function resizeImageBlob(blob, maxPx, maxBytes) {
+  const bmp = await createImageBitmap(blob);
+  const scale = Math.min(1, maxPx / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale));
+  const h = Math.max(1, Math.round(bmp.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close();
+  let quality = 0.85;
+  let dataUrl = canvas.toDataURL("image/jpeg", quality);
+  while (dataUrl.length > maxBytes && quality > 0.4) {
+    quality -= 0.1;
+    dataUrl = canvas.toDataURL("image/jpeg", quality);
+  }
+  if (dataUrl.length > maxBytes) {
+    // shrink further
+    const scale2 = Math.sqrt(maxBytes / dataUrl.length);
+    canvas.width = Math.max(32, Math.round(w * scale2));
+    canvas.height = Math.max(32, Math.round(h * scale2));
+    ctx.drawImage(await createImageBitmap(blob), 0, 0, canvas.width, canvas.height);
+    dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+  }
+  if (dataUrl.length > maxBytes) throw new Error("Image still too large after resize");
+  return dataUrl;
+}
+
+async function applyCustomImageFile(file) {
+  if (!file || !file.type.startsWith("image/")) throw new Error("Pick an image file");
+  const dataUrl = await resizeImageBlob(file, 192, 180000);
+  customIcon = dataUrl;
+  customAvatarPath = null;
+  document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
+  setCustomPreview(dataUrl, "Custom picture ready");
+  enterCustomMode();
+  syncJoinBtn();
+}
+
+$("customName").addEventListener("input", () => {
+  if (($("customName").value || "").trim()) enterCustomMode();
+  syncJoinBtn();
+});
+$("customFile").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try {
+    $("joinErr").textContent = "";
+    await applyCustomImageFile(file);
+  } catch (err) {
+    $("joinErr").textContent = err.message || "Could not use that image.";
+  }
+});
+$("customUrlBtn").onclick = async () => {
+  const url = ($("customUrl").value || "").trim();
+  if (!/^https?:\/\//i.test(url)) {
+    $("joinErr").textContent = "Enter an http(s) image URL.";
+    return;
+  }
+  $("joinErr").textContent = "";
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) throw new Error("Could not fetch URL");
+    const blob = await res.blob();
+    if (!blob.type.startsWith("image/")) throw new Error("URL is not an image");
+    await applyCustomImageFile(blob);
+  } catch {
+    // CORS or fetch failed — store URL directly (display-only)
+    if (url.length > 500) {
+      $("joinErr").textContent = "URL is too long.";
+      return;
+    }
+    customIcon = url;
+    customAvatarPath = null;
+    document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
+    setCustomPreview(url, "Using image URL");
+    enterCustomMode();
+    syncJoinBtn();
+  }
+};
+
 function updateTaken(names) {
-  const taken = new Set(names);
+  const taken = new Set(names.map(n => String(n).toLowerCase()));
   const takenGrid = $("takenGrid");
   let any = false;
   ROSTER.forEach(r => {
     const b = pickBtns[r.name];
-    if (taken.has(r.name)) {
+    if (taken.has(r.name.toLowerCase())) {
       if (!b.classList.contains("taken")) { b.classList.add("taken"); b.dataset.testid = "pick-taken"; }
       takenGrid.appendChild(b);
       any = true;
       if (myPick && myPick.name === r.name && !myId) {
         myPick = null;
         b.classList.remove("sel");
-        $("joinBtn").disabled = true;
+        syncJoinBtn();
       }
     } else if (b.classList.contains("taken")) {
       b.classList.remove("taken");
@@ -534,20 +877,40 @@ async function enterRoom(id, created) {
 }
 
 $("joinBtn").onclick = async () => {
+  let payload = null;
+  if (joinMode === "roster" && myPick) {
+    payload = { name: myPick.name, icon: myPick.icon };
+  } else if (joinMode === "custom") {
+    const name = ($("customName").value || "").trim().slice(0, 24);
+    const icon = customIcon || customAvatarPath;
+    if (!name || !icon) {
+      $("joinErr").textContent = "Custom wife needs a name and a picture (upload, URL, or boardroom portrait).";
+      return;
+    }
+    payload = { name, icon };
+  } else {
+    $("joinErr").textContent = "Pick a Business Wife or create your own.";
+    return;
+  }
+  $("joinBtn").disabled = true;
   const res = await api("/join", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(myPick),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    $("joinErr").textContent = "Someone just took her. Pick another.";
-    $("joinBtn").disabled = true;
+    const err = await res.json().catch(() => ({}));
+    $("joinErr").textContent = err.error === "taken"
+      ? "That name is taken. Pick another."
+      : (err.error === "bad icon" ? "Picture was rejected. Try another image." : "Could not join. Try again.");
+    syncJoinBtn();
     refreshState();
     return;
   }
   const { id } = await res.json();
   myId = id;
   localStorage.setItem("sbw_id_" + roomId, id);
-  localStorage.setItem("sbw_pick", JSON.stringify(myPick));
+  localStorage.setItem("sbw_pick", JSON.stringify(payload));
+  myPick = payload;
   show("game");
   setShare();
   refreshState();
@@ -595,7 +958,34 @@ function refreshState() {
   return api("/state").then(r => r.json()).then(render);
 }
 $("revealBtn").onclick = () => api("/reveal", { method: "POST" }).then(refreshState);
-$("nextBtn").onclick = () => api("/next", { method: "POST" }).then(refreshState);
+$("nextBtn").onclick = async () => {
+  const btn = $("nextBtn");
+  if (btn.disabled || btn.classList.contains("busy")) return;
+  const label = btn.textContent;
+  btn.classList.add("busy");
+  btn.disabled = true;
+  btn.textContent = "Starting…";
+  $("question").value = "";
+  try {
+    await api("/next", { method: "POST" });
+    const table = $("table");
+    table.classList.remove("pulse");
+    void table.offsetWidth;
+    table.classList.add("pulse");
+    const qCard = $("question").closest(".card");
+    if (qCard) {
+      qCard.classList.add("round-flash");
+      setTimeout(() => qCard.classList.remove("round-flash"), 450);
+    }
+    await refreshState();
+  } finally {
+    setTimeout(() => {
+      btn.classList.remove("busy");
+      btn.disabled = false;
+      btn.textContent = label;
+    }, 450);
+  }
+};
 $("saveQ").onclick = () => api("/question", {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ question: $("question").value }),
@@ -619,8 +1009,7 @@ function render(s) {
       : p.vote ? p.vote : "—";
     if (p.vote && !p.revealed) d.classList.add("voted");
     if (p.role === "observer") d.classList.add("observer");
-    const r = p.role === "observer" ? null : ROSTER_BY_NAME[p.name];
-    d.innerHTML = `${p.role === "observer" ? `<span class="ico">${p.icon || "👁️"}</span>` : picOrIcon(r || { icon: p.icon }, "pic")}<span class="nm">${escapeHtml(r ? r.first + " · " + r.name : p.name)}</span><div class="vote">${voteText}</div>`;
+    d.innerHTML = `${playerAvatar(p, "pic")}<span class="nm">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>`;
     bindImgFallback(d);
     table.appendChild(d);
   });
