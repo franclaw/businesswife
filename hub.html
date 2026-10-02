@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Business Wife</title>
+<meta name="theme-color" content="#0f0c0e">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  :root {
+    --bg: #0f0c0e;
+    --surface: #171214;
+    --surface-2: #1e171a;
+    --border: #2e2428;
+    --border-strong: #3d3036;
+    --text: #f2ebe6;
+    --muted: #9a8a90;
+    --faint: #6b5c62;
+    --accent: #c43d6e;
+    --accent-hover: #d54f7f;
+    --accent-soft: rgba(196, 61, 110, 0.14);
+    --gold: #c9a227;
+    --gold-soft: rgba(201, 162, 39, 0.12);
+    --radius: 10px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 17px;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px 56px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .brand { text-align: center; max-width: 640px; margin-bottom: 8px; }
+  .brand-kicker {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5vw, 2.5rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 1.05rem;
+    margin-top: 12px;
+    max-width: 42ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .grid {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  @media (min-width: 560px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+  }
+  a.app {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 26px 24px;
+    transition: border-color .15s, background .15s;
+  }
+  a.app:hover {
+    border-color: var(--accent);
+    background: var(--surface-2);
+  }
+  a.app:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .app-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .app h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+    text-transform: none;
+  }
+  .app p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    max-width: 28ch;
+  }
+  .app .go {
+    display: inline-block;
+    margin-top: 18px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .note {
+    margin-top: 28px;
+    color: var(--faint);
+    font-size: 0.85rem;
+    text-align: center;
+    max-width: 40ch;
+  }
+  footer {
+    margin-top: auto;
+    padding-top: 48px;
+    color: var(--faint);
+    font-size: 0.78rem;
+    text-align: center;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+  <header class="brand">
+    <div class="brand-kicker">Boardroom utilities</div>
+    <h1>Business Wife</h1>
+    <p class="sub">Sharp tools for the room. No fluff.</p>
+  </header>
+
+  <div class="grid">
+    <a class="app" href="/planning-poker">
+      <div class="app-kicker">Estimate</div>
+      <h2>Planning Poker</h2>
+      <p>Create a boardroom, share the link, estimate stories together.</p>
+      <span class="go">Open →</span>
+    </a>
+    <a class="app" href="/pomodoro">
+      <div class="app-kicker">Focus</div>
+      <h2>Pomodoro</h2>
+      <p>Focus blocks on the clock. Installable on your phone.</p>
+      <span class="go">Open →</span>
+    </a>
+  </div>
+
+  <p class="note">More apps will arrive. This is the hub.</p>
+
+  <footer>Business Wife<br>"She closes the deal before lunch."</footer>
+</body>
+</html>

@@ -1,12 +1,14 @@
 const { test, expect } = require('@playwright/test');
 
+const POKER = '/planning-poker';
+
 async function createRoom(page) {
-  await page.goto('/');
+  await page.goto(POKER);
   await expect(page.getByTestId('lobby-screen')).toBeVisible();
   await page.getByTestId('create-btn').click();
   await expect(page.getByTestId('join-screen')).toBeVisible();
-  await expect(page).toHaveURL(/\/r\/[a-z0-9]{6}/);
-  await expect(page.getByTestId('share-url')).toHaveValue(/\/r\/[a-z0-9]{6}/);
+  await expect(page).toHaveURL(/\/planning-poker\/r\/[a-z0-9]{6}/);
+  await expect(page.getByTestId('share-url')).toHaveValue(/\/planning-poker\/r\/[a-z0-9]{6}/);
   return page.url();
 }
 
@@ -24,9 +26,18 @@ async function leave(page) {
   if (await link.isVisible().catch(() => false)) await link.click();
 }
 
-test.describe('Planning Poker — rooms', () => {
-  test('homepage is create/join, not a single boardroom', async ({ page }) => {
+test.describe('Hub', () => {
+  test('homepage lists sub-apps', async ({ page }) => {
     await page.goto('/');
+    await expect(page).toHaveTitle(/Business Wife/);
+    await expect(page.getByRole('link', { name: /Planning Poker/i })).toHaveAttribute('href', '/planning-poker');
+    await expect(page.getByRole('link', { name: /Pomodoro/i })).toHaveAttribute('href', '/pomodoro');
+  });
+});
+
+test.describe('Planning Poker — rooms', () => {
+  test('poker lobby is create/join, not a single boardroom', async ({ page }) => {
+    await page.goto(POKER);
     await expect(page).toHaveTitle(/Business Wife Edition/);
     await expect(page.getByTestId('lobby-screen')).toBeVisible();
     await expect(page.getByTestId('create-btn')).toBeVisible();
@@ -37,7 +48,7 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page.locator('h1')).not.toContainText('💋');
   });
 
-  test('create room gets a shareable /r/:id URL and portraits', async ({ page }) => {
+  test('create room gets a shareable /planning-poker/r/:id URL and portraits', async ({ page }) => {
     await createRoom(page);
     await expect(page.locator('[data-testid="pick"]')).toHaveCount(16);
     await expect.poll(async () =>
@@ -45,6 +56,11 @@ test.describe('Planning Poker — rooms', () => {
         imgs.filter((img) => img.complete && img.naturalWidth > 0).length
       )
     ).toBe(16);
+  });
+
+  test('legacy /r/:id redirects to planning-poker path', async ({ page }) => {
+    await page.goto('/r/abc234');
+    await expect(page).toHaveURL(/\/planning-poker\/r\/abc234/);
   });
 
   test('join via shared URL, vote, reveal, next round', async ({ browser }) => {
@@ -84,11 +100,9 @@ test.describe('Planning Poker — rooms', () => {
     await expect(guest.locator('[data-testid="pick-taken"][data-first="Coco"]')).toHaveCount(1);
     await expect(guest.locator('[data-testid="pick"][data-first="Coco"]')).toHaveCount(0);
 
-    // clicking a taken wife does nothing
     await guest.locator('[data-testid="pick-taken"][data-first="Coco"]').click({ force: true });
     await expect(guest.getByTestId('join-btn')).toBeDisabled();
 
-    // free wives still selectable; other rooms unaffected
     await pickWife(guest, 'Betty');
     await expect(host.getByTestId('boardroom')).toContainText('Betty');
     const third = await browser.newPage();
@@ -118,10 +132,11 @@ test.describe('Planning Poker — rooms', () => {
     await expect(obs.getByTestId('boardroom')).toContainText('Sam');
     await expect(host.getByTestId('boardroom')).toContainText('Sam');
 
-    // server rejects observer votes with 403
     const rejected = await obs.evaluate(async () => {
-      const id = localStorage.getItem('sbw_id_' + location.pathname.slice(3));
-      const r = await fetch(location.origin + '/api/rooms/' + location.pathname.slice(3) + '/vote', {
+      const m = location.pathname.match(/\/planning-poker\/r\/([a-z0-9]{6})/);
+      const roomId = m[1];
+      const id = localStorage.getItem('sbw_id_' + roomId);
+      const r = await fetch(location.origin + '/planning-poker/api/rooms/' + roomId + '/vote', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, value: '5' }),
       });
@@ -129,7 +144,6 @@ test.describe('Planning Poker — rooms', () => {
     });
     expect(rejected).toBe(403);
 
-    // host can still vote and reveal with an observer present
     await host.locator('[data-testid="card"][data-v="8"]').click();
     await expect(host.locator('.player.me .vote')).toHaveText('🔒');
     await host.getByTestId('reveal-btn').click();
@@ -151,5 +165,42 @@ test.describe('Planning Poker — rooms', () => {
     expect(new URL(a.url()).pathname).not.toBe(new URL(b.url()).pathname);
     await leave(a);
     await leave(b);
+  });
+
+  test('leave returns to poker lobby not hub', async ({ page }) => {
+    await createRoom(page);
+    await pickWife(page, 'Coco');
+    await leave(page);
+    await expect(page).toHaveURL(/\/planning-poker\/?$/);
+    await expect(page.getByTestId('lobby-screen')).toBeVisible();
+  });
+});
+
+test.describe('Pomodoro PWA', () => {
+  test('timer page and manifest exist', async ({ page, request }) => {
+    await page.goto('/pomodoro');
+    await expect(page.locator('#digits')).toBeVisible();
+    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/pomodoro/manifest.webmanifest');
+    const man = await request.get('/pomodoro/manifest.webmanifest');
+    expect(man.ok()).toBeTruthy();
+    const body = await man.json();
+    expect(body.start_url).toMatch(/\/pomodoro/);
+    expect(body.display).toBe('standalone');
+    const sw = await request.get('/pomodoro/sw.js');
+    expect(sw.ok()).toBeTruthy();
+    expect(await sw.text()).toMatch(/CACHE/);
+  });
+});
+
+test.describe('Poker PWA', () => {
+  test('manifest and service worker are served', async ({ request }) => {
+    const man = await request.get('/planning-poker/manifest.webmanifest');
+    expect(man.ok()).toBeTruthy();
+    const body = await man.json();
+    expect(body.start_url).toMatch(/\/planning-poker/);
+    expect(body.scope).toMatch(/\/planning-poker/);
+    expect(body.display).toBe('standalone');
+    const sw = await request.get('/planning-poker/sw.js');
+    expect(sw.ok()).toBeTruthy();
   });
 });

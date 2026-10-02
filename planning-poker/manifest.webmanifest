@@ -1,0 +1,30 @@
+{
+  "name": "Planning Poker — Business Wife",
+  "short_name": "Poker",
+  "description": "Create a boardroom, share the link, estimate stories together.",
+  "start_url": "/planning-poker/",
+  "scope": "/planning-poker/",
+  "display": "standalone",
+  "background_color": "#0f0c0e",
+  "theme_color": "#0f0c0e",
+  "icons": [
+    {
+      "src": "/planning-poker/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/planning-poker/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/planning-poker/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

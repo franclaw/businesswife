@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f0c0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/planning-poker/manifest.webmanifest">
 <title>Planning Poker — Business Wife Edition</title>
 <link rel="icon" href="/favicon.png" type="image/png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="/planning-poker/icons/icon-192.png">
 <style>
   :root {
     --bg: #0f0c0e;
@@ -304,8 +308,8 @@
 </head>
 <body>
   <header class="brand">
-    <div class="brand-kicker">Planning poker</div>
-    <h1>Business Wife <span class="tag">Edition</span></h1>
+    <a class="brand-kicker" href="/" style="color:inherit;text-decoration:none">Business Wife</a>
+    <h1>Planning Poker <span class="tag">Edition</span></h1>
     <p class="sub">Create a boardroom, share the link, estimate stories together.</p>
   </header>
 
@@ -436,10 +440,10 @@ const $ = id => document.getElementById(id);
     fan.appendChild(img);
   });
 })();
-function api(path, opts) { return fetch("/api/rooms/" + roomId + path, opts); }
-function roomUrl(id) { return location.origin + "/r/" + id; }
+function api(path, opts) { return fetch("/planning-poker/api/rooms/" + roomId + path, opts); }
+function roomUrl(id) { return location.origin + "/planning-poker/r/" + id; }
 function parseRoomFromPath() {
-  const m = location.pathname.match(/^\/r\/([a-z0-9]{6})\/?$/);
+  const m = location.pathname.match(/^\/planning-poker\/r\/([a-z0-9]{6})\/?$/);
   return m ? m[1] : null;
 }
 function show(which) {
@@ -497,7 +501,7 @@ function updateTaken(names) {
 }
 
 $("createBtn").onclick = async () => {
-  const res = await fetch("/api/rooms", { method: "POST" });
+  const res = await fetch("/planning-poker/api/rooms", { method: "POST" });
   const { id } = await res.json();
   enterRoom(id, true);
 };
@@ -514,10 +518,10 @@ $("copyBtn").onclick = async () => {
 };
 
 async function enterRoom(id, created) {
-  const check = await fetch("/api/rooms/" + id);
-  if (!check.ok) { $("lobbyErr").textContent = "No boardroom with that code."; if (created) history.replaceState({}, "", "/"); return; }
+  const check = await fetch("/planning-poker/api/rooms/" + id);
+  if (!check.ok) { $("lobbyErr").textContent = "No boardroom with that code."; if (created) history.replaceState({}, "", "/planning-poker"); return; }
   roomId = id;
-  history.replaceState({}, "", "/r/" + id);
+  history.replaceState({}, "", "/planning-poker/r/" + id);
   setShare();
   connect();
   myId = localStorage.getItem("sbw_id_" + roomId) || null;
@@ -566,10 +570,10 @@ $("obsBtn").onclick = async () => {
 $("obsName").addEventListener("keydown", e => { if (e.key === "Enter") $("obsBtn").click(); });
 
 $("leaveLink").onclick = async () => {
-  if (myId && roomId) await fetch("/api/rooms/" + roomId + "/leave/" + myId, { method: "DELETE" });
+  if (myId && roomId) await fetch("/planning-poker/api/rooms/" + roomId + "/leave/" + myId, { method: "DELETE" });
   if (roomId) localStorage.removeItem("sbw_id_" + roomId);
   myId = null;
-  location.href = "/";
+  location.href = "/planning-poker";
 };
 
 // --- Cards ---
@@ -647,7 +651,7 @@ function escapeHtml(x) { const d = document.createElement("div"); d.textContent 
 function connect() {
   if (es) { try { es.close(); } catch {} }
   if (!roomId) return;
-  es = new EventSource("/api/rooms/" + roomId + "/events");
+  es = new EventSource("/planning-poker/api/rooms/" + roomId + "/events");
   es.onmessage = e => render(JSON.parse(e.data));
   es.onerror = () => { es.close(); setTimeout(connect, 2000); };
 }
@@ -665,6 +669,10 @@ window.fetch = (url, opts) => {
   if (fromPath) await enterRoom(fromPath, false);
   else show("lobby");
 })();
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/planning-poker/sw.js", { scope: "/planning-poker/" }).catch(() => {});
+}
 </script>
 </body>
 </html>

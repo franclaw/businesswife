@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pomodoro — Business Wife</title>
+<meta name="theme-color" content="#0f0c0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Focus block timer. She's timing you.">
+<link rel="manifest" href="/pomodoro/manifest.webmanifest">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/pomodoro/icons/icon-192.png">
+<style>
+  :root {
+    --bg: #0f0c0e;
+    --surface: #171214;
+    --surface-2: #1e171a;
+    --border: #2e2428;
+    --border-strong: #3d3036;
+    --text: #f2ebe6;
+    --muted: #9a8a90;
+    --faint: #6b5c62;
+    --accent: #c43d6e;
+    --accent-hover: #d54f7f;
+    --accent-soft: rgba(196, 61, 110, 0.14);
+    --gold: #c9a227;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: max(20px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  a.brand {
+    color: var(--faint);
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  a.brand:hover { color: var(--accent); }
+  .kicker {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .wit {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin-bottom: 28px;
+  }
+  .panel {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 22px 24px;
+    text-align: center;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: min(70dvh, 560px);
+  }
+  .mode {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 12px;
+  }
+  .mode.focus { color: var(--accent); }
+  .mode.break { color: var(--gold); }
+  .digits {
+    font-family: var(--mono);
+    font-size: clamp(4.2rem, 18vw, 5.6rem);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    margin: 8px 0 20px;
+  }
+  .sessions {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 28px;
+  }
+  .sessions strong { color: var(--text); font-weight: 600; }
+  .controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 0;
+    padding: 14px 22px;
+    cursor: pointer;
+    min-width: 108px;
+  }
+  .primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .primary:hover { background: var(--accent-hover); }
+  .ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+  }
+  .ghost:hover { color: var(--text); border-color: var(--muted); }
+  .presets {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 28px;
+  }
+  .presets button {
+    min-width: 0;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    background: var(--surface-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .presets button.on {
+    color: var(--text);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .custom {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .custom label {
+    color: var(--faint);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .custom input {
+    width: 56px;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    text-align: center;
+  }
+  .install-hint {
+    margin-top: 22px;
+    color: var(--faint);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    max-width: 36ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+</style>
+</head>
+<body>
+  <a class="brand" href="/">Business Wife</a>
+  <div class="kicker">Focus block</div>
+  <h1>Pomodoro</h1>
+  <p class="wit">She's timing you.</p>
+
+  <div class="panel">
+    <div class="mode focus" id="modeLabel">Focus</div>
+    <div class="digits" id="digits" aria-live="polite">25:00</div>
+    <div class="sessions">Sessions closed: <strong id="sessionCount">0</strong></div>
+    <div class="controls">
+      <button class="primary" id="toggleBtn" type="button">Start</button>
+      <button class="ghost" id="resetBtn" type="button">Reset</button>
+    </div>
+    <div class="presets" role="group" aria-label="Presets">
+      <button type="button" data-focus="25" data-break="5" class="on">25 / 5</button>
+      <button type="button" data-focus="15" data-break="3">15 / 3</button>
+      <button type="button" data-focus="50" data-break="10">50 / 10</button>
+      <button type="button" id="customBtn">Custom</button>
+    </div>
+    <div class="custom" id="customRow" hidden>
+      <label>Focus <input id="customFocus" type="number" min="1" max="120" value="25"> min</label>
+      <label>Break <input id="customBreak" type="number" min="1" max="60" value="5"> min</label>
+      <button class="ghost" type="button" id="applyCustom" style="min-width:0;padding:8px 12px;font-size:0.82rem">Apply</button>
+    </div>
+    <p class="install-hint">Android: Chrome → menu → Install app / Add to Home screen. Works offline once installed.</p>
+  </div>
+
+<script>
+const KEY = "bw_pomodoro_v1";
+const $ = (id) => document.getElementById(id);
+
+let state = load();
+let tickTimer = null;
+
+function defaults() {
+  return {
+    focusMin: 25,
+    breakMin: 5,
+    mode: "focus", // focus | break
+    remainingMs: 25 * 60 * 1000,
+    running: false,
+    endsAt: null,
+    sessions: 0,
+  };
+}
+
+function load() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (!raw) return defaults();
+    const s = Object.assign(defaults(), raw);
+    if (s.running && s.endsAt) {
+      s.remainingMs = Math.max(0, s.endsAt - Date.now());
+      if (s.remainingMs === 0) {
+        s.running = false;
+        s.endsAt = null;
+      }
+    }
+    return s;
+  } catch {
+    return defaults();
+  }
+}
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify({
+    focusMin: state.focusMin,
+    breakMin: state.breakMin,
+    mode: state.mode,
+    remainingMs: state.remainingMs,
+    running: state.running,
+    endsAt: state.endsAt,
+    sessions: state.sessions,
+  }));
+}
+
+function fmt(ms) {
+  const sec = Math.ceil(ms / 1000);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+
+function paint() {
+  $("digits").textContent = fmt(state.remainingMs);
+  $("sessionCount").textContent = String(state.sessions);
+  const label = $("modeLabel");
+  label.textContent = state.mode === "focus" ? "Focus" : "Break";
+  label.className = "mode " + (state.mode === "focus" ? "focus" : "break");
+  $("toggleBtn").textContent = state.running ? "Pause" : (state.remainingMs < durationMs() ? "Resume" : "Start");
+  document.querySelectorAll(".presets [data-focus]").forEach((b) => {
+    b.classList.toggle("on",
+      Number(b.dataset.focus) === state.focusMin && Number(b.dataset.break) === state.breakMin);
+  });
+}
+
+function durationMs() {
+  return (state.mode === "focus" ? state.focusMin : state.breakMin) * 60 * 1000;
+}
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = 660;
+    g.gain.value = 0.08;
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    o.stop(ctx.currentTime + 0.65);
+    setTimeout(() => ctx.close(), 800);
+  } catch {}
+  try { if (navigator.vibrate) navigator.vibrate([80, 40, 80]); } catch {}
+}
+
+function completeBlock() {
+  beep();
+  if (state.mode === "focus") {
+    state.sessions += 1;
+    state.mode = "break";
+    state.remainingMs = state.breakMin * 60 * 1000;
+  } else {
+    state.mode = "focus";
+    state.remainingMs = state.focusMin * 60 * 1000;
+  }
+  state.running = false;
+  state.endsAt = null;
+  save();
+  paint();
+}
+
+function tick() {
+  if (!state.running || !state.endsAt) return;
+  state.remainingMs = Math.max(0, state.endsAt - Date.now());
+  if (state.remainingMs <= 0) {
+    clearInterval(tickTimer);
+    tickTimer = null;
+    completeBlock();
+    return;
+  }
+  paint();
+}
+
+function start() {
+  if (state.remainingMs <= 0) state.remainingMs = durationMs();
+  state.running = true;
+  state.endsAt = Date.now() + state.remainingMs;
+  save();
+  paint();
+  if (tickTimer) clearInterval(tickTimer);
+  tickTimer = setInterval(tick, 250);
+}
+
+function pause() {
+  if (state.running && state.endsAt) {
+    state.remainingMs = Math.max(0, state.endsAt - Date.now());
+  }
+  state.running = false;
+  state.endsAt = null;
+  save();
+  paint();
+  if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+}
+
+function reset() {
+  pause();
+  state.mode = "focus";
+  state.remainingMs = state.focusMin * 60 * 1000;
+  save();
+  paint();
+}
+
+function setPreset(f, b) {
+  pause();
+  state.focusMin = f;
+  state.breakMin = b;
+  state.mode = "focus";
+  state.remainingMs = f * 60 * 1000;
+  save();
+  paint();
+}
+
+$("toggleBtn").onclick = () => state.running ? pause() : start();
+$("resetBtn").onclick = reset;
+
+document.querySelectorAll(".presets [data-focus]").forEach((b) => {
+  b.onclick = () => {
+    $("customRow").hidden = true;
+    setPreset(Number(b.dataset.focus), Number(b.dataset.break));
+  };
+});
+$("customBtn").onclick = () => {
+  $("customRow").hidden = !$("customRow").hidden;
+};
+$("applyCustom").onclick = () => {
+  const f = Math.min(120, Math.max(1, Number($("customFocus").value) || 25));
+  const b = Math.min(60, Math.max(1, Number($("customBreak").value) || 5));
+  $("customFocus").value = f;
+  $("customBreak").value = b;
+  setPreset(f, b);
+};
+
+paint();
+if (state.running) {
+  tickTimer = setInterval(tick, 250);
+  tick();
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/pomodoro/sw.js", { scope: "/pomodoro/" }).catch(() => {});
+}
+</script>
+</body>
+</html>
