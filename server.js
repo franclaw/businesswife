@@ -74,13 +74,31 @@ setInterval(() => {
   }
 }, 25000);
 
-function readBody(req) {
+function readBody(req, maxBytes = 4e5) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', c => { body += c; if (body.length > 1e5) req.destroy(); });
+    req.on('data', c => {
+      body += c;
+      if (body.length > maxBytes) {
+        req.destroy();
+        reject(new Error('body too large'));
+      }
+    });
     req.on('end', () => { try { resolve(body ? JSON.parse(body) : {}); } catch (e) { reject(e); } });
     req.on('error', reject);
   });
+}
+
+/** Accept roster emoji, built-in /img path, data URL, or short http(s) image URL. */
+function validIcon(icon) {
+  if (typeof icon !== 'string' || !icon) return false;
+  if (icon.length > 280000) return false;
+  if (/^\/img\/[a-z0-9-]+\.png$/.test(icon)) return true;
+  if (/^data:image\/(png|jpe?g|webp);base64,/.test(icon)) return true;
+  if (/^https?:\/\/\S{1,500}$/i.test(icon)) return true;
+  // roster emoji / short glyph
+  if ([...icon].length <= 8 && icon.length <= 32) return true;
+  return false;
 }
 
 function json(res, code, obj) {
@@ -265,6 +283,7 @@ const server = http.createServer(async (req, res) => {
         if (!name) return json(res, 400, { error: 'name required' });
         const isObserver = role === 'observer';
         if (!isObserver && !icon) return json(res, 400, { error: 'name and icon required' });
+        if (!isObserver && !validIcon(icon)) return json(res, 400, { error: 'bad icon' });
         if (!isObserver) {
           const taken = Object.values(room.players).find(
             x => x.role !== 'observer' && x.name.toLowerCase() === String(name).toLowerCase()
@@ -311,6 +330,7 @@ const server = http.createServer(async (req, res) => {
         if (!room) return json(res, 404, { error: 'room not found' });
         room.round += 1;
         room.phase = 'voting';
+        room.question = '';
         for (const p of Object.values(room.players)) { p.vote = null; p.revealed = false; }
         broadcast(room);
         return json(res, 200, { ok: true });
