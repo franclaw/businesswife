@@ -175,6 +175,24 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page.getByTestId('lobby-screen')).toBeVisible();
   });
 
+  test('reveal all shows Revealing feedback and hides after reveal', async ({ page }) => {
+    await createRoom(page);
+    await pickWife(page, 'Coco');
+    await page.locator('#question').fill('Keep on reveal');
+    await page.locator('#saveQ').click();
+    await expect.poll(async () => page.locator('#question').inputValue()).toBe('Keep on reveal');
+    await page.locator('[data-testid="card"][data-v="5"]').click();
+    await expect(page.locator('.player.me .vote')).toHaveText('🔒');
+
+    const reveal = page.getByTestId('reveal-btn');
+    await reveal.click();
+    await expect(page.locator('#phaseBadge')).toHaveText('revealed');
+    await expect(page.locator('.player.me .vote')).toHaveText('5');
+    await expect(reveal).toBeHidden();
+    // Reveal must not clear the question (unlike next round)
+    await expect(page.locator('#question')).toHaveValue('Keep on reveal');
+  });
+
   test('next round clears question and shows Starting feedback', async ({ page }) => {
     await createRoom(page);
     await pickWife(page, 'Coco');

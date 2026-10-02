@@ -82,14 +82,23 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 28px 28px;
+    padding: 24px;
   }
   .card + .card { margin-top: 16px; }
+  /* Room page: equal gaps between Invite / Round / Boardroom / Your play */
+  #shareCard:not(.hidden) + #game:not(.hidden) { margin-top: 16px; }
+  #game {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #game > .card { margin-top: 0; }
+  #game > .card + .card { margin-top: 0; }
   h2 {
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--faint);
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
@@ -192,7 +201,7 @@
   #createBtn { margin-top: 0; }
   .err { color: var(--danger); font-size: 0.82rem; margin-top: 10px; min-height: 1.1em; text-align: left; }
   #lobby .err { text-align: center; }
-  .share { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+  .share { display: flex; gap: 8px; align-items: center; margin-top: 0; }
   .share input { font-size: 0.82rem; font-family: var(--mono); }
   .obs-row { display: flex; gap: 8px; margin-top: 12px; }
   /* Join picks */
@@ -267,7 +276,7 @@
     transform: translateY(-3px);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
   .btn {
     padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-strong);
     background: transparent; color: var(--text); font-family: inherit;
@@ -283,7 +292,7 @@
   }
   .btn.gold:hover { border-color: var(--gold); filter: none; }
   .status {
-    text-align: center; color: var(--muted); margin: 14px 0 4px; font-size: 0.88rem;
+    text-align: center; color: var(--muted); margin: 16px 0 0; font-size: 0.88rem;
   }
   .status.hot { color: var(--gold); font-weight: 500; }
   .badge {
@@ -957,7 +966,28 @@ function refreshState() {
   if (!roomId) return Promise.resolve();
   return api("/state").then(r => r.json()).then(render);
 }
-$("revealBtn").onclick = () => api("/reveal", { method: "POST" }).then(refreshState);
+$("revealBtn").onclick = async () => {
+  const btn = $("revealBtn");
+  if (btn.disabled || btn.classList.contains("busy") || btn.classList.contains("hidden")) return;
+  const label = btn.textContent;
+  btn.classList.add("busy");
+  btn.disabled = true;
+  btn.textContent = "Revealing…";
+  try {
+    await api("/reveal", { method: "POST" });
+    const table = $("table");
+    table.classList.remove("pulse");
+    void table.offsetWidth;
+    table.classList.add("pulse");
+    await refreshState();
+  } finally {
+    setTimeout(() => {
+      btn.classList.remove("busy");
+      btn.disabled = false;
+      btn.textContent = label;
+    }, 450);
+  }
+};
 $("nextBtn").onclick = async () => {
   const btn = $("nextBtn");
   if (btn.disabled || btn.classList.contains("busy")) return;
@@ -1026,6 +1056,12 @@ function render(s) {
 
   const me = s.players.find(p => p.id === myId);
   $("playCard").classList.toggle("hidden", !!(me && me.role === "observer"));
+  const revealed = s.phase === "revealed";
+  $("revealBtn").classList.toggle("hidden", revealed);
+  if (!revealed && !$("revealBtn").classList.contains("busy")) {
+    $("revealBtn").disabled = false;
+    $("revealBtn").textContent = "Reveal all";
+  }
   document.querySelectorAll(".poker-card").forEach(b => {
     b.classList.toggle("sel", !!(me && me.hasVoted && b.dataset.v === me.revealedVote));
   });
