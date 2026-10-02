@@ -22,8 +22,8 @@ async function pickWife(page, firstName) {
 }
 
 async function leave(page) {
-  const link = page.getByTestId('leave-link');
-  if (await link.isVisible().catch(() => false)) await link.click();
+  const link = page.locator('[data-testid="leave-link"]:visible').first();
+  if (await link.count() && await link.isVisible().catch(() => false)) await link.click();
 }
 
 test.describe('Hub', () => {
@@ -58,9 +58,14 @@ test.describe('Planning Poker — rooms', () => {
     ).toBe(16);
   });
 
-  test('legacy /r/:id redirects to planning-poker path', async ({ page }) => {
-    await page.goto('/r/abc234');
-    await expect(page).toHaveURL(/\/planning-poker\/r\/abc234/);
+  test('legacy /r/:id redirects to planning-poker path', async ({ page, request }) => {
+    const res = await request.get('/r/abc234', { maxRedirects: 0 });
+    expect(res.status()).toBe(302);
+    expect(res.headers()['location']).toMatch(/\/planning-poker\/r\/abc234/);
+    // Missing room clears session and shows lobby (rejoin feature)
+    await page.goto('/planning-poker/r/abc234');
+    await expect(page.getByTestId('lobby-screen')).toBeVisible();
+    await expect(page.getByTestId('lobby-err')).toContainText(/gone|boardroom/i);
   });
 
   test('join via shared URL, vote, reveal, next round', async ({ browser }) => {
@@ -243,6 +248,106 @@ test.describe('Planning Poker — rooms', () => {
     await page.getByTestId('join-btn').click();
     await expect(page.getByTestId('game-screen')).toBeVisible();
     await expect(page.getByTestId('boardroom')).toContainText('Nova');
+  });
+});
+
+
+test.describe('Planning Poker — features 1–9', () => {
+  test('rejoin restores seat after reload without lobby', async ({ page }) => {
+    await createRoom(page);
+    await pickWife(page, 'Coco');
+    await expect(page.getByTestId('host-badge')).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('boardroom')).toContainText('Coco');
+    await expect(page.getByTestId('join-screen')).toBeHidden();
+    await leave(page);
+  });
+
+  test('host can lock joining and kick a player', async ({ browser }) => {
+    const host = await browser.newPage();
+    const roomUrl = await createRoom(host);
+    await pickWife(host, 'Coco');
+    await expect(host.getByTestId('host-bar')).toBeVisible();
+    await host.getByTestId('lock-toggle').check();
+    await expect.poll(async () => {
+      const r = await host.evaluate(async () => {
+        const m = location.pathname.match(/\/planning-poker\/r\/([a-z0-9]{6})/);
+        const res = await fetch(location.origin + '/planning-poker/api/rooms/' + m[1] + '/state');
+        return (await res.json()).locked;
+      });
+      return r;
+    }).toBe(true);
+
+    const guest = await browser.newPage();
+    await guest.goto(roomUrl);
+    await guest.locator('[data-testid="pick"][data-first="Betty"]').click();
+    await guest.getByTestId('join-btn').click();
+    await expect(guest.getByTestId('join-err')).toContainText(/locked/i);
+
+    await host.getByTestId('lock-toggle').uncheck();
+    await guest.getByTestId('join-btn').click();
+    await expect(guest.getByTestId('game-screen')).toBeVisible();
+
+    await host.locator('[data-testid="kick-btn"]').click();
+    await expect(host.getByTestId('boardroom')).not.toContainText('Betty');
+    await expect.poll(async () => guest.getByTestId('join-screen').isVisible()).toBeTruthy();
+
+    await leave(host);
+    await guest.close();
+  });
+
+  test('vote summary shows after reveal; history after next', async ({ page }) => {
+    await createRoom(page);
+    await pickWife(page, 'Coco');
+    await page.locator('#question').fill('Ship the deck');
+    await page.locator('#saveQ').click();
+    await page.locator('[data-testid="card"][data-v="8"]').click();
+    await page.getByTestId('reveal-btn').click();
+    await expect(page.getByTestId('vote-summary')).toBeVisible();
+    await expect(page.getByTestId('vote-summary')).toContainText(/Average/i);
+    await expect(page.getByTestId('vote-summary')).toContainText('8');
+    await page.getByTestId('next-btn').click();
+    await expect(page.getByTestId('history-list').locator('[data-testid="history-item"]')).toHaveCount(1);
+    await expect(page.getByTestId('history-list')).toContainText('Ship the deck');
+    await leave(page);
+  });
+
+  test('share card shows large room code', async ({ page }) => {
+    await createRoom(page);
+    await expect(page.getByTestId('room-code-big')).toBeVisible();
+    await expect(page.locator('#roomCodeBig')).toHaveText(/^[a-z0-9]{6}$/);
+    await expect(page.getByTestId('share-btn')).toBeVisible();
+  });
+
+  test('observer badge is clear and vote deck stays hidden', async ({ browser }) => {
+    const host = await browser.newPage();
+    const roomUrl = await createRoom(host);
+    await pickWife(host, 'Coco');
+    const obs = await browser.newPage();
+    await obs.goto(roomUrl);
+    await obs.getByTestId('observer-name').fill('Sam');
+    await obs.getByTestId('observer-btn').click();
+    await expect(obs.getByTestId('observer-badge')).toBeVisible();
+    await expect(obs.getByTestId('observer-badge')).toHaveText(/OBSERVER/i);
+    await expect(obs.getByTestId('cards')).toBeHidden();
+    await expect(obs.locator('#playCard')).toBeHidden();
+    await leave(host);
+    await leave(obs);
+  });
+
+  test('sound toggle persists preference', async ({ page }) => {
+    await createRoom(page);
+    await pickWife(page, 'Coco');
+    const toggle = page.getByTestId('sound-toggle');
+    await expect(toggle).toBeVisible();
+    const initial = await toggle.isChecked();
+    await toggle.click();
+    await expect(toggle).toBeChecked({ checked: !initial });
+    await page.reload();
+    await expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('sound-toggle')).toBeChecked({ checked: !initial });
+    await leave(page);
   });
 });
 

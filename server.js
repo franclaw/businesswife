@@ -16,6 +16,8 @@ const POKER_PWA_DIR = path.join(ROOT, 'planning-poker');
 const PUBLIC = path.join(ROOT, 'public');
 const ROOM_RE = /^[a-z0-9]{6}$/;
 const ID_CHARS = '23456789abcdefghjkmnpqrstuvwxyz';
+const STALE_MS = 45_000;
+const IDLE_REMOVE_MS = 90_000;
 
 const rooms = new Map(); // id -> room
 
@@ -35,12 +37,90 @@ function makeRoom(id) {
     round: 1,
     phase: 'lobby',
     question: '',
+    hostId: null,
+    locked: false,
     players: {},
+    history: [],
     sse: new Set(),
   };
 }
 
+function now() {
+  return Date.now();
+}
+
+function isNumericVote(v) {
+  return v != null && /^\d+$/.test(String(v));
+}
+
+function voteSummary(players) {
+  const votes = Object.values(players)
+    .filter(p => p.role !== 'observer' && p.vote != null)
+    .map(p => ({ name: p.name, vote: p.vote }));
+  const numeric = votes
+    .map(v => v.vote)
+    .filter(isNumericVote)
+    .map(Number);
+  let average = null;
+  if (numeric.length) {
+    average = Math.round((numeric.reduce((a, b) => a + b, 0) / numeric.length) * 10) / 10;
+  }
+  const counts = {};
+  for (const v of votes) counts[v.vote] = (counts[v.vote] || 0) + 1;
+  let mode = null;
+  let modeCount = 0;
+  for (const [val, c] of Object.entries(counts)) {
+    if (c > modeCount) { mode = val; modeCount = c; }
+  }
+  const special = votes.filter(v => !isNumericVote(v.vote)).map(v => v.vote);
+  return {
+    average,
+    mode,
+    modeCount,
+    count: votes.length,
+    numericCount: numeric.length,
+    spread: counts,
+    special,
+    votes,
+  };
+}
+
+function archiveRound(room) {
+  if (room.phase !== 'revealed') return;
+  const summary = voteSummary(room.players);
+  room.history.unshift({
+    round: room.round,
+    question: room.question || '',
+    at: now(),
+    summary,
+  });
+  if (room.history.length > 40) room.history.length = 40;
+}
+
+function pickHost(room) {
+  const ids = Object.keys(room.players);
+  if (!ids.length) {
+    room.hostId = null;
+    return;
+  }
+  if (room.hostId && room.players[room.hostId]) return;
+  // Prefer a non-observer
+  const player = Object.values(room.players).find(p => p.role !== 'observer');
+  room.hostId = player ? player.id : ids[0];
+}
+
+function removePlayer(room, playerId) {
+  if (!room.players[playerId]) return;
+  const wasHost = room.hostId === playerId;
+  delete room.players[playerId];
+  if (wasHost) pickHost(room);
+  if (!Object.keys(room.players).length && !room.sse.size) {
+    // keep empty rooms briefly for rejoin codes; sweeper can drop later
+  }
+}
+
 function publicState(room) {
+  const t = now();
   const players = Object.values(room.players).map(p => ({
     id: p.id,
     name: p.name,
@@ -49,12 +129,21 @@ function publicState(room) {
     vote: p.revealed ? p.vote : (p.vote ? '🔒' : null),
     revealed: p.revealed,
     hasVoted: p.role !== 'observer' && !!p.vote,
+    isHost: p.id === room.hostId,
+    lastSeen: p.lastSeen,
+    connected: (t - (p.lastSeen || 0)) < STALE_MS,
+    stale: (t - (p.lastSeen || 0)) >= STALE_MS,
   }));
+  const summary = room.phase === 'revealed' ? voteSummary(room.players) : null;
   return {
     roomId: room.id,
     round: room.round,
     phase: room.phase,
     question: room.question,
+    hostId: room.hostId,
+    locked: !!room.locked,
+    history: room.history,
+    summary,
     players: players.sort((a, b) => (a.id < b.id ? -1 : 1)),
   };
 }
@@ -66,6 +155,10 @@ function broadcast(room) {
   }
 }
 
+function requireHost(room, requesterId) {
+  return room && requesterId && room.hostId === requesterId && room.players[requesterId];
+}
+
 setInterval(() => {
   for (const room of rooms.values()) {
     for (const res of room.sse) {
@@ -73,6 +166,25 @@ setInterval(() => {
     }
   }
 }, 25000);
+
+// Presence sweeper — drop idle seats so ghosts don't linger
+setInterval(() => {
+  const t = now();
+  for (const [id, room] of rooms) {
+    let changed = false;
+    for (const p of Object.values(room.players)) {
+      if (t - (p.lastSeen || 0) > IDLE_REMOVE_MS) {
+        removePlayer(room, p.id);
+        changed = true;
+      }
+    }
+    if (changed) broadcast(room);
+    // Drop empty rooms with no SSE listeners after idle
+    if (!Object.keys(room.players).length && !room.sse.size) {
+      rooms.delete(id);
+    }
+  }
+}, 15000);
 
 function readBody(req, maxBytes = 4e5) {
   return new Promise((resolve, reject) => {
@@ -254,7 +366,7 @@ const server = http.createServer(async (req, res) => {
 
       if (req.method === 'GET' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}$/)) {
         if (!room) return json(res, 404, { error: 'room not found' });
-        return json(res, 200, { id: room.id, exists: true });
+        return json(res, 200, { id: room.id, exists: true, locked: !!room.locked });
       }
 
       if (req.method === 'GET' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/state$/)) {
@@ -279,7 +391,23 @@ const server = http.createServer(async (req, res) => {
 
       if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/join$/)) {
         if (!room) return json(res, 404, { error: 'room not found' });
-        const { name, icon, role } = await readBody(req);
+        const body = await readBody(req);
+        const { name, icon, role, reclaimId } = body;
+        // Soft rejoin: reclaim existing seat by id (refresh / reconnect)
+        if (reclaimId) {
+          if (room.players[reclaimId]) {
+            const existing = room.players[reclaimId];
+            existing.lastSeen = now();
+            if (name) existing.name = String(name).slice(0, 24);
+            if (icon && validIcon(icon) && existing.role !== 'observer') existing.icon = icon;
+            pickHost(room);
+            broadcast(room);
+            return json(res, 200, { id: existing.id, roomId: room.id, reclaimed: true, hostId: room.hostId });
+          }
+          // Seat gone (idle timeout / kick) — do not create a new player from reclaim
+          return json(res, 404, { error: 'seat not found' });
+        }
+        if (room.locked) return json(res, 403, { error: 'room locked' });
         if (!name) return json(res, 400, { error: 'name required' });
         const isObserver = role === 'observer';
         if (!isObserver && !icon) return json(res, 400, { error: 'name and icon required' });
@@ -297,10 +425,43 @@ const server = http.createServer(async (req, res) => {
           role: isObserver ? 'observer' : 'player',
           vote: null,
           revealed: !isObserver && room.phase === 'revealed',
+          lastSeen: now(),
         };
         room.players[p.id] = p;
+        if (!room.hostId) room.hostId = p.id;
         broadcast(room);
-        return json(res, 200, { id: p.id, roomId: room.id });
+        return json(res, 200, { id: p.id, roomId: room.id, hostId: room.hostId });
+      }
+
+      if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/heartbeat$/)) {
+        if (!room) return json(res, 404, { error: 'room not found' });
+        const { id } = await readBody(req);
+        const p = room.players[id];
+        if (!p) return json(res, 404, { error: 'unknown player' });
+        p.lastSeen = now();
+        // Light broadcast only when someone was stale and is now fresh — skip for noise;
+        // clients poll presence via SSE state already; still nudge occasionally
+        return json(res, 200, { ok: true });
+      }
+
+      if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/kick$/)) {
+        if (!room) return json(res, 404, { error: 'room not found' });
+        const { id, targetId } = await readBody(req);
+        if (!requireHost(room, id)) return json(res, 403, { error: 'host only' });
+        if (!targetId || targetId === id) return json(res, 400, { error: 'bad target' });
+        if (!room.players[targetId]) return json(res, 404, { error: 'unknown player' });
+        removePlayer(room, targetId);
+        broadcast(room);
+        return json(res, 200, { ok: true });
+      }
+
+      if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/lock$/)) {
+        if (!room) return json(res, 404, { error: 'room not found' });
+        const { id, locked } = await readBody(req);
+        if (!requireHost(room, id)) return json(res, 403, { error: 'host only' });
+        room.locked = !!locked;
+        broadcast(room);
+        return json(res, 200, { ok: true, locked: room.locked });
       }
 
       if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/vote$/)) {
@@ -312,6 +473,7 @@ const server = http.createServer(async (req, res) => {
         if (room.phase === 'revealed') return json(res, 409, { error: 'round already revealed' });
         if (!/^[0-9?☕∞]+$/.test(String(value))) return json(res, 400, { error: 'bad vote' });
         p.vote = String(value).slice(0, 4);
+        p.lastSeen = now();
         if (room.phase === 'lobby') room.phase = 'voting';
         broadcast(room);
         return json(res, 200, { ok: true });
@@ -323,11 +485,12 @@ const server = http.createServer(async (req, res) => {
         room.phase = 'revealed';
         for (const p of Object.values(room.players)) p.revealed = true;
         broadcast(room);
-        return json(res, 200, { ok: true });
+        return json(res, 200, { ok: true, summary: voteSummary(room.players) });
       }
 
       if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/next$/)) {
         if (!room) return json(res, 404, { error: 'room not found' });
+        archiveRound(room);
         room.round += 1;
         room.phase = 'voting';
         room.question = '';
@@ -347,8 +510,10 @@ const server = http.createServer(async (req, res) => {
       const leaveM = apiPath.match(/^\/api\/rooms\/([a-z0-9]{6})\/leave\/([^/]+)$/);
       if (req.method === 'DELETE' && leaveM) {
         const r = rooms.get(leaveM[1]);
-        if (r && r.players[leaveM[2]]) delete r.players[leaveM[2]];
-        if (r) broadcast(r);
+        if (r && r.players[leaveM[2]]) {
+          removePlayer(r, leaveM[2]);
+          broadcast(r);
+        }
         return json(res, 200, { ok: true });
       }
     }

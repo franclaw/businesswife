@@ -449,6 +449,147 @@
     .lobby-row { flex-wrap: wrap; }
     .lobby-row .btn { width: 100%; }
   }
+
+  /* Host / presence / observer clarity */
+  .player.host { border-color: var(--gold); }
+  .player .badges {
+    position: absolute; top: -8px; left: 6px; right: 6px;
+    display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end;
+    pointer-events: none;
+  }
+  .player .chip {
+    font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase;
+    font-weight: 700; padding: 1px 5px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--border);
+    pointer-events: none;
+  }
+  .player .chip.you { color: var(--gold); border-color: #5a4a22; }
+  .player .chip.host { color: var(--gold); border-color: var(--gold); background: var(--gold-soft); }
+  .player .chip.obs {
+    color: #d4c4a8; border-color: #5a5040; background: rgba(201,162,39,0.08);
+    letter-spacing: 0.1em;
+  }
+  .player .chip.stale { color: var(--faint); border-color: var(--border); }
+  .player.stale { opacity: 0.55; }
+  .player.stale .vote { filter: grayscale(0.4); }
+  .player .kick {
+    position: absolute; bottom: 6px; right: 6px;
+    font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;
+    border: 1px solid var(--border-strong); background: var(--bg);
+    color: var(--muted); cursor: pointer; font-family: inherit;
+  }
+  .player .kick:hover { color: var(--danger); border-color: var(--danger); }
+  /* Strip old ::after badges — chips replace them */
+  .player.observer::after, .player.me::after { content: none; display: none; }
+
+  /* Vote summary */
+  .summary {
+    margin-top: 14px; padding: 12px 14px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; display: flex; flex-wrap: wrap; gap: 14px 22px;
+    align-items: baseline;
+  }
+  .summary .stat { min-width: 72px; }
+  .summary .stat .lbl {
+    display: block; font-size: 0.68rem; color: var(--faint);
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px;
+  }
+  .summary .stat .val {
+    font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums;
+    color: var(--gold);
+  }
+  .summary .spread {
+    flex: 1 1 100%; font-size: 0.82rem; color: var(--muted);
+  }
+  .summary .spread span {
+    display: inline-block; margin: 2px 6px 2px 0;
+    padding: 2px 8px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text); font-variant-numeric: tabular-nums;
+  }
+
+  /* Share sheet */
+  .room-code-big {
+    text-align: center; margin: 4px 0 14px;
+  }
+  .room-code-big .code {
+    font-family: var(--mono); font-size: clamp(1.6rem, 5vw, 2.2rem);
+    letter-spacing: 0.28em; font-weight: 600; color: var(--gold);
+    text-transform: uppercase;
+  }
+  .room-code-big .hint {
+    display: block; margin-top: 4px; font-size: 0.75rem; color: var(--faint);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+  /* Host bar */
+  .host-bar {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+  }
+  .host-bar .hint { font-size: 0.78rem; color: var(--muted); margin-right: auto; }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.85rem; color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  /* History */
+  .history details {
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface-2); padding: 10px 12px;
+  }
+  .history summary {
+    cursor: pointer; font-size: 0.8rem; font-weight: 600;
+    color: var(--faint); letter-spacing: 0.1em; text-transform: uppercase;
+    list-style: none;
+  }
+  .history summary::-webkit-details-marker { display: none; }
+  .history summary::before { content: "▸ "; color: var(--muted); }
+  .history details[open] summary::before { content: "▾ "; }
+  .history-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    padding: 10px 12px; background: var(--bg); border-radius: 6px;
+    border: 1px solid var(--border); font-size: 0.88rem;
+  }
+  .history-item .hq { color: var(--text); font-weight: 500; margin-bottom: 4px; }
+  .history-item .hm { color: var(--muted); font-size: 0.8rem; }
+  .history-empty { color: var(--faint); font-size: 0.82rem; padding: 6px 0; }
+
+  /* Sound toggle row */
+  .prefs-row {
+    display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+    margin-top: 10px; font-size: 0.8rem; color: var(--muted);
+  }
+
+  /* Mobile sticky vote deck */
+  #playCard.hand {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin-top: 8px;
+    box-shadow: 0 -8px 24px rgba(0,0,0,.35);
+    border-color: var(--border-strong);
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  @media (max-width: 640px) {
+    body { padding: 20px 12px 28px; }
+    .wrap { margin-top: 18px; }
+    .card { padding: 16px; }
+    .table { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+    .poker-card {
+      width: 62px; height: 86px; font-size: 1.35rem;
+      border-radius: 8px; touch-action: manipulation;
+    }
+    .cards { gap: 10px; padding: 4px 0 2px; }
+    #playCard.hand h2 { margin-bottom: 10px; }
+    .share { flex-wrap: wrap; }
+    .share input { width: 100%; }
+    .share-actions .btn { flex: 1 1 auto; min-height: 44px; }
+    .btn, .join-btn { min-height: 44px; }
+    .room-code-big .code { letter-spacing: 0.2em; }
+  }
 </style>
 </head>
 <body>
@@ -516,9 +657,23 @@
 
     <div id="shareCard" class="card hidden" data-testid="share-card">
       <h2>Invite</h2>
+      <div class="room-code-big" data-testid="room-code-big">
+        <span class="code" id="roomCodeBig">————</span>
+        <span class="hint">room code</span>
+      </div>
       <div class="share">
         <input id="shareUrl" data-testid="share-url" readonly>
         <button class="btn gold" id="copyBtn" data-testid="copy-btn">Copy link</button>
+      </div>
+      <div class="share-actions">
+        <button class="btn" id="shareBtn" data-testid="share-btn" type="button">Share…</button>
+      </div>
+      <div class="host-bar hidden" id="hostBar" data-testid="host-bar">
+        <span class="hint">Host controls</span>
+        <label class="toggle" title="Prevent new players from joining">
+          <input type="checkbox" id="lockToggle" data-testid="lock-toggle">
+          Lock joining
+        </label>
       </div>
     </div>
 
@@ -535,14 +690,30 @@
       <div class="card">
         <h2>The Boardroom</h2>
         <div class="table" id="table" data-testid="boardroom"></div>
+        <div class="summary hidden" id="voteSummary" data-testid="vote-summary"></div>
         <div class="status" id="status" data-testid="status"></div>
         <div class="btnrow" style="justify-content:center">
           <button class="btn primary" id="revealBtn" data-testid="reveal-btn">Reveal all</button>
           <button class="btn" id="nextBtn" data-testid="next-btn">Next round →</button>
         </div>
+        <div class="prefs-row">
+          <label class="toggle" title="Beep and vibrate when cards are revealed">
+            <input type="checkbox" id="soundToggle" data-testid="sound-toggle">
+            Sound / haptic on reveal
+          </label>
+        </div>
       </div>
 
-      <div class="card" id="playCard">
+      <div class="card history" id="historyCard" data-testid="history-card">
+        <details id="historyDetails">
+          <summary>Round history <span id="historyCount"></span></summary>
+          <div class="history-list" id="historyList" data-testid="history-list">
+            <div class="history-empty">No past rounds yet this session.</div>
+          </div>
+        </details>
+      </div>
+
+      <div class="card hand" id="playCard">
         <h2>Your play</h2>
         <div class="cards" id="cards" data-testid="cards"></div>
         <div class="leave"><a id="leaveLink" data-testid="leave-link">leave the boardroom</a></div>
@@ -620,10 +791,62 @@ const CARDS = ["1","2","3","5","8","13","21","34","55","?","∞","☕"];
 let roomId = null;
 let myId = null;
 let myPick = JSON.parse(localStorage.getItem("sbw_pick") || "null");
+let myMeta = null; // { name, icon, role }
 let lastState = null;
 let es = null;
+let heartbeatTimer = null;
+let intentionalLeave = false;
+let lastPhase = null;
+let audioCtx = null;
 
 const $ = id => document.getElementById(id);
+
+function sessionKey(id) { return "sbw_session_" + id; }
+function loadSession(id) {
+  try { return JSON.parse(localStorage.getItem(sessionKey(id)) || "null"); } catch { return null; }
+}
+function saveSession(id, data) {
+  if (!id || !data) return;
+  localStorage.setItem(sessionKey(id), JSON.stringify(data));
+  localStorage.setItem("sbw_id_" + id, data.playerId);
+  if (data.name || data.icon) localStorage.setItem("sbw_pick", JSON.stringify({ name: data.name, icon: data.icon, role: data.role }));
+}
+function clearSession(id) {
+  if (!id) return;
+  localStorage.removeItem(sessionKey(id));
+  localStorage.removeItem("sbw_id_" + id);
+}
+function soundEnabled() {
+  const v = localStorage.getItem("sbw_sound");
+  if (v === null) return true; // default on (subtle)
+  return v !== "off";
+}
+function setSoundEnabled(on) {
+  localStorage.setItem("sbw_sound", on ? "on" : "off");
+}
+function playRevealFeedback() {
+  if (!soundEnabled()) return;
+  try {
+    if (navigator.vibrate) navigator.vibrate([18, 40, 18]);
+  } catch {}
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!audioCtx) audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(880, t0);
+    o.frequency.exponentialRampToValueAtTime(660, t0 + 0.12);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.08, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t0); o.stop(t0 + 0.2);
+  } catch {}
+}
 (function paintFan() {
   const fan = $("lobbyFan");
   if (!fan) return;
@@ -652,6 +875,7 @@ function show(which) {
 }
 function setShare() {
   if ($("shareUrl") && roomId) $("shareUrl").value = roomUrl(roomId);
+  if ($("roomCodeBig") && roomId) $("roomCodeBig").textContent = roomId;
 }
 
 // --- Join screen ---
@@ -879,20 +1103,100 @@ $("copyBtn").onclick = async () => {
   try { await navigator.clipboard.writeText(v); $("copyBtn").textContent = "Copied"; setTimeout(() => $("copyBtn").textContent = "Copy link", 1200); }
   catch { $("shareUrl").select(); document.execCommand("copy"); }
 };
+$("shareBtn").onclick = async () => {
+  const url = $("shareUrl").value;
+  const code = roomId || "";
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Business Wife Planning Poker", text: "Join boardroom " + code.toUpperCase(), url });
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+    }
+  }
+  // Fallback: copy
+  $("copyBtn").click();
+};
+
+function startHeartbeat() {
+  stopHeartbeat();
+  if (!roomId || !myId) return;
+  const beat = () => {
+    if (!roomId || !myId || intentionalLeave) return;
+    api("/heartbeat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: myId }),
+    }).catch(() => {});
+  };
+  beat();
+  heartbeatTimer = setInterval(beat, 15000);
+}
+function stopHeartbeat() {
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+}
+
+async function tryReclaim(id) {
+  const sess = loadSession(id);
+  const reclaimId = (sess && sess.playerId) || localStorage.getItem("sbw_id_" + id) || null;
+  if (!reclaimId) return false;
+  // Prefer soft reclaim via join endpoint so lastSeen refreshes even if still seated
+  const body = { reclaimId };
+  if (sess) {
+    if (sess.name) body.name = sess.name;
+    if (sess.icon) body.icon = sess.icon;
+    if (sess.role) body.role = sess.role;
+  }
+  const res = await api("/join", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    // Room may still exist but seat gone — fall through to join UI
+    const st = await api("/state").then(r => r.ok ? r.json() : null).catch(() => null);
+    if (st && st.players.some(p => p.id === reclaimId)) {
+      myId = reclaimId;
+      myMeta = sess;
+      saveSession(id, { playerId: myId, name: (sess && sess.name) || "", icon: (sess && sess.icon) || "", role: (sess && sess.role) || "player" });
+      return true;
+    }
+    clearSession(id);
+    myId = null;
+    return false;
+  }
+  const data = await res.json();
+  myId = data.id;
+  myMeta = sess || myMeta;
+  saveSession(id, {
+    playerId: myId,
+    name: (sess && sess.name) || (myMeta && myMeta.name) || "",
+    icon: (sess && sess.icon) || (myMeta && myMeta.icon) || "",
+    role: (sess && sess.role) || (myMeta && myMeta.role) || "player",
+  });
+  return true;
+}
 
 async function enterRoom(id, created) {
+  intentionalLeave = false;
   const check = await fetch("/planning-poker/api/rooms/" + id);
-  if (!check.ok) { $("lobbyErr").textContent = "No boardroom with that code."; if (created) history.replaceState({}, "", "/planning-poker"); return; }
+  if (!check.ok) {
+    $("lobbyErr").textContent = "That boardroom is gone. Start a new one or enter another code.";
+    clearSession(id);
+    history.replaceState({}, "", "/planning-poker");
+    roomId = null;
+    myId = null;
+    show("lobby");
+    return;
+  }
   roomId = id;
   history.replaceState({}, "", "/planning-poker/r/" + id);
   setShare();
   connect();
-  myId = localStorage.getItem("sbw_id_" + roomId) || null;
   show("join");
-  if (myId) {
-    const s = await api("/state").then(r => r.json());
-    if (s.players.some(p => p.id === myId)) { show("game"); render(s); }
-    else { myId = null; localStorage.removeItem("sbw_id_" + roomId); }
+  const reclaimed = await tryReclaim(id);
+  if (reclaimed) {
+    show("game");
+    startHeartbeat();
+    await refreshState();
   }
 }
 
@@ -921,6 +1225,8 @@ $("joinBtn").onclick = async () => {
     const err = await res.json().catch(() => ({}));
     $("joinErr").textContent = err.error === "taken"
       ? "That name is taken. Pick another."
+      : err.error === "room locked"
+      ? "This boardroom is locked. Ask the host to unlock joining."
       : (err.error === "bad icon" ? "Picture was rejected. Try another image." : "Could not join. Try again.");
     syncJoinBtn();
     refreshState();
@@ -928,11 +1234,12 @@ $("joinBtn").onclick = async () => {
   }
   const { id } = await res.json();
   myId = id;
-  localStorage.setItem("sbw_id_" + roomId, id);
-  localStorage.setItem("sbw_pick", JSON.stringify(payload));
   myPick = payload;
+  myMeta = { name: payload.name, icon: payload.icon, role: "player" };
+  saveSession(roomId, { playerId: id, name: payload.name, icon: payload.icon, role: "player" });
   show("game");
   setShare();
+  startHeartbeat();
   refreshState();
 };
 
@@ -945,19 +1252,54 @@ $("obsBtn").onclick = async () => {
   if (!res.ok) { $("joinErr").textContent = "Could not join as observer."; return; }
   const { id } = await res.json();
   myId = id;
-  localStorage.setItem("sbw_id_" + roomId, id);
+  myMeta = { name, icon: "👁️", role: "observer" };
+  saveSession(roomId, { playerId: id, name, icon: "👁️", role: "observer" });
   show("game");
   setShare();
+  startHeartbeat();
   refreshState();
 };
 $("obsName").addEventListener("keydown", e => { if (e.key === "Enter") $("obsBtn").click(); });
 
 $("leaveLink").onclick = async () => {
+  intentionalLeave = true;
+  stopHeartbeat();
   if (myId && roomId) await fetch("/planning-poker/api/rooms/" + roomId + "/leave/" + myId, { method: "DELETE" });
-  if (roomId) localStorage.removeItem("sbw_id_" + roomId);
+  if (roomId) clearSession(roomId);
   myId = null;
   location.href = "/planning-poker";
 };
+
+// Do NOT leave on unload/refresh — heartbeat + idle timeout reclaim seat
+window.addEventListener("pagehide", () => { /* soft disconnect only */ });
+
+$("lockToggle").onchange = async () => {
+  if (!myId || !roomId) return;
+  const locked = $("lockToggle").checked;
+  const res = await api("/lock", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: myId, locked }),
+  });
+  if (!res.ok) {
+    $("lockToggle").checked = !locked;
+  }
+};
+
+(function initSoundToggle() {
+  const t = $("soundToggle");
+  if (!t) return;
+  t.checked = soundEnabled();
+  t.onchange = () => setSoundEnabled(t.checked);
+})();
+
+async function kickPlayer(targetId) {
+  if (!myId || !targetId) return;
+  await api("/kick", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: myId, targetId }),
+  });
+  refreshState();
+}
 
 // --- Cards ---
 CARDS.forEach(c => {
@@ -1033,49 +1375,165 @@ $("saveQ").onclick = () => api("/question", {
 }).then(refreshState);
 
 // --- Live state ---
+function formatSummary(sum) {
+  if (!sum) return "";
+  const parts = [];
+  parts.push(`<div class="stat"><span class="lbl">Average</span><span class="val">${sum.average != null ? sum.average : "—"}</span></div>`);
+  parts.push(`<div class="stat"><span class="lbl">Mode</span><span class="val">${sum.mode != null ? escapeHtml(String(sum.mode)) : "—"}</span></div>`);
+  parts.push(`<div class="stat"><span class="lbl">Votes</span><span class="val">${sum.count || 0}</span></div>`);
+  const spreadBits = Object.entries(sum.spread || {})
+    .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
+    .map(([v, c]) => `<span>${escapeHtml(String(v))} × ${c}</span>`)
+    .join("");
+  const specialNote = (sum.special && sum.special.length)
+    ? ` · non-numeric: ${sum.special.map(x => escapeHtml(String(x))).join(", ")}`
+    : "";
+  parts.push(`<div class="spread">${spreadBits || "No votes yet"}${specialNote}</div>`);
+  return parts.join("");
+}
+
+function renderHistory(history) {
+  const list = $("historyList");
+  const countEl = $("historyCount");
+  if (!list) return;
+  const items = history || [];
+  countEl.textContent = items.length ? `(${items.length})` : "";
+  if (!items.length) {
+    list.innerHTML = `<div class="history-empty">No past rounds yet this session.</div>`;
+    return;
+  }
+  list.innerHTML = items.map(h => {
+    const q = h.question ? escapeHtml(h.question) : '<em style="color:var(--faint)">No question</em>';
+    const s = h.summary || {};
+    const avg = s.average != null ? s.average : "—";
+    const mode = s.mode != null ? escapeHtml(String(s.mode)) : "—";
+    const votes = (s.votes || []).map(v => escapeHtml(String(v.vote))).join(", ") || "—";
+    return `<div class="history-item" data-testid="history-item">
+      <div class="hq">Round ${h.round}: ${q}</div>
+      <div class="hm">avg ${avg} · mode ${mode} · ${votes}</div>
+    </div>`;
+  }).join("");
+}
+
 function render(s) {
+  const prevPhase = lastPhase;
   lastState = s;
-  updateTaken(s.players.map(p => p.name));
+  lastPhase = s.phase;
+  // Kicked or idle-removed while seated
+  if (myId && !(s.players || []).some(p => p.id === myId)) {
+    const goneId = roomId;
+    stopHeartbeat();
+    clearSession(goneId);
+    myId = null;
+    $("joinErr").textContent = "You were removed from the boardroom (kicked or idle). Rejoin below.";
+    show("join");
+    return;
+  }
+
+  updateTaken(s.players.filter(p => p.role !== "observer").map(p => p.name));
   $("round").textContent = s.round;
   $("phaseBadge").textContent = s.phase === "revealed" ? "revealed" : s.phase === "voting" ? "voting" : "lobby";
   if (document.activeElement !== $("question")) $("question").value = s.question || "";
+
+  // Reveal sound once when phase flips to revealed
+  if (prevPhase && prevPhase !== "revealed" && s.phase === "revealed") {
+    playRevealFeedback();
+  }
+
+  const me = s.players.find(p => p.id === myId);
+  const amHost = !!(me && (me.isHost || me.id === s.hostId));
+
+  const hostBar = $("hostBar");
+  if (hostBar) {
+    hostBar.classList.toggle("hidden", !amHost);
+    if (amHost && document.activeElement !== $("lockToggle")) {
+      $("lockToggle").checked = !!s.locked;
+    }
+  }
 
   const table = $("table");
   table.innerHTML = "";
   s.players.forEach(p => {
     const d = document.createElement("div");
-    d.className = "player" + (p.id === myId ? " me" : "");
-    const voteText = p.vote === "🔒"
-      ? "🔒"
-      : p.vote ? p.vote : "—";
-    if (p.vote && !p.revealed) d.classList.add("voted");
+    d.className = "player";
+    if (p.id === myId) d.classList.add("me");
+    if (p.isHost || p.id === s.hostId) d.classList.add("host");
     if (p.role === "observer") d.classList.add("observer");
-    d.innerHTML = `${playerAvatar(p, "pic")}<span class="nm">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>`;
+    if (p.stale) d.classList.add("stale");
+    const voteText = p.vote === "🔒" ? "🔒" : p.vote ? p.vote : "—";
+    if (p.vote && !p.revealed) d.classList.add("voted");
+
+    const chips = [];
+    if (p.id === myId) chips.push(`<span class="chip you">you</span>`);
+    if (p.isHost || p.id === s.hostId) chips.push(`<span class="chip host" data-testid="host-badge">host</span>`);
+    if (p.role === "observer") chips.push(`<span class="chip obs" data-testid="observer-badge">OBSERVER</span>`);
+    if (p.stale) chips.push(`<span class="chip stale">away</span>`);
+
+    let kickBtn = "";
+    if (amHost && p.id !== myId) {
+      kickBtn = `<button type="button" class="kick" data-testid="kick-btn" data-id="${escapeAttr(p.id)}" title="Remove from boardroom">kick</button>`;
+    }
+
+    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>${kickBtn}`;
     bindImgFallback(d);
+    const kick = d.querySelector(".kick");
+    if (kick) kick.onclick = (e) => { e.stopPropagation(); kickPlayer(kick.dataset.id); };
     table.appendChild(d);
   });
+
+  // Vote summary
+  const sumEl = $("voteSummary");
+  if (sumEl) {
+    if (s.phase === "revealed" && s.summary) {
+      sumEl.innerHTML = formatSummary(s.summary);
+      sumEl.classList.remove("hidden");
+    } else {
+      sumEl.classList.add("hidden");
+      sumEl.innerHTML = "";
+    }
+  }
+
+  renderHistory(s.history);
 
   const voters = s.players.filter(p => p.role !== "observer");
   const voted = voters.filter(p => p.hasVoted).length;
   const st = $("status");
   st.classList.remove("hot");
   if (s.phase === "revealed") { st.textContent = "Cards revealed. Discuss, then next round."; st.classList.add("hot"); }
+  else if (s.locked) st.textContent = (voted ? `${voted}/${voters.length} have played.` : "Waiting for the first play…") + " · joining locked";
   else if (voters.length === 0) st.textContent = "The boardroom is empty.";
   else if (voted === 0) st.textContent = "Waiting for the first play…";
   else if (voted < voters.length) st.textContent = `${voted}/${voters.length} have played.`;
   else { st.textContent = "All cards are on the table. Reveal them."; st.classList.add("hot"); }
 
-  const me = s.players.find(p => p.id === myId);
-  $("playCard").classList.toggle("hidden", !!(me && me.role === "observer"));
+  // Observers: fully hide vote deck
+  const isObs = !!(me && me.role === "observer");
+  $("playCard").classList.toggle("hidden", isObs);
+  // Leave link still available for observers — put a small leave under history if needed
+  if (isObs && !$("obsLeave")) {
+    // noop — leave stays inside playCard; add leave under history for observers
+  }
+  let obsLeave = $("obsLeaveWrap");
+  if (isObs) {
+    if (!obsLeave) {
+      obsLeave = document.createElement("div");
+      obsLeave.id = "obsLeaveWrap";
+      obsLeave.className = "leave";
+      obsLeave.innerHTML = `<a id="obsLeave" data-testid="leave-link">leave the boardroom</a>`;
+      $("historyCard").after(obsLeave);
+      obsLeave.querySelector("a").onclick = () => $("leaveLink").click();
+    }
+    obsLeave.classList.remove("hidden");
+  } else if (obsLeave) {
+    obsLeave.classList.add("hidden");
+  }
+
   const revealed = s.phase === "revealed";
   $("revealBtn").classList.toggle("hidden", revealed);
   if (!revealed && !$("revealBtn").classList.contains("busy")) {
     $("revealBtn").disabled = false;
     $("revealBtn").textContent = "Reveal all";
   }
-  document.querySelectorAll(".poker-card").forEach(b => {
-    b.classList.toggle("sel", !!(me && me.hasVoted && b.dataset.v === me.revealedVote));
-  });
   if (me) {
     document.querySelectorAll(".poker-card").forEach(b =>
       b.classList.toggle("sel", b.dataset.v === (localStorage.getItem("sbw_myvote") || "")));
