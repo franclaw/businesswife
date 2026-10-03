@@ -232,19 +232,10 @@ function serveHtml(res, filePath) {
   sendFile(res, filePath, 'text/html; charset=utf-8');
 }
 
-function lobbyVariantFromUrl(url) {
-  const v = (url.searchParams.get('lobby') || '').toLowerCase();
-  return v === 'calm' || v === 'mix' ? v : 'bold';
-}
-
-/** Poker shell with the lobby variant baked in so ?lobby= is visible without JS. */
-function servePokerHtml(res, url) {
+/** Poker shell. ?lobby= is ignored; the home screen is always the mix layout. */
+function servePokerHtml(res) {
   fs.readFile(POKER_INDEX, 'utf8', (err, html) => {
     if (err) { res.writeHead(500); return res.end('error'); }
-    const v = lobbyVariantFromUrl(url);
-    html = html
-      .replace('<html lang="en" data-lobby="bold">', '<html lang="en" data-lobby="' + v + '">')
-      .replace('data-testid="lobby-screen" data-lobby="bold"', 'data-testid="lobby-screen" data-lobby="' + v + '"');
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-cache',
@@ -323,7 +314,7 @@ const server = http.createServer(async (req, res) => {
     pathname === '/planning-poker/index.html' ||
     /^\/planning-poker\/r\/[a-z0-9]{6}\/?$/.test(pathname)
   )) {
-    return servePokerHtml(res, url);
+    return servePokerHtml(res);
   }
 
   // Poker PWA assets under /planning-poker/{manifest,sw,icons}

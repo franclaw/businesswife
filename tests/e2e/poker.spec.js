@@ -44,8 +44,28 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page.getByTestId('join-screen')).toBeHidden();
     await expect(page.getByTestId('game-screen')).toBeHidden();
     await expect(page.getByTestId('lobby-fan').locator('img.fan-card')).toHaveCount(8);
+    await expect(page.locator('.room-code-label')).toBeVisible();
+    await expect(page.locator('.room-code-label')).toHaveText(/room code/i);
+    await expect(page.locator('.lobby-switch')).toHaveCount(0);
+    await expect(page.locator('footer')).not.toContainText(/Bold|Calm|Mix/);
+    const fanW = await page.getByTestId('lobby-fan').evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue('--fan-w')));
+    expect(fanW).toBeGreaterThan(100);
     await expect(page.locator('footer')).toContainText('Inspired by the great H S');
     await expect(page.locator('h1')).not.toContainText('💋');
+  });
+
+
+  test('old lobby query params still show the mix home screen', async ({ page }) => {
+    for (const q of ['?lobby=bold', '?lobby=calm', '?lobby=mix']) {
+      await page.goto(POKER + q);
+      await expect(page.getByTestId('lobby-screen')).toBeVisible();
+      await expect(page.getByTestId('create-btn')).toHaveText(/Create a boardroom/);
+      await expect(page.locator('.room-code-label')).toBeVisible();
+      await expect(page.locator('.lobby-switch')).toHaveCount(0);
+      await expect(page.locator('body')).not.toContainText('Bold');
+      const fanW = await page.getByTestId('lobby-fan').evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue('--fan-w')));
+      expect(fanW).toBeGreaterThan(100);
+    }
   });
 
   test('create room gets a shareable /planning-poker/r/:id URL and portraits', async ({ page }) => {
