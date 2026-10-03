@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-lobby="bold">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -109,26 +109,30 @@
   }
   #lobby h2 { margin-bottom: 10px; }
   .fan {
+    --fan-w: 78px;
+    --fan-h: 112px;
+    --fan-overlap: 26px;
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    height: 200px;
-    margin: 12px 0 36px;
-    padding-bottom: 8px;
+    height: calc(var(--fan-h) + 48px);
+    margin: 8px 0 28px;
+    padding-bottom: 4px;
     pointer-events: none;
     overflow: visible;
   }
   .fan-card {
-    width: 78px;
-    height: 112px;
+    width: var(--fan-w);
+    height: var(--fan-h);
     object-fit: cover;
     object-position: top;
     border-radius: 7px;
     border: 1px solid var(--border-strong);
-    box-shadow: 0 10px 20px rgba(0,0,0,.4);
-    margin-left: -26px;
+    box-shadow: 0 10px 22px rgba(0,0,0,.45);
+    margin-left: calc(var(--fan-overlap) * -1);
     transform-origin: 50% 100%;
     background: var(--surface-2);
+    flex: 0 0 auto;
   }
   .fan-card:first-child { margin-left: 0; }
   .lobby-lead {
@@ -447,7 +451,7 @@
   }
   @media (max-width: 480px) {
     .lobby-row { flex-wrap: wrap; }
-    .lobby-row .btn { width: 100%; }
+    .lobby-row input, .lobby-row .btn { width: 100%; flex: 1 1 100%; }
   }
 
   /* Host / presence / observer clarity */
@@ -590,29 +594,168 @@
     .btn, .join-btn { min-height: 44px; }
     .room-code-big .code { letter-spacing: 0.2em; }
   }
+
+  /* Lobby variants — home screen only (html.in-lobby). In-room chrome stays put. */
+  .sub-calm { display: none; }
+  .room-code-label {
+    display: none;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 6px;
+  }
+  .lobby-panel { }
+  .lobby-join { text-align: left; }
+  .lobby-row { align-items: stretch; }
+  #lobby .lobby-row input,
+  #lobby #joinRoomBtn {
+    height: 48px;
+    min-height: 48px;
+    box-sizing: border-box;
+  }
+  #lobby .lobby-row input { padding: 0 14px; }
+  #lobby #joinRoomBtn {
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 92px;
+    padding: 0 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lobby-switch {
+    display: none;
+    margin-top: 18px;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    opacity: 0.45;
+  }
+  .lobby-switch a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .lobby-switch a:hover { color: var(--muted); }
+  .lobby-switch a[aria-current="page"] { color: var(--muted); opacity: 1; }
+  .lobby-switch .dot { margin: 0 0.35em; }
+
+  html.in-lobby { overflow-x: clip; }
+  html.in-lobby body { overflow-x: clip; }
+  html.in-lobby .sub-room { display: none; }
+  html.in-lobby[data-lobby="calm"] .sub-calm { display: block; }
+  html.in-lobby h1 { white-space: nowrap; }
+  html.in-lobby #lobby {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+  html.in-lobby[data-lobby="bold"] .fan,
+  html.in-lobby[data-lobby="mix"] .fan {
+    --fan-w: 136px;
+    --fan-h: 196px;
+    --fan-overlap: 58px;
+    margin: 6px auto 22px;
+    max-width: 100%;
+  }
+  html.in-lobby[data-lobby="calm"] .fan {
+    --fan-w: 46px;
+    --fan-h: 66px;
+    --fan-overlap: 16px;
+    height: calc(var(--fan-h) + 18px);
+    margin: 2px auto 16px;
+  }
+  html.in-lobby[data-lobby="calm"] .fan-card {
+    box-shadow: 0 6px 12px rgba(0,0,0,.35);
+  }
+  html.in-lobby[data-lobby="calm"] .lobby-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 22px 18px;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+  html.in-lobby[data-lobby="calm"] .room-code-label,
+  html.in-lobby[data-lobby="mix"] .room-code-label { display: block; }
+  html.in-lobby[data-lobby="calm"] #lobby .lobby-row input,
+  html.in-lobby[data-lobby="mix"] #lobby .lobby-row input { flex: 1 1 0; }
+  html.in-lobby[data-lobby="calm"] #lobby #joinRoomBtn,
+  html.in-lobby[data-lobby="mix"] #lobby #joinRoomBtn {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    font-weight: 600;
+  }
+  html.in-lobby footer {
+    margin-top: 32px;
+    font-size: 0.75rem;
+  }
+  html.in-lobby .lobby-switch { display: block; }
+
+  @media (max-width: 720px) {
+    html.in-lobby[data-lobby="bold"] .fan,
+    html.in-lobby[data-lobby="mix"] .fan {
+      --fan-w: clamp(62px, 17vw, 110px);
+      --fan-h: calc(var(--fan-w) * 1.44);
+      --fan-overlap: calc(var(--fan-w) * 0.58);
+    }
+    html.in-lobby[data-lobby="calm"] .fan {
+      --fan-w: clamp(36px, 11vw, 46px);
+      --fan-h: calc(var(--fan-w) * 1.44);
+      --fan-overlap: calc(var(--fan-w) * 0.36);
+    }
+    html.in-lobby h1 { font-size: clamp(1.05rem, 5.2vw, 2rem); }
+  }
+  @media (max-width: 480px) {
+    html.in-lobby #lobby .lobby-row { flex-wrap: wrap; }
+    html.in-lobby[data-lobby] #lobby .lobby-row input,
+    html.in-lobby[data-lobby] #lobby #joinRoomBtn {
+      width: 100%;
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+  }
 </style>
+<script>
+/* Lobby variant before first paint. Room paths stay on the in-room header. */
+(function () {
+  var room = /^\/planning-poker\/r\/[a-z0-9]{6}\/?$/.test(location.pathname);
+  var q = (new URLSearchParams(location.search).get("lobby") || "").toLowerCase();
+  var v = q === "calm" || q === "mix" ? q : "bold";
+  document.documentElement.setAttribute("data-lobby", v);
+  if (!room) document.documentElement.classList.add("in-lobby");
+})();
+</script>
 </head>
 <body>
   <header class="brand">
     <a class="brand-kicker" href="/" style="color:inherit;text-decoration:none">Business Wife</a>
     <h1>Planning Poker <span class="tag">Edition</span></h1>
-    <p class="sub">Create a boardroom, share the link, estimate stories together.</p>
+    <p class="sub sub-room">Create a boardroom, share the link, estimate stories together.</p>
+    <p class="sub sub-calm">Estimate a story together.</p>
   </header>
 
   <div class="wrap">
-    <div id="lobby" class="card" data-testid="lobby-screen">
-      <h2>Boardroom</h2>
+    <div id="lobby" class="card" data-testid="lobby-screen" data-lobby="bold">
       <div class="fan" id="lobbyFan" data-testid="lobby-fan" aria-hidden="true"></div>
-      <p class="lobby-lead">Open a room for your team, or enter an existing code.</p>
-      <div class="lobby-actions">
-        <button class="join-btn" id="createBtn" data-testid="create-btn">Create a boardroom</button>
-        <div class="lobby-divider">or join</div>
-        <div class="lobby-row">
-          <input id="roomCode" data-testid="room-code" placeholder="abc123" maxlength="6" autocomplete="off" spellcheck="false">
-          <button class="btn gold" id="joinRoomBtn" data-testid="join-room-btn">Join</button>
+      <div class="lobby-panel">
+        <div class="lobby-actions">
+          <button class="join-btn" id="createBtn" data-testid="create-btn">Create a boardroom</button>
+          <div class="lobby-join">
+            <label class="room-code-label" for="roomCode">Room code</label>
+            <div class="lobby-row">
+              <input id="roomCode" data-testid="room-code" aria-label="Room code" placeholder="abc123" maxlength="6" autocomplete="off" spellcheck="false">
+              <button class="btn gold" id="joinRoomBtn" data-testid="join-room-btn">Join</button>
+            </div>
+          </div>
         </div>
+        <div class="err" id="lobbyErr" data-testid="lobby-err"></div>
       </div>
-      <div class="err" id="lobbyErr" data-testid="lobby-err"></div>
     </div>
 
     <!-- JOIN -->
@@ -721,7 +864,11 @@
     </div>
   </div>
 
-  <footer>Inspired by the great H S<br>"She closes the deal before lunch."</footer>
+  <footer>Inspired by the great H S<br>"She closes the deal before lunch."
+    <nav class="lobby-switch" id="lobbySwitch" aria-label="Lobby style">
+      <a href="/planning-poker?lobby=bold" data-variant="bold">Bold</a><span class="dot" aria-hidden="true">·</span><a href="/planning-poker?lobby=calm" data-variant="calm">Calm</a><span class="dot" aria-hidden="true">·</span><a href="/planning-poker?lobby=mix" data-variant="mix">Mix</a>
+    </nav>
+  </footer>
 
 <script>
 const ROSTER = [
@@ -867,11 +1014,24 @@ function parseRoomFromPath() {
   const m = location.pathname.match(/^\/planning-poker\/r\/([a-z0-9]{6})\/?$/);
   return m ? m[1] : null;
 }
+function lobbyVariant() {
+  const q = (new URLSearchParams(location.search).get("lobby") || "").toLowerCase();
+  return q === "calm" || q === "mix" ? q : "bold";
+}
 function show(which) {
   $("lobby").classList.toggle("hidden", which !== "lobby");
   $("join").classList.toggle("hidden", which !== "join");
   $("game").classList.toggle("hidden", which !== "game");
   $("shareCard").classList.toggle("hidden", which === "lobby");
+  const variant = lobbyVariant();
+  document.documentElement.dataset.lobby = variant;
+  document.documentElement.classList.toggle("in-lobby", which === "lobby");
+  const lobby = $("lobby");
+  if (lobby) lobby.dataset.lobby = variant;
+  document.querySelectorAll("#lobbySwitch a").forEach(a => {
+    if (a.dataset.variant === variant) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
 }
 function setShare() {
   if ($("shareUrl") && roomId) $("shareUrl").value = roomUrl(roomId);
@@ -1181,7 +1341,7 @@ async function enterRoom(id, created) {
   if (!check.ok) {
     $("lobbyErr").textContent = "That boardroom is gone. Start a new one or enter another code.";
     clearSession(id);
-    history.replaceState({}, "", "/planning-poker");
+    history.replaceState({}, "", "/planning-poker" + (lobbyVariant() === "bold" ? "" : "?lobby=" + lobbyVariant()));
     roomId = null;
     myId = null;
     show("lobby");

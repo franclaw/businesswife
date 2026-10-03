@@ -1,5 +1,5 @@
 /* Planning Poker shell cache. API/SSE are network-only. */
-const CACHE = "bw-poker-v1";
+const CACHE = "bw-poker-v2";
 const PRECACHE = [
   "/planning-poker/",
   "/planning-poker/index.html",
@@ -46,6 +46,20 @@ self.addEventListener("fetch", (event) => {
     path === "/apple-touch-icon.png";
 
   if (!isShell) return;
+
+  // Lobby style query must not be served from the precached default shell.
+  if ((path === "/planning-poker" || path === "/planning-poker/" || path === "/planning-poker/index.html") && url.searchParams.has("lobby")) {
+    event.respondWith(
+      fetch(req).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
+        return res;
+      }).catch(() => caches.match(req).then((hit) => hit || caches.match("/planning-poker/index.html")))
+    );
+    return;
+  }
 
   // Room pages: network first, fall back to shell HTML for offline lobby UX
   if (/^\/planning-poker\/r\//.test(path)) {
