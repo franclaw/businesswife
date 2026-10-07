@@ -214,15 +214,27 @@
   .player {
     background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
     padding: 12px 8px; text-align: center; position: relative;
+    display: flex; flex-direction: column; align-items: center;
   }
-  .player .ico { font-size: 2rem; display: block; }
+  /* An emoji avatar (observer, custom emoji) fills the same 64x90 slot as a
+     portrait, so every seat's name and vote box start on the same line. */
+  .player .ico {
+    font-size: 2rem; width: 64px; height: 90px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: center;
+  }
   .player .pic {
     width: 64px; height: 90px; object-fit: cover; object-position: top;
     border-radius: 6px; border: 1px solid var(--border-strong); display: block; margin: 0 auto;
   }
-  .player .nm { font-size: 0.8rem; margin-top: 8px; color: var(--text); word-break: break-word; }
+  /* Two lines are reserved either way, so a one-word name clears the same
+     room as a wrapped "Vivienne · The Executive". */
+  .player .nm {
+    font-size: 0.8rem; line-height: 1.25; min-height: 2.5em; margin: 8px 0 0;
+    color: var(--text); word-break: break-word;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
   .player .vote {
-    margin-top: 8px; font-size: 1.2rem; min-height: 40px;
+    margin: auto 0 0; width: 100%; font-size: 1.2rem; min-height: 40px;
     display: flex; align-items: center; justify-content: center;
     background: var(--bg); border-radius: 6px; border: 1px solid var(--border);
     font-variant-numeric: tabular-nums;
@@ -1654,7 +1666,9 @@ function render(s) {
       </div>`;
     }
 
-    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>${seatMenu}`;
+    // Names are clamped to two lines, so carry the full label as a tooltip
+    // (hover on desktop, long-press on Android) instead of losing it.
+    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm" title="${escapeAttr(playerLabel(p))}">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>${seatMenu}`;
     bindImgFallback(d);
     const seatBtn = d.querySelector(".seat-menu-btn");
     const seatPanel = d.querySelector(".seat-menu");
