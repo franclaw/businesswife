@@ -489,6 +489,50 @@ test.describe('Planning Poker — saved custom wives (this device)', () => {
     await expect(page.getByTestId('saved-pick')).toHaveCount(1);
   });
 
+  test('a saved wife keeps her subtitle', async ({ page }) => {
+    await createRoom(page);
+    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-name').fill('Nova');
+    await page.getByTestId('custom-subtitle').fill('Closes deals before lunch');
+    await page.locator('[data-testid="avatar-pick"]').first().click();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('seat-subtitle')).toHaveText('Closes deals before lunch');
+
+    // The stored entry carries the subtitle, not just the name and portrait.
+    const stored = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '[]'), KEY);
+    expect(stored[0].subtitle).toBe('Closes deals before lunch');
+
+    // Next visit: the card shows her subtitle and one tap restores both fields.
+    await openJoinScreen(page);
+    await expect(page.getByTestId('saved-pick').first()).toContainText('Closes deals before lunch');
+    await page.getByTestId('saved-pick').first().click();
+    await expect(page.getByTestId('custom-name')).toHaveValue('Nova');
+    await expect(page.getByTestId('custom-subtitle')).toHaveValue('Closes deals before lunch');
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('seat-subtitle')).toHaveText('Closes deals before lunch');
+  });
+
+  test('a saved wife without a subtitle stays without one', async ({ page }) => {
+    await createRoom(page);
+    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-name').fill('Bare');
+    await page.locator('[data-testid="avatar-pick"]').first().click();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.getByTestId('seat-subtitle')).toHaveCount(0);
+
+    const stored = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '[]'), KEY);
+    expect(stored).toHaveLength(1);
+    expect('subtitle' in stored[0]).toBe(false);
+
+    await openJoinScreen(page);
+    await page.getByTestId('saved-pick').first().click();
+    await expect(page.getByTestId('custom-subtitle')).toHaveValue('');
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.getByTestId('seat-subtitle')).toHaveCount(0);
+  });
+
   test('a saved wife can be removed', async ({ page }) => {
     await joinCustomWife(page, 'Nova');
     await openJoinScreen(page);
