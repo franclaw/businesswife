@@ -192,6 +192,40 @@ test.describe('Planning Poker — rooms', () => {
     await leave(b);
   });
 
+  test('custom wife can set a subtitle shown on the seat', async ({ page }) => {
+    await createRoom(page);
+    await expect(page.getByTestId('custom-wife')).toBeVisible();
+    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-name').fill('Nova');
+    await page.getByTestId('custom-subtitle').fill('Closes deals before lunch');
+    await page.locator('[data-testid="avatar-pick"]').first().click();
+    await expect(page.getByTestId('join-btn')).toBeEnabled();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.getByTestId('boardroom')).toContainText('Nova');
+    await expect(page.getByTestId('seat-subtitle')).toHaveText('Closes deals before lunch');
+  });
+
+  test('subtitle survives a reload via seat reclaim', async ({ page }) => {
+    await createRoom(page);
+    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-name').fill('Preston');
+    await page.getByTestId('custom-subtitle').fill('Reads the room, then the fine print');
+    await page.locator('[data-testid="avatar-pick"]').first().click();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('seat-subtitle')).toHaveText('Reads the room, then the fine print');
+
+    await page.reload();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.getByTestId('seat-subtitle')).toHaveText('Reads the room, then the fine print');
+  });
+
+  test('subtitle is optional and stays off roster picks', async ({ page }) => {
+    await createRoom(page);
+    await pickWife(page, 'Vivienne');
+    await expect(page.getByTestId('seat-subtitle')).toHaveCount(0);
+  });
+
   test('leave returns to poker lobby not hub', async ({ page }) => {
     await createRoom(page);
     await pickWife(page, 'Coco');

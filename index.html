@@ -233,6 +233,15 @@
     color: var(--text); word-break: break-word;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
+  .player .sub {
+    display: block;
+    font-size: 0.68rem;
+    line-height: 1.25;
+    margin-top: 2px;
+    color: var(--muted);
+    word-break: break-word;
+  }
+  }
   .player .vote {
     margin: auto 0 0; width: 100%; font-size: 1.2rem; min-height: 40px;
     display: flex; align-items: center; justify-content: center;
@@ -800,6 +809,10 @@
             <input id="customName" data-testid="custom-name" type="text" maxlength="24" placeholder="Your Business Wife name" autocomplete="off">
           </div>
           <div class="field">
+            <label for="customSubtitle">Subtitle <span style="color:var(--faint)">(optional)</span></label>
+            <input id="customSubtitle" data-testid="custom-subtitle" type="text" maxlength="40" placeholder="Closes deals before lunch" autocomplete="off">
+          </div>
+          <div class="field">
             <label>Picture <span style="color:var(--faint)">(optional)</span></label>
             <div class="pic-row">
               <button type="button" class="btn file-btn" data-testid="custom-upload-btn">Upload image
@@ -1119,11 +1132,14 @@ function saveCustomWives(list) {
   return false;
 }
 
-function rememberCustomWife(name, icon) {
+function rememberCustomWife(name, icon, subtitle) {
   if (!name || !icon) return false;
   const key = String(name).toLowerCase();
   const rest = loadCustomWives().filter(w => String(w.name).toLowerCase() !== key);
-  const ok = saveCustomWives([{ name: String(name), icon, savedAt: Date.now() }, ...rest]);
+  const entry = { name: String(name), icon, savedAt: Date.now() };
+  const sub = String(subtitle || "").replace(/\s+/g, " ").trim();
+  if (sub) entry.subtitle = sub.slice(0, 40);
+  const ok = saveCustomWives([entry, ...rest]);
   renderCustomWives();
   return ok;
 }
@@ -1146,6 +1162,7 @@ function selectCustomWife(w) {
   const b = savedBtns[String(w.name).toLowerCase()];
   if (b) b.classList.add("sel");
   $("customName").value = w.name;
+  $("customSubtitle").value = w.subtitle || "";
   customIcon = w.icon;
   customAvatarPath = null;
   $("customFile").value = "";
@@ -1172,7 +1189,8 @@ function renderCustomWives() {
     b.dataset.name = w.name;
     b.title = w.name;
     const src = String(w.icon).startsWith("/img/") ? thumbPath(w.icon) : w.icon;
-    b.innerHTML = `<img class="pic" src="${escapeAttr(src)}" alt="" data-fb="\ud83d\ud644"><span class="who">${escapeHtml(w.name)}</span>`;
+    const sub = w.subtitle ? ` <span class="ttl">${escapeHtml(w.subtitle)}</span>` : "";
+    b.innerHTML = `<img class="pic" src="${escapeAttr(src)}" alt="" data-fb="\ud83d\ud644"><span class="who">${escapeHtml(w.name)}${sub}</span>`;
     b.onclick = () => {
       if (b.classList.contains("taken")) return;
       selectCustomWife(w);
@@ -1236,7 +1254,10 @@ function setCustomPreview(src, hint) {
 function clearCustomSelection(clearName) {
   customIcon = null;
   customAvatarPath = null;
-  if (clearName) $("customName").value = "";
+  if (clearName) {
+    $("customName").value = "";
+    $("customSubtitle").value = "";
+  }
   $("customFile").value = "";
   $("customUrl").value = "";
   document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
@@ -1436,6 +1457,7 @@ async function tryReclaim(id) {
     if (sess.name) body.name = sess.name;
     if (sess.icon) body.icon = sess.icon;
     if (sess.role) body.role = sess.role;
+    if (sess.subtitle) body.subtitle = sess.subtitle;
   }
   const res = await api("/join", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -1447,7 +1469,7 @@ async function tryReclaim(id) {
     if (st && st.players.some(p => p.id === reclaimId)) {
       myId = reclaimId;
       myMeta = sess;
-      saveSession(id, { playerId: myId, name: (sess && sess.name) || "", icon: (sess && sess.icon) || "", role: (sess && sess.role) || "player" });
+      saveSession(id, { playerId: myId, name: (sess && sess.name) || "", icon: (sess && sess.icon) || "", role: (sess && sess.role) || "player", subtitle: (sess && sess.subtitle) || "" });
       return true;
     }
     clearSession(id);
@@ -1462,6 +1484,7 @@ async function tryReclaim(id) {
     name: (sess && sess.name) || (myMeta && myMeta.name) || "",
     icon: (sess && sess.icon) || (myMeta && myMeta.icon) || "",
     role: (sess && sess.role) || (myMeta && myMeta.role) || "player",
+    subtitle: (sess && sess.subtitle) || (myMeta && myMeta.subtitle) || "",
   });
   return true;
 }
@@ -1497,12 +1520,13 @@ $("joinBtn").onclick = async () => {
     payload = { name: myPick.name, icon: myPick.icon };
   } else if (joinMode === "custom") {
     const name = ($("customName").value || "").trim().slice(0, 24);
+    const subtitle = ($("customSubtitle").value || "").trim().slice(0, 40);
     const icon = customIcon || customAvatarPath;
     if (!name || !icon) {
       $("joinErr").textContent = "Custom wife needs a name and a picture (upload, URL, or boardroom portrait).";
       return;
     }
-    payload = { name, icon };
+    payload = { name, icon, subtitle };
   } else {
     $("joinErr").textContent = "Pick a Business Wife or create your own.";
     return;
@@ -1527,9 +1551,9 @@ $("joinBtn").onclick = async () => {
   myId = id;
   myPick = payload;
   // Keep a custom wife on this device so she is offered again next visit.
-  if (joinMode === "custom") rememberCustomWife(payload.name, payload.icon);
-  myMeta = { name: payload.name, icon: payload.icon, role: "player" };
-  saveSession(roomId, { playerId: id, name: payload.name, icon: payload.icon, role: "player" });
+  if (joinMode === "custom") rememberCustomWife(payload.name, payload.icon, payload.subtitle);
+  myMeta = { name: payload.name, icon: payload.icon, role: "player", subtitle: payload.subtitle || "" };
+  saveSession(roomId, { playerId: id, name: payload.name, icon: payload.icon, role: "player", subtitle: payload.subtitle || "" });
   show("game");
   setShare();
   startHeartbeat();
@@ -1813,7 +1837,10 @@ function render(s) {
 
     // Names are clamped to two lines, so carry the full label as a tooltip
     // (hover on desktop, long-press on Android) instead of losing it.
-    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm" title="${escapeAttr(playerLabel(p))}">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>${seatMenu}`;
+    const subHtml = p.subtitle
+      ? `<span class="sub" data-testid="seat-subtitle">${escapeHtml(p.subtitle)}</span>`
+      : "";
+    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm" title="${escapeAttr(playerLabel(p))}">${escapeHtml(playerLabel(p))}</span>${subHtml}<div class="vote">${voteText}</div>${seatMenu}`;
     bindImgFallback(d);
     const seatBtn = d.querySelector(".seat-menu-btn");
     const seatPanel = d.querySelector(".seat-menu");

@@ -19,6 +19,13 @@ const ROOM_RE = /^[a-z0-9]{6}$/;
 const ID_CHARS = '23456789abcdefghjkmnpqrstuvwxyz';
 const STALE_MS = 45_000;
 const IDLE_REMOVE_MS = 90_000;
+const SUBTITLE_MAX = 40;
+
+/** Custom wife subtitle — optional, short, single line. */
+function cleanSubtitle(value) {
+  if (value == null) return '';
+  return String(value).replace(/\s+/g, ' ').trim().slice(0, SUBTITLE_MAX);
+}
 
 const rooms = new Map(); // id -> room
 const polls = new Map(); // id -> poll
@@ -212,6 +219,7 @@ function publicState(room) {
     name: p.name,
     icon: p.icon,
     role: p.role || 'player',
+    subtitle: p.subtitle || null,
     vote: p.revealed ? p.vote : (p.vote ? '🔒' : null),
     revealed: p.revealed,
     hasVoted: p.role !== 'observer' && !!p.vote,
@@ -574,7 +582,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/join$/)) {
         if (!room) return json(res, 404, { error: 'room not found' });
         const body = await readBody(req);
-        const { name, icon, role, reclaimId } = body;
+        const { name, icon, role, reclaimId, subtitle } = body;
         // Soft rejoin: reclaim existing seat by id (refresh / reconnect)
         if (reclaimId) {
           if (room.players[reclaimId]) {
@@ -582,6 +590,7 @@ const server = http.createServer(async (req, res) => {
             existing.lastSeen = now();
             if (name) existing.name = String(name).slice(0, 24);
             if (icon && validIcon(icon) && existing.role !== 'observer') existing.icon = icon;
+            if (subtitle != null && existing.role !== 'observer') existing.subtitle = cleanSubtitle(subtitle);
             pickHost(room);
             broadcast(room);
             return json(res, 200, { id: existing.id, roomId: room.id, reclaimed: true, hostId: room.hostId });
@@ -605,6 +614,7 @@ const server = http.createServer(async (req, res) => {
           name: String(name).slice(0, 24),
           icon: isObserver ? '👁️' : icon,
           role: isObserver ? 'observer' : 'player',
+          subtitle: isObserver ? '' : cleanSubtitle(subtitle),
           vote: null,
           revealed: !isObserver && room.phase === 'revealed',
           lastSeen: now(),
