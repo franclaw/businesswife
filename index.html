@@ -221,6 +221,14 @@
     border-radius: 6px; border: 1px solid var(--border-strong); display: block; margin: 0 auto;
   }
   .player .nm { font-size: 0.8rem; margin-top: 8px; color: var(--text); word-break: break-word; }
+  .player .sub {
+    display: block;
+    font-size: 0.68rem;
+    line-height: 1.25;
+    margin-top: 2px;
+    color: var(--muted);
+    word-break: break-word;
+  }
   .player .vote {
     margin-top: 8px; font-size: 1.2rem; min-height: 40px;
     display: flex; align-items: center; justify-content: center;
@@ -769,6 +777,10 @@
             <input id="customName" data-testid="custom-name" type="text" maxlength="24" placeholder="Your Business Wife name" autocomplete="off">
           </div>
           <div class="field">
+            <label for="customSubtitle">Subtitle <span style="color:var(--faint)">(optional)</span></label>
+            <input id="customSubtitle" data-testid="custom-subtitle" type="text" maxlength="40" placeholder="Closes deals before lunch" autocomplete="off">
+          </div>
+          <div class="field">
             <label>Picture <span style="color:var(--faint)">(optional)</span></label>
             <div class="pic-row">
               <button type="button" class="btn file-btn" data-testid="custom-upload-btn">Upload image
@@ -1087,7 +1099,10 @@ function setCustomPreview(src, hint) {
 function clearCustomSelection(clearName) {
   customIcon = null;
   customAvatarPath = null;
-  if (clearName) $("customName").value = "";
+  if (clearName) {
+    $("customName").value = "";
+    $("customSubtitle").value = "";
+  }
   $("customFile").value = "";
   $("customUrl").value = "";
   document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
@@ -1281,6 +1296,7 @@ async function tryReclaim(id) {
     if (sess.name) body.name = sess.name;
     if (sess.icon) body.icon = sess.icon;
     if (sess.role) body.role = sess.role;
+    if (sess.subtitle) body.subtitle = sess.subtitle;
   }
   const res = await api("/join", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -1292,7 +1308,7 @@ async function tryReclaim(id) {
     if (st && st.players.some(p => p.id === reclaimId)) {
       myId = reclaimId;
       myMeta = sess;
-      saveSession(id, { playerId: myId, name: (sess && sess.name) || "", icon: (sess && sess.icon) || "", role: (sess && sess.role) || "player" });
+      saveSession(id, { playerId: myId, name: (sess && sess.name) || "", icon: (sess && sess.icon) || "", role: (sess && sess.role) || "player", subtitle: (sess && sess.subtitle) || "" });
       return true;
     }
     clearSession(id);
@@ -1307,6 +1323,7 @@ async function tryReclaim(id) {
     name: (sess && sess.name) || (myMeta && myMeta.name) || "",
     icon: (sess && sess.icon) || (myMeta && myMeta.icon) || "",
     role: (sess && sess.role) || (myMeta && myMeta.role) || "player",
+    subtitle: (sess && sess.subtitle) || (myMeta && myMeta.subtitle) || "",
   });
   return true;
 }
@@ -1342,12 +1359,13 @@ $("joinBtn").onclick = async () => {
     payload = { name: myPick.name, icon: myPick.icon };
   } else if (joinMode === "custom") {
     const name = ($("customName").value || "").trim().slice(0, 24);
+    const subtitle = ($("customSubtitle").value || "").trim().slice(0, 40);
     const icon = customIcon || customAvatarPath;
     if (!name || !icon) {
       $("joinErr").textContent = "Custom wife needs a name and a picture (upload, URL, or boardroom portrait).";
       return;
     }
-    payload = { name, icon };
+    payload = { name, icon, subtitle };
   } else {
     $("joinErr").textContent = "Pick a Business Wife or create your own.";
     return;
@@ -1371,8 +1389,8 @@ $("joinBtn").onclick = async () => {
   const { id } = await res.json();
   myId = id;
   myPick = payload;
-  myMeta = { name: payload.name, icon: payload.icon, role: "player" };
-  saveSession(roomId, { playerId: id, name: payload.name, icon: payload.icon, role: "player" });
+  myMeta = { name: payload.name, icon: payload.icon, role: "player", subtitle: payload.subtitle || "" };
+  saveSession(roomId, { playerId: id, name: payload.name, icon: payload.icon, role: "player", subtitle: payload.subtitle || "" });
   show("game");
   setShare();
   startHeartbeat();
@@ -1654,7 +1672,10 @@ function render(s) {
       </div>`;
     }
 
-    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>${seatMenu}`;
+    const subHtml = p.subtitle
+      ? `<span class="sub" data-testid="seat-subtitle">${escapeHtml(p.subtitle)}</span>`
+      : "";
+    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm">${escapeHtml(playerLabel(p))}</span>${subHtml}<div class="vote">${voteText}</div>${seatMenu}`;
     bindImgFallback(d);
     const seatBtn = d.querySelector(".seat-menu-btn");
     const seatPanel = d.querySelector(".seat-menu");
