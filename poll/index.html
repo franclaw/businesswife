@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poll — Business Wife</title>
+<meta name="theme-color" content="#0f0c0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Live polls. She counts the room before you finish the question.">
+<link rel="manifest" href="/poll/manifest.webmanifest">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/poll/icons/icon-192.png">
+<style>
+  :root {
+    --bg: #0f0c0e;
+    --surface: #171214;
+    --surface-2: #1e171a;
+    --border: #2e2428;
+    --border-strong: #3d3036;
+    --text: #f2ebe6;
+    --muted: #9a8a90;
+    --faint: #6b5c62;
+    --accent: #c43d6e;
+    --accent-hover: #d54f7f;
+    --accent-soft: rgba(196, 61, 110, 0.14);
+    --gold: #c9a227;
+    --gold-soft: rgba(201, 162, 39, 0.12);
+    --radius: 10px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: max(20px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  a.brand {
+    color: var(--faint);
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  a.brand:hover { color: var(--accent); }
+  .kicker {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .wit { color: var(--muted); font-size: 0.92rem; margin-bottom: 26px; }
+  .wrap { width: 100%; max-width: 480px; }
+  .panel {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 20px;
+  }
+  label {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 6px;
+  }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+  }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input::placeholder { color: var(--faint); }
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 0;
+    padding: 13px 20px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .primary { background: var(--accent); color: #fff; width: 100%; }
+  .primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+  }
+  .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .hint { color: var(--faint); font-size: 0.78rem; margin-top: 10px; }
+  .err { color: var(--accent); font-size: 0.86rem; min-height: 1.2em; margin-top: 8px; }
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--faint); font-size: 0.74rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin: 22px 0;
+  }
+  .divider::before, .divider::after { content: ""; height: 1px; background: var(--border); flex: 1; }
+  .opt-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .opt-row button { min-width: 40px; padding: 0 12px; }
+  .code {
+    font-family: var(--mono);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  /* poll screen */
+  .poll-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .poll-code { color: var(--gold); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  .question { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 18px; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .option {
+    position: relative;
+    display: block; width: 100%;
+    text-align: left;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-weight: 500;
+    overflow: hidden;
+  }
+  .option:hover:not(:disabled) { border-color: var(--accent); }
+  .option:disabled { cursor: default; }
+  .option .bar {
+    position: absolute; inset: 0 auto 0 0;
+    width: 0%;
+    background: var(--accent-soft);
+    transition: width .35s ease;
+  }
+  .option .txt { position: relative; display: flex; justify-content: space-between; gap: 12px; }
+  .option .pct { color: var(--muted); font-family: var(--mono); font-size: 0.86rem; }
+  .option.mine { border-color: var(--accent); }
+  .option.mine .txt { color: var(--text); }
+  .option.mine::after {
+    content: "✓ your vote";
+    position: absolute; right: 14px; bottom: 3px;
+    font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .tally { color: var(--muted); font-size: 0.86rem; margin-top: 16px; }
+  .tally strong { color: var(--text); }
+  .banner {
+    display: none;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    background: var(--gold-soft);
+    border: 1px solid rgba(201, 162, 39, 0.35);
+    color: var(--gold);
+    font-size: 0.86rem;
+    font-weight: 600;
+  }
+  .banner.on { display: block; }
+  .share { margin-top: 18px; }
+  .share input { font-family: var(--mono); font-size: 0.82rem; }
+  .actions { display: flex; gap: 10px; margin-top: 18px; }
+  .actions button { flex: 1; }
+  .live {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--faint); font-size: 0.72rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .live.on .dot { background: #3fbf7f; }
+  footer {
+    margin-top: auto; padding-top: 36px;
+    color: var(--faint); font-size: 0.74rem; text-align: center; line-height: 1.6;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <a class="brand" href="/">Business Wife</a>
+  <div class="kicker">The room, counted</div>
+  <h1>Poll</h1>
+  <p class="wit">She knows how it ends before you finish the question.</p>
+
+  <div class="wrap">
+    <!-- Lobby -->
+    <div id="lobby-screen" data-testid="lobby-screen">
+      <div class="panel">
+        <label for="create-question">Ask the room</label>
+        <div class="stack">
+          <input id="create-question" data-testid="question-input" type="text" maxlength="200" placeholder="Where do we spend the offsite?">
+          <div id="option-rows" data-testid="option-rows"></div>
+          <div class="row">
+            <button type="button" class="ghost" id="add-option" data-testid="add-option-btn" style="min-width:0;padding:10px 14px;font-size:0.84rem">+ Add option</button>
+          </div>
+          <div class="err" id="create-err" data-testid="create-error"></div>
+          <button type="button" class="primary" id="create-btn" data-testid="create-btn">Create poll</button>
+        </div>
+      </div>
+
+      <div class="divider">or join</div>
+
+      <div class="panel">
+        <label for="join-code">Poll code</label>
+        <div class="row">
+          <input id="join-code" data-testid="join-code" class="code" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="6" placeholder="abc123">
+          <button type="button" class="ghost" id="join-btn" data-testid="join-btn" style="min-width:110px">Open</button>
+        </div>
+        <div class="err" id="join-err" data-testid="join-error"></div>
+      </div>
+    </div>
+
+    <!-- Poll -->
+    <div id="poll-screen" data-testid="poll-screen" hidden>
+      <div class="panel">
+        <div class="poll-meta">
+          <span class="poll-code">Poll <span class="code" data-testid="poll-code"></span></span>
+          <span class="live" id="live" data-testid="live-indicator"><span class="dot"></span><span id="live-text">connecting</span></span>
+        </div>
+        <div class="banner" id="closed-banner" data-testid="closed-banner">Polling closed — final numbers.</div>
+        <div class="question" id="question" data-testid="poll-question"></div>
+        <div class="options" id="options" data-testid="options"></div>
+        <div class="tally" id="tally" data-testid="tally"></div>
+        <div class="share">
+          <label for="share-url">Share link</label>
+          <div class="row">
+            <input id="share-url" data-testid="share-url" type="text" readonly>
+            <button type="button" class="ghost" id="copy-btn" data-testid="copy-btn" style="min-width:86px">Copy</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost" id="close-btn" data-testid="close-btn" hidden>Close polling</button>
+          <button type="button" class="ghost" id="new-btn" data-testid="new-poll-btn">New poll</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Business Wife<br>"She closes the deal before lunch."</footer>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const API = "/poll/api/polls";
+const MAX_OPTIONS = 8;
+const MIN_OPTIONS = 2;
+
+const state = {
+  pollId: null,
+  voterId: voterId(),
+  creator: false,
+  myVote: null,
+  data: null,
+  es: null,
+  pollTimer: null,
+};
+
+function voterId() {
+  let id = sessionStorage.getItem("bw_poll_voter");
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
+    sessionStorage.setItem("bw_poll_voter", id);
+  }
+  return id;
+}
+
+function creatorKey(id) { return "bw_poll_creator_" + id; }
+function voteKey(id) { return "bw_poll_vote_" + id; }
+
+// ---------- lobby ----------
+let optionRows = [];
+
+function optionRow(value) {
+  const row = document.createElement("div");
+  row.className = "opt-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.maxLength = 80;
+  input.placeholder = "Option";
+  input.dataset.testid = "option-input";
+  input.value = value || "";
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "ghost";
+  del.textContent = "×";
+  del.dataset.testid = "remove-option-btn";
+  del.style.cssText = "min-width:0;padding:0 12px;font-size:1.1rem";
+  del.onclick = () => {
+    optionRows = optionRows.filter((r) => r !== row);
+    row.remove();
+    if (optionRows.length < MIN_OPTIONS) addOptionRow();
+    syncAddBtn();
+  };
+  row.append(input, del);
+  optionRows.push(row);
+  $("#option-rows").append(row);
+  syncAddBtn();
+  return input;
+}
+
+function addOptionRow(value) {
+  if (optionRows.length >= MAX_OPTIONS) return null;
+  const input = optionRow(value);
+  syncAddBtn();
+  return input;
+}
+
+function syncAddBtn() {
+  const btn = $("#add-option");
+  btn.disabled = optionRows.length >= MAX_OPTIONS;
+  btn.textContent = optionRows.length >= MAX_OPTIONS
+    ? MAX_OPTIONS + " options max"
+    : "+ Add option";
+}
+
+async function createPoll() {
+  const question = $("#create-question").value.trim();
+  const options = optionRows.map((r) => r.querySelector("input").value.trim()).filter(Boolean);
+  const err = $("#create-err");
+  err.textContent = "";
+  if (!question) { err.textContent = "Ask a question first."; $("#create-question").focus(); return; }
+  if (options.length < MIN_OPTIONS) { err.textContent = "Give at least " + MIN_OPTIONS + " options."; return; }
+  $("#create-btn").disabled = true;
+  try {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, options, creatorId: state.voterId }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "could not create poll");
+    sessionStorage.setItem(creatorKey(body.id), "1");
+    location.hash = "/" + body.id;
+    history.pushState(null, "", "/poll/" + body.id);
+    openPoll(body.id, true);
+  } catch (e) {
+    err.textContent = e.message;
+  } finally {
+    $("#create-btn").disabled = false;
+  }
+}
+
+async function joinPoll() {
+  const id = $("#join-code").value.trim().toLowerCase();
+  const err = $("#join-err");
+  err.textContent = "";
+  if (!/^[a-z0-9]{6}$/.test(id)) { err.textContent = "Poll codes are 6 characters."; return; }
+  $("#join-btn").disabled = true;
+  try {
+    const res = await fetch(API + "/" + id);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "poll not found");
+    history.pushState(null, "", "/poll/" + id);
+    openPoll(id, false);
+  } catch (e) {
+    err.textContent = e.message;
+  } finally {
+    $("#join-btn").disabled = false;
+  }
+}
+
+// ---------- poll ----------
+function showLobby() {
+  $("#lobby-screen").hidden = false;
+  $("#poll-screen").hidden = true;
+  closeStreams();
+}
+
+function openPoll(id, isCreator) {
+  state.pollId = id;
+  state.creator = isCreator || sessionStorage.getItem(creatorKey(id)) === "1";
+  state.myVote = sessionStorage.getItem(voteKey(id)) || null;
+  $("#lobby-screen").hidden = true;
+  $("#poll-screen").hidden = false;
+  $("[data-testid='poll-code']").textContent = id;
+  $("#share-url").value = location.origin + "/poll/" + id;
+  $("#close-btn").hidden = !state.creator;
+  render(state.data);
+  fetchState();
+  subscribe();
+}
+
+function closeStreams() {
+  if (state.es) { state.es.close(); state.es = null; }
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  setLive(false, "offline");
+}
+
+function setLive(on, text) {
+  const el = $("#live");
+  el.classList.toggle("on", !!on);
+  $("#live-text").textContent = text;
+}
+
+async function fetchState() {
+  if (!state.pollId) return;
+  try {
+    const res = await fetch(API + "/" + state.pollId);
+    if (!res.ok) {
+      if (res.status === 404) { showLobby(); return; }
+      throw new Error("state unavailable");
+    }
+    state.data = await res.json();
+    render(state.data);
+  } catch { /* keep last paint, SSE/poll will retry */ }
+}
+
+function subscribe() {
+  if (state.es) state.es.close();
+  const es = new EventSource(API + "/" + state.pollId + "/events");
+  state.es = es;
+  es.onopen = () => setLive(true, "live");
+  es.onmessage = (ev) => {
+    try { state.data = JSON.parse(ev.data); render(state.data); setLive(true, "live"); } catch {}
+  };
+  es.onerror = () => {
+    setLive(false, "reconnecting");
+    // EventSource retries on its own; also poll as a fallback
+    if (!state.pollTimer) state.pollTimer = setInterval(fetchState, 4000);
+  };
+}
+
+function render(data) {
+  if (!data || !state.pollId) return;
+  const closed = !!data.closed;
+  $("#question").textContent = data.question;
+  $("#closed-banner").classList.toggle("on", closed);
+  $("#close-btn").hidden = !(state.creator && !closed);
+
+  const total = data.totalVotes || 0;
+  const showResults = closed || state.myVote != null;
+  const box = $("#options");
+  box.innerHTML = "";
+  for (const opt of data.options) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "option";
+    btn.dataset.testid = "option";
+    btn.dataset.optionId = opt.id;
+    btn.disabled = closed;
+    if (state.myVote === opt.id) btn.classList.add("mine");
+    const pct = total ? Math.round((opt.count / total) * 100) : 0;
+    const bar = document.createElement("span");
+    bar.className = "bar";
+    bar.dataset.testid = "option-bar";
+    bar.style.width = (showResults ? pct : 0) + "%";
+    const txt = document.createElement("span");
+    txt.className = "txt";
+    const label = document.createElement("span");
+    label.textContent = opt.label;
+    const pctEl = document.createElement("span");
+    pctEl.className = "pct";
+    pctEl.dataset.testid = "option-count";
+    pctEl.textContent = showResults ? opt.count + " · " + pct + "%" : "";
+    txt.append(label, pctEl);
+    btn.append(bar, txt);
+    btn.onclick = () => vote(opt.id);
+    box.append(btn);
+  }
+
+  const tally = $("#tally");
+  tally.innerHTML = "<strong>" + total + "</strong> vote" + (total === 1 ? "" : "s") +
+    " · " + data.options.length + " options" +
+    (showResults ? "" : " — vote to see the split");
+}
+
+async function vote(optionId) {
+  if (!state.pollId) return;
+  try {
+    const res = await fetch(API + "/" + state.pollId + "/vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voterId: state.voterId, optionId }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "vote failed");
+    state.myVote = optionId;
+    sessionStorage.setItem(voteKey(state.pollId), optionId);
+    render(state.data);
+    fetchState();
+  } catch (e) {
+    $("#tally").textContent = e.message;
+  }
+}
+
+async function closePoll() {
+  if (!state.pollId) return;
+  $("#close-btn").disabled = true;
+  try {
+    const res = await fetch(API + "/" + state.pollId + "/close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voterId: state.voterId }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "could not close");
+    fetchState();
+  } catch (e) {
+    $("#tally").textContent = e.message;
+  } finally {
+    $("#close-btn").disabled = false;
+  }
+}
+
+function route() {
+  const m = location.pathname.match(/^\/poll\/([a-z0-9]{6})\/?$/);
+  if (m) {
+    const id = m[1];
+    if (id !== state.pollId) openPoll(id, false);
+  } else {
+    state.pollId = null;
+    showLobby();
+  }
+}
+
+// ---------- wire up ----------
+addOptionRow();
+addOptionRow();
+$("#add-option").onclick = () => { const i = addOptionRow(); if (i) i.focus(); };
+$("#create-btn").onclick = createPoll;
+$("#join-btn").onclick = joinPoll;
+$("#join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") joinPoll(); });
+$("#close-btn").onclick = closePoll;
+$("#new-btn").onclick = () => { history.pushState(null, "", "/poll/"); route(); };
+$("#copy-btn").onclick = async () => {
+  const input = $("#share-url");
+  try { await navigator.clipboard.writeText(input.value); }
+  catch { input.select(); document.execCommand && document.execCommand("selectAll"); }
+  $("#copy-btn").textContent = "Copied";
+  setTimeout(() => { $("#copy-btn").textContent = "Copy"; }, 1200);
+};
+window.addEventListener("popstate", route);
+route();
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/poll/sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
