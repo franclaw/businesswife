@@ -208,31 +208,7 @@
   .share { display: flex; gap: 8px; align-items: center; margin-top: 0; }
   .share input { font-size: 0.82rem; font-family: var(--mono); }
   .obs-row { display: flex; gap: 8px; margin-top: 12px; }
-  /* Join picks */
-  .grid-names { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
-  .pick {
-    display: flex; align-items: center; gap: 10px;
-    background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 9px 11px; cursor: pointer; color: var(--text);
-    font-family: inherit; font-size: 0.9rem; text-align: left;
-    transition: border-color .12s, background .12s;
-  }
-  .pick:hover { border-color: var(--border-strong); background: #241c20; }
-  .pick.sel { border-color: var(--accent); background: var(--accent-soft); }
-  .pick.taken { opacity: .4; filter: grayscale(.8); cursor: not-allowed; }
-  .pick.taken:hover { border-color: var(--border); background: var(--surface-2); }
-  h2.taken-h { color: var(--faint); margin-top: 4px; }
-  #takenWrap { margin-top: 16px; }
-  .pick .ico { font-size: 1.4rem; }
-  .pick .pic {
-    width: 36px; height: 50px; object-fit: cover; object-position: top;
-    border-radius: 4px; border: 1px solid var(--border-strong); flex: 0 0 auto;
-  }
-  .pick .who .ttl {
-    display: block; font-size: 0.7rem; color: var(--muted);
-    letter-spacing: 0.02em; font-weight: 400;
-  }
-  .pick .who { font-weight: 500; }
+  /* Join picks — gallery styles live in declutter block below */
   /* Table */
   .table { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
   .player {
@@ -320,9 +296,7 @@
     cursor: not-allowed;
     pointer-events: none;
   }
-  .btn.primary.busy {
-    opacity: 0.85;
-  }
+  .btn.primary.busy { opacity: 0.85; }
   @keyframes board-pulse {
     0% { box-shadow: 0 0 0 0 rgba(196, 61, 110, 0.35); }
     40% { box-shadow: 0 0 0 10px rgba(196, 61, 110, 0.12); }
@@ -332,129 +306,204 @@
     animation: board-pulse 0.5s ease-out;
     border-radius: 8px;
   }
-  .card.round-flash {
+  .stage-head.round-flash {
     transition: border-color 0.35s ease;
     border-color: var(--accent);
   }
-  /* Custom wife join */
-  .custom-wife {
-    margin-top: 20px;
-    padding-top: 18px;
-    border-top: 1px solid var(--border);
+
+  /* Join = gallery */
+  #join { padding: 28px 24px 24px; text-align: center; }
+  #join > h2 { margin-bottom: 16px; }
+  .grid-names {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 10px;
     text-align: left;
   }
-  .custom-wife h3 {
-    font-size: 0.8rem;
+  .pick {
+    display: flex; flex-direction: column; align-items: stretch; gap: 0;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0; cursor: pointer; color: var(--text);
+    font-family: inherit; font-size: 0.82rem; text-align: center;
+    overflow: hidden; transition: border-color .12s, background .12s, transform .08s;
+  }
+  .pick:hover { border-color: var(--border-strong); background: #241c20; transform: translateY(-2px); }
+  .pick.sel { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .pick.taken { opacity: .4; filter: grayscale(.8); cursor: not-allowed; transform: none; }
+  .pick.taken:hover { border-color: var(--border); background: var(--surface-2); }
+  .pick .pic {
+    width: 100%; height: 132px; object-fit: cover; object-position: top;
+    border-radius: 0; border: 0; flex: 0 0 auto; display: block;
+  }
+  .pick .ico { font-size: 2rem; padding: 36px 0 20px; display: block; }
+  .pick .who {
+    display: block; padding: 8px 8px 10px; font-weight: 600; line-height: 1.25;
+  }
+  .pick .who .ttl {
+    display: block; font-size: 0.68rem; color: var(--muted);
+    letter-spacing: 0.02em; font-weight: 400; margin-top: 2px;
+  }
+  h2.taken-h { color: var(--faint); margin-top: 4px; text-align: left; }
+  #takenWrap { margin-top: 18px; text-align: left; }
+
+  /* Custom wife — collapsed by default */
+  .custom-wife {
+    margin-top: 18px;
+    text-align: left;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    padding: 0;
+  }
+  .custom-wife > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 12px 14px;
+    font-size: 0.82rem;
     font-weight: 600;
-    color: var(--faint);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-  }
-  .custom-wife .field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
-  }
-  .custom-wife label {
-    font-size: 0.78rem;
     color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
+  .custom-wife > summary::-webkit-details-marker { display: none; }
+  .custom-wife > summary::before { content: "+ "; color: var(--gold); }
+  .custom-wife[open] > summary::before { content: "− "; }
+  .custom-wife .custom-body { padding: 0 14px 14px; }
+  .custom-wife .field {
+    display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;
+  }
+  .custom-wife label { font-size: 0.78rem; color: var(--muted); }
   .custom-wife input[type="text"],
   .custom-wife input[type="url"] {
-    width: 100%;
-    padding: 12px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--border-strong);
-    background: var(--bg);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 1rem;
+    width: 100%; padding: 12px 14px; border-radius: 8px;
+    border: 1px solid var(--border-strong); background: var(--bg);
+    color: var(--text); font-family: inherit; font-size: 1rem;
   }
   .custom-wife input:focus {
-    outline: none;
-    border-color: var(--accent);
+    outline: none; border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .custom-wife .pic-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   }
-  .custom-wife .file-btn {
-    position: relative;
-    overflow: hidden;
-  }
+  .custom-wife .file-btn { position: relative; overflow: hidden; }
   .custom-wife .file-btn input[type="file"] {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
   }
   .custom-preview {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 8px 0 4px;
-    min-height: 54px;
+    display: flex; align-items: center; gap: 10px;
+    margin: 8px 0 4px; min-height: 54px;
   }
   .custom-preview img {
-    width: 40px;
-    height: 56px;
-    object-fit: cover;
-    object-position: top;
-    border-radius: 4px;
-    border: 1px solid var(--border-strong);
-    background: var(--surface-2);
+    width: 40px; height: 56px; object-fit: cover; object-position: top;
+    border-radius: 4px; border: 1px solid var(--border-strong); background: var(--surface-2);
   }
-  .custom-preview .hint {
-    font-size: 0.78rem;
-    color: var(--muted);
-  }
+  .custom-preview .hint { font-size: 0.78rem; color: var(--muted); }
   .avatar-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
-    gap: 6px;
-    margin-top: 8px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    gap: 6px; margin-top: 8px;
   }
   .avatar-pick {
-    padding: 0;
-    border: 2px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface-2);
-    cursor: pointer;
-    overflow: hidden;
-    aspect-ratio: 36 / 50;
+    padding: 0; border: 2px solid var(--border); border-radius: 6px;
+    background: var(--surface-2); cursor: pointer; overflow: hidden; aspect-ratio: 36 / 50;
   }
   .avatar-pick img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: top;
-    display: block;
+    width: 100%; height: 100%; object-fit: cover; object-position: top; display: block;
   }
   .avatar-pick.sel {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
+    border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft);
   }
   .avatar-pick:hover { border-color: var(--border-strong); }
-  .custom-note {
-    font-size: 0.75rem;
-    color: var(--faint);
-    margin-top: 6px;
+  .custom-note { font-size: 0.75rem; color: var(--faint); margin-top: 6px; }
+  #join .obs-row {
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+    opacity: 0.92;
   }
-  @media (max-width: 480px) {
-    .custom-wife .pic-row { flex-direction: column; align-items: stretch; }
-    .custom-wife .pic-row .btn { width: 100%; }
-  }
-  @media (max-width: 480px) {
-    .lobby-row { flex-wrap: wrap; }
-    .lobby-row input, .lobby-row .btn { width: 100%; flex: 1 1 100%; }
-  }
+  #join .join-btn { margin: 18px auto 0; max-width: 360px; display: block; }
 
-  /* Host / presence / observer clarity */
+  /* Invite bar — collapsed */
+  #shareCard.invite-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 10px 14px; padding: 14px 16px; margin-bottom: 0;
+    background: transparent; border: 1px solid var(--border); border-radius: 12px;
+  }
+  #shareCard.invite-bar h2 { display: none; }
+  #shareCard .room-code-big {
+    text-align: center; margin: 0; flex: 0 0 auto;
+  }
+  #shareCard .room-code-big .code {
+    font-family: var(--mono); font-size: clamp(1.35rem, 4vw, 1.85rem);
+    letter-spacing: 0.22em; font-weight: 600; color: var(--gold);
+    text-transform: uppercase;
+  }
+  #shareCard .room-code-big .hint {
+    display: block; margin-top: 2px; font-size: 0.68rem; color: var(--faint);
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  #shareCard .invite-actions {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  }
+  #shareUrl { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+  /* Host menu (⋯) */
+  .host-menu-wrap { position: relative; }
+  .host-menu-btn {
+    width: 40px; height: 40px; border-radius: 8px;
+    border: 1px solid var(--border-strong); background: var(--surface-2);
+    color: var(--text); font-size: 1.2rem; line-height: 1; cursor: pointer;
+    font-family: inherit;
+  }
+  .host-menu-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .host-menu {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 40;
+    min-width: 220px; padding: 10px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border-strong);
+    box-shadow: 0 12px 28px rgba(0,0,0,.45);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .host-menu .toggle { font-size: 0.85rem; color: var(--muted); }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.85rem; color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  /* In-room: one stage */
+  #shareCard:not(.hidden) + #game:not(.hidden) { margin-top: 14px; }
+  #game {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #game > .card { margin-top: 0; }
+  .stage-board {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 18px 18px;
+  }
+  .stage-head {
+    display: flex; flex-direction: column; gap: 10px;
+    margin-bottom: 16px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stage-meta {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .stage-meta .round-label {
+    font-size: 0.78rem; font-weight: 600; color: var(--faint);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .stage-head .question {
+    width: 100%; padding: 12px 14px; border-radius: 8px;
+    border: 1px solid var(--border-strong); background: var(--bg);
+    color: var(--text); font-family: inherit; font-size: 1.05rem;
+  }
+  .stage-head .question:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .stage-board .table { margin-top: 0; }
+  .stage-board .btnrow { margin-top: 14px; }
+  .stage-board .status { margin-top: 12px; }
+
+  /* Host / presence chips */
   .player.host { border-color: var(--gold); }
   .player .badges {
     position: absolute; top: -8px; left: 6px; right: 6px;
@@ -464,8 +513,7 @@
   .player .chip {
     font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase;
     font-weight: 700; padding: 1px 5px; border-radius: 999px;
-    background: var(--surface); border: 1px solid var(--border);
-    pointer-events: none;
+    background: var(--surface); border: 1px solid var(--border); pointer-events: none;
   }
   .player .chip.you { color: var(--gold); border-color: #5a4a22; }
   .player .chip.host { color: var(--gold); border-color: var(--gold); background: var(--gold-soft); }
@@ -476,72 +524,69 @@
   .player .chip.stale { color: var(--faint); border-color: var(--border); }
   .player.stale { opacity: 0.55; }
   .player.stale .vote { filter: grayscale(0.4); }
-  .player .kick {
-    position: absolute; bottom: 6px; right: 6px;
-    font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;
-    border: 1px solid var(--border-strong); background: var(--bg);
-    color: var(--muted); cursor: pointer; font-family: inherit;
-  }
-  .player .kick:hover { color: var(--danger); border-color: var(--danger); }
-  /* Strip old ::after badges — chips replace them */
   .player.observer::after, .player.me::after { content: none; display: none; }
 
-  /* Vote summary */
+  /* Seat ⋯ menu for kick */
+  .player .seat-menu-wrap {
+    position: absolute; bottom: 6px; right: 6px; z-index: 5;
+  }
+  .player .seat-menu-btn {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid var(--border-strong); background: var(--bg);
+    color: var(--muted); font-size: 0.95rem; line-height: 1; cursor: pointer;
+    font-family: inherit; padding: 0;
+  }
+  .player .seat-menu-btn:hover { color: var(--text); border-color: var(--muted); }
+  .player .seat-menu {
+    position: absolute; right: 0; bottom: calc(100% + 4px);
+    min-width: 110px; padding: 6px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border-strong);
+    box-shadow: 0 8px 20px rgba(0,0,0,.4);
+  }
+  .player .seat-menu button {
+    width: 100%; text-align: left; padding: 8px 10px; border: 0;
+    background: transparent; color: var(--muted); font-family: inherit;
+    font-size: 0.8rem; cursor: pointer; border-radius: 6px;
+  }
+  .player .seat-menu button:hover { color: var(--danger); background: var(--accent-soft); }
+
+  /* Summary — mode hero, only after reveal */
   .summary {
-    margin-top: 14px; padding: 12px 14px;
+    margin-top: 14px; padding: 16px 16px 14px;
     background: var(--bg); border: 1px solid var(--border);
-    border-radius: 8px; display: flex; flex-wrap: wrap; gap: 14px 22px;
-    align-items: baseline;
+    border-radius: 10px; text-align: center;
   }
-  .summary .stat { min-width: 72px; }
-  .summary .stat .lbl {
+  .summary .mode-hero {
+    font-size: clamp(2rem, 6vw, 2.75rem); font-weight: 700;
+    font-variant-numeric: tabular-nums; color: var(--gold); line-height: 1.1;
+  }
+  .summary .mode-lbl {
     display: block; font-size: 0.68rem; color: var(--faint);
-    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px;
+    letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px;
   }
-  .summary .stat .val {
-    font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums;
-    color: var(--gold);
+  .summary .substats {
+    display: flex; flex-wrap: wrap; gap: 12px 20px; justify-content: center;
+    margin-top: 12px; color: var(--muted); font-size: 0.85rem;
+  }
+  .summary .substats .val {
+    color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums;
   }
   .summary .spread {
-    flex: 1 1 100%; font-size: 0.82rem; color: var(--muted);
+    margin-top: 10px; font-size: 0.8rem; color: var(--muted);
   }
   .summary .spread span {
-    display: inline-block; margin: 2px 6px 2px 0;
+    display: inline-block; margin: 2px 4px;
     padding: 2px 8px; border-radius: 999px;
     background: var(--surface-2); border: 1px solid var(--border);
     color: var(--text); font-variant-numeric: tabular-nums;
   }
 
-  /* Share sheet */
-  .room-code-big {
-    text-align: center; margin: 4px 0 14px;
+  /* History tucked */
+  .history {
+    border: 0; background: transparent; padding: 0;
   }
-  .room-code-big .code {
-    font-family: var(--mono); font-size: clamp(1.6rem, 5vw, 2.2rem);
-    letter-spacing: 0.28em; font-weight: 600; color: var(--gold);
-    text-transform: uppercase;
-  }
-  .room-code-big .hint {
-    display: block; margin-top: 4px; font-size: 0.75rem; color: var(--faint);
-    letter-spacing: 0.08em; text-transform: uppercase;
-  }
-  .share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-
-  /* Host bar */
-  .host-bar {
-    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
-  }
-  .host-bar .hint { font-size: 0.78rem; color: var(--muted); margin-right: auto; }
-  .toggle {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 0.85rem; color: var(--muted); cursor: pointer; user-select: none;
-  }
-  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
-
-  /* History */
   .history details {
-    border: 1px solid var(--border); border-radius: 8px;
+    border: 1px solid var(--border); border-radius: 10px;
     background: var(--surface-2); padding: 10px 12px;
   }
   .history summary {
@@ -561,38 +606,37 @@
   .history-item .hm { color: var(--muted); font-size: 0.8rem; }
   .history-empty { color: var(--faint); font-size: 0.82rem; padding: 6px 0; }
 
-  /* Sound toggle row */
-  .prefs-row {
-    display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
-    margin-top: 10px; font-size: 0.8rem; color: var(--muted);
-  }
-
-  /* Mobile sticky vote deck */
+  /* Vote deck sticky alone */
   #playCard.hand {
-    position: sticky;
-    bottom: 0;
-    z-index: 20;
-    margin-top: 8px;
-    box-shadow: 0 -8px 24px rgba(0,0,0,.35);
+    position: sticky; bottom: 0; z-index: 20;
+    margin-top: 4px;
+    box-shadow: 0 -10px 28px rgba(0,0,0,.4);
     border-color: var(--border-strong);
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
   }
+  #playCard.hand h2 { margin-bottom: 10px; }
+  #playCard .leave { margin-top: 12px; }
+
   @media (max-width: 640px) {
     body { padding: 20px 12px 28px; }
     .wrap { margin-top: 18px; }
-    .card { padding: 16px; }
+    .card, .stage-board { padding: 16px; }
     .table { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
     .poker-card {
       width: 62px; height: 86px; font-size: 1.35rem;
       border-radius: 8px; touch-action: manipulation;
     }
     .cards { gap: 10px; padding: 4px 0 2px; }
-    #playCard.hand h2 { margin-bottom: 10px; }
-    .share { flex-wrap: wrap; }
-    .share input { width: 100%; }
-    .share-actions .btn { flex: 1 1 auto; min-height: 44px; }
     .btn, .join-btn { min-height: 44px; }
-    .room-code-big .code { letter-spacing: 0.2em; }
+    #shareCard .room-code-big .code { letter-spacing: 0.16em; }
+    .pick .pic { height: 118px; }
+    .grid-names { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  }
+  @media (max-width: 480px) {
+    .custom-wife .pic-row { flex-direction: column; align-items: stretch; }
+    .custom-wife .pic-row .btn { width: 100%; }
+    .lobby-row { flex-wrap: wrap; }
+    .lobby-row input, .lobby-row .btn { width: 100%; flex: 1 1 100%; }
   }
 
   /* Lobby home screen only (html.in-lobby). In-room chrome stays put. */
@@ -715,30 +759,33 @@
         <div class="grid-names" id="takenGrid" data-testid="taken-grid"></div>
       </div>
 
-      <div class="custom-wife" data-testid="custom-wife">
-        <h3>Or create your own</h3>
-        <div class="field">
-          <label for="customName">Display name</label>
-          <input id="customName" data-testid="custom-name" type="text" maxlength="24" placeholder="Your Business Wife name" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>Picture <span style="color:var(--faint)">(optional)</span></label>
-          <div class="pic-row">
-            <button type="button" class="btn file-btn" data-testid="custom-upload-btn">Upload image
-              <input id="customFile" data-testid="custom-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
-            </button>
-            <input id="customUrl" data-testid="custom-url" type="url" placeholder="Or image URL" autocomplete="off">
-            <button type="button" class="btn" id="customUrlBtn" data-testid="custom-url-btn">Use URL</button>
-          </div>
-          <div class="custom-preview" id="customPreview" data-testid="custom-preview">
-            <span class="hint" id="customPreviewHint">No custom picture yet — pick a boardroom portrait below.</span>
-          </div>
-          <p class="custom-note">No picture? Select one of the portraits below as your avatar.</p>
-          <div class="avatar-grid" id="avatarGrid" data-testid="avatar-grid"></div>
-        </div>
-      </div>
+      <button class="join-btn" id="joinBtn" data-testid="join-btn" disabled>Enter the boardroom</button>
 
-      <button class="join-btn" id="joinBtn" data-testid="join-btn" disabled style="margin-top:16px">Enter the boardroom</button>
+      <details class="custom-wife" data-testid="custom-wife" id="customWifeDetails">
+        <summary>Add your own</summary>
+        <div class="custom-body">
+          <div class="field">
+            <label for="customName">Display name</label>
+            <input id="customName" data-testid="custom-name" type="text" maxlength="24" placeholder="Your Business Wife name" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Picture <span style="color:var(--faint)">(optional)</span></label>
+            <div class="pic-row">
+              <button type="button" class="btn file-btn" data-testid="custom-upload-btn">Upload image
+                <input id="customFile" data-testid="custom-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+              </button>
+              <input id="customUrl" data-testid="custom-url" type="url" placeholder="Or image URL" autocomplete="off">
+              <button type="button" class="btn" id="customUrlBtn" data-testid="custom-url-btn">Use URL</button>
+            </div>
+            <div class="custom-preview" id="customPreview" data-testid="custom-preview">
+              <span class="hint" id="customPreviewHint">No custom picture yet — pick a boardroom portrait below.</span>
+            </div>
+            <p class="custom-note">No picture? Select one of the portraits below as your avatar.</p>
+            <div class="avatar-grid" id="avatarGrid" data-testid="avatar-grid"></div>
+          </div>
+        </div>
+      </details>
+
       <div class="obs-row">
         <input id="obsName" data-testid="observer-name" placeholder="Your name" maxlength="24" autocomplete="off">
         <button class="btn gold" id="obsBtn" data-testid="observer-btn">Watch as observer</button>
@@ -746,40 +793,41 @@
       <div class="err" id="joinErr" data-testid="join-err"></div>
     </div>
 
-    <div id="shareCard" class="card hidden" data-testid="share-card">
-      <h2>Invite</h2>
+    <div id="shareCard" class="card invite-bar hidden" data-testid="share-card">
       <div class="room-code-big" data-testid="room-code-big">
         <span class="code" id="roomCodeBig">————</span>
         <span class="hint">room code</span>
       </div>
-      <div class="share">
-        <input id="shareUrl" data-testid="share-url" readonly>
-        <button class="btn gold" id="copyBtn" data-testid="copy-btn">Copy link</button>
-      </div>
-      <div class="share-actions">
-        <button class="btn" id="shareBtn" data-testid="share-btn" type="button">Share…</button>
-      </div>
-      <div class="host-bar hidden" id="hostBar" data-testid="host-bar">
-        <span class="hint">Host controls</span>
-        <label class="toggle" title="Prevent new players from joining">
-          <input type="checkbox" id="lockToggle" data-testid="lock-toggle">
-          Lock joining
-        </label>
+      <div class="invite-actions">
+        <input id="shareUrl" class="hidden" data-testid="share-url" readonly tabindex="-1" aria-hidden="true">
+        <button class="btn gold" id="shareBtn" data-testid="share-btn" type="button">Share</button>
+        <button class="btn" id="copyBtn" data-testid="copy-btn" type="button">Copy</button>
+        <div class="host-menu-wrap hidden" id="hostBar" data-testid="host-bar">
+          <button type="button" class="host-menu-btn" id="hostMenuBtn" data-testid="host-menu-btn" aria-haspopup="true" aria-expanded="false" title="Host controls">⋯</button>
+          <div class="host-menu hidden" id="hostMenu" data-testid="host-menu" role="menu">
+            <label class="toggle" title="Prevent new players from joining">
+              <input type="checkbox" id="lockToggle" data-testid="lock-toggle">
+              Lock joining
+            </label>
+            <label class="toggle" title="Beep and vibrate when cards are revealed">
+              <input type="checkbox" id="soundToggle" data-testid="sound-toggle">
+              Sound / haptic
+            </label>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- TABLE -->
     <div id="game" class="hidden" data-testid="game-screen">
-      <div class="card">
-        <h2>Round <span id="round">1</span><span class="badge" id="phaseBadge"></span></h2>
-        <input class="question" id="question" placeholder="Story / question for this round… (optional)">
-        <div class="btnrow">
-          <button class="btn gold" id="saveQ">Save</button>
+      <div class="stage-board" id="stageBoard">
+        <div class="stage-head" id="stageHead">
+          <div class="stage-meta">
+            <span class="round-label">Round <span id="round">1</span></span>
+            <span class="badge" id="phaseBadge"></span>
+          </div>
+          <input class="question" id="question" data-testid="question" placeholder="Story for this round…" autocomplete="off">
         </div>
-      </div>
-
-      <div class="card">
-        <h2>The Boardroom</h2>
         <div class="table" id="table" data-testid="boardroom"></div>
         <div class="summary hidden" id="voteSummary" data-testid="vote-summary"></div>
         <div class="status" id="status" data-testid="status"></div>
@@ -787,17 +835,11 @@
           <button class="btn primary" id="revealBtn" data-testid="reveal-btn">Reveal all</button>
           <button class="btn" id="nextBtn" data-testid="next-btn">Next round →</button>
         </div>
-        <div class="prefs-row">
-          <label class="toggle" title="Beep and vibrate when cards are revealed">
-            <input type="checkbox" id="soundToggle" data-testid="sound-toggle">
-            Sound / haptic on reveal
-          </label>
-        </div>
       </div>
 
-      <div class="card history" id="historyCard" data-testid="history-card">
+      <div class="history" id="historyCard" data-testid="history-card">
         <details id="historyDetails">
-          <summary>Round history <span id="historyCount"></span></summary>
+          <summary>Past rounds <span id="historyCount"></span></summary>
           <div class="history-list" id="historyList" data-testid="history-list">
             <div class="history-empty">No past rounds yet this session.</div>
           </div>
@@ -1056,6 +1098,8 @@ function enterCustomMode() {
   joinMode = "custom";
   myPick = null;
   document.querySelectorAll(".pick").forEach(x => x.classList.remove("sel"));
+  const det = $("customWifeDetails");
+  if (det) det.open = true;
 }
 
 function syncJoinBtn() {
@@ -1192,7 +1236,7 @@ $("joinRoomBtn").onclick = () => {
 $("roomCode").addEventListener("keydown", e => { if (e.key === "Enter") $("joinRoomBtn").click(); });
 $("copyBtn").onclick = async () => {
   const v = $("shareUrl").value;
-  try { await navigator.clipboard.writeText(v); $("copyBtn").textContent = "Copied"; setTimeout(() => $("copyBtn").textContent = "Copy link", 1200); }
+  try { await navigator.clipboard.writeText(v); $("copyBtn").textContent = "Copied"; setTimeout(() => $("copyBtn").textContent = "Copy", 1200); }
   catch { $("shareUrl").select(); document.execCommand("copy"); }
 };
 $("shareBtn").onclick = async () => {
@@ -1384,6 +1428,28 @@ $("lockToggle").onchange = async () => {
   t.onchange = () => setSoundEnabled(t.checked);
 })();
 
+(function initHostMenu() {
+  const btn = $("hostMenuBtn");
+  const menu = $("hostMenu");
+  if (!btn || !menu) return;
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const open = menu.classList.toggle("hidden") === false;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  };
+  document.addEventListener("click", (e) => {
+    if (menu.classList.contains("hidden")) return;
+    if (menu.contains(e.target) || btn.contains(e.target)) return;
+    menu.classList.add("hidden");
+    btn.setAttribute("aria-expanded", "false");
+  });
+})();
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".seat-menu-wrap")) return;
+  document.querySelectorAll(".seat-menu").forEach(m => m.classList.add("hidden"));
+});
+
 async function kickPlayer(targetId) {
   if (!myId || !targetId) return;
   await api("/kick", {
@@ -1447,10 +1513,10 @@ $("nextBtn").onclick = async () => {
     table.classList.remove("pulse");
     void table.offsetWidth;
     table.classList.add("pulse");
-    const qCard = $("question").closest(".card");
-    if (qCard) {
-      qCard.classList.add("round-flash");
-      setTimeout(() => qCard.classList.remove("round-flash"), 450);
+    const head = $("stageHead");
+    if (head) {
+      head.classList.add("round-flash");
+      setTimeout(() => head.classList.remove("round-flash"), 450);
     }
     await refreshState();
   } finally {
@@ -1461,18 +1527,24 @@ $("nextBtn").onclick = async () => {
     }, 450);
   }
 };
-$("saveQ").onclick = () => api("/question", {
-  method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ question: $("question").value }),
-}).then(refreshState);
+function saveQuestion() {
+  if (!roomId) return Promise.resolve();
+  return api("/question", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: $("question").value }),
+  }).then(refreshState);
+}
+$("question").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); $("question").blur(); }
+});
+$("question").addEventListener("blur", () => { saveQuestion(); });
 
 // --- Live state ---
 function formatSummary(sum) {
   if (!sum) return "";
-  const parts = [];
-  parts.push(`<div class="stat"><span class="lbl">Average</span><span class="val">${sum.average != null ? sum.average : "—"}</span></div>`);
-  parts.push(`<div class="stat"><span class="lbl">Mode</span><span class="val">${sum.mode != null ? escapeHtml(String(sum.mode)) : "—"}</span></div>`);
-  parts.push(`<div class="stat"><span class="lbl">Votes</span><span class="val">${sum.count || 0}</span></div>`);
+  const mode = sum.mode != null ? escapeHtml(String(sum.mode)) : "—";
+  const avg = sum.average != null ? sum.average : "—";
+  const count = sum.count || 0;
   const spreadBits = Object.entries(sum.spread || {})
     .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
     .map(([v, c]) => `<span>${escapeHtml(String(v))} × ${c}</span>`)
@@ -1480,8 +1552,13 @@ function formatSummary(sum) {
   const specialNote = (sum.special && sum.special.length)
     ? ` · non-numeric: ${sum.special.map(x => escapeHtml(String(x))).join(", ")}`
     : "";
-  parts.push(`<div class="spread">${spreadBits || "No votes yet"}${specialNote}</div>`);
-  return parts.join("");
+  return `<span class="mode-lbl">Mode</span>
+    <div class="mode-hero" data-testid="summary-mode">${mode}</div>
+    <div class="substats">
+      <span>Avg <span class="val">${avg}</span></span>
+      <span>Votes <span class="val">${count}</span></span>
+    </div>
+    <div class="spread">${spreadBits || "No votes yet"}${specialNote}</div>`;
 }
 
 function renderHistory(history) {
@@ -1538,6 +1615,12 @@ function render(s) {
   const hostBar = $("hostBar");
   if (hostBar) {
     hostBar.classList.toggle("hidden", !amHost);
+    if (!amHost) {
+      const hm = $("hostMenu");
+      if (hm) hm.classList.add("hidden");
+      const hb = $("hostMenuBtn");
+      if (hb) hb.setAttribute("aria-expanded", "false");
+    }
     if (amHost && document.activeElement !== $("lockToggle")) {
       $("lockToggle").checked = !!s.locked;
     }
@@ -1561,13 +1644,27 @@ function render(s) {
     if (p.role === "observer") chips.push(`<span class="chip obs" data-testid="observer-badge">OBSERVER</span>`);
     if (p.stale) chips.push(`<span class="chip stale">away</span>`);
 
-    let kickBtn = "";
+    let seatMenu = "";
     if (amHost && p.id !== myId) {
-      kickBtn = `<button type="button" class="kick" data-testid="kick-btn" data-id="${escapeAttr(p.id)}" title="Remove from boardroom">kick</button>`;
+      seatMenu = `<div class="seat-menu-wrap">
+        <button type="button" class="seat-menu-btn" data-testid="seat-menu-btn" aria-label="Seat options">⋯</button>
+        <div class="seat-menu hidden" role="menu">
+          <button type="button" class="kick" data-testid="kick-btn" data-id="${escapeAttr(p.id)}">Kick</button>
+        </div>
+      </div>`;
     }
 
-    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>${kickBtn}`;
+    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>${seatMenu}`;
     bindImgFallback(d);
+    const seatBtn = d.querySelector(".seat-menu-btn");
+    const seatPanel = d.querySelector(".seat-menu");
+    if (seatBtn && seatPanel) {
+      seatBtn.onclick = (e) => {
+        e.stopPropagation();
+        document.querySelectorAll(".seat-menu").forEach(m => { if (m !== seatPanel) m.classList.add("hidden"); });
+        seatPanel.classList.toggle("hidden");
+      };
+    }
     const kick = d.querySelector(".kick");
     if (kick) kick.onclick = (e) => { e.stopPropagation(); kickPlayer(kick.dataset.id); };
     table.appendChild(d);

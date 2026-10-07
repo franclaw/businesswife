@@ -204,7 +204,7 @@ test.describe('Planning Poker — rooms', () => {
     await createRoom(page);
     await pickWife(page, 'Coco');
     await page.locator('#question').fill('Keep on reveal');
-    await page.locator('#saveQ').click();
+    await page.locator('#question').blur();
     await expect.poll(async () => page.locator('#question').inputValue()).toBe('Keep on reveal');
     await page.locator('[data-testid="card"][data-v="5"]').click();
     await expect(page.locator('.player.me .vote')).toHaveText('🔒');
@@ -222,7 +222,7 @@ test.describe('Planning Poker — rooms', () => {
     await createRoom(page);
     await pickWife(page, 'Coco');
     await page.locator('#question').fill('Estimate the launch');
-    await page.locator('#saveQ').click();
+    await page.locator('#question').blur();
     await expect.poll(async () => page.locator('#question').inputValue()).toBe('Estimate the launch');
 
     await page.locator('[data-testid="card"][data-v="5"]').click();
@@ -239,6 +239,7 @@ test.describe('Planning Poker — rooms', () => {
   test('custom wife joins with name and stock portrait', async ({ page }) => {
     await createRoom(page);
     await expect(page.getByTestId('custom-wife')).toBeVisible();
+    await page.getByTestId('custom-wife').locator('summary').click();
     await page.getByTestId('custom-name').fill('Nova');
     await page.locator('[data-testid="avatar-pick"]').first().click();
     await expect(page.getByTestId('join-btn')).toBeEnabled();
@@ -251,17 +252,20 @@ test.describe('Planning Poker — rooms', () => {
     await createRoom(page);
     await page.locator('[data-testid="pick"][data-first="Coco"]').click();
     await expect(page.getByTestId('custom-name')).toHaveValue('Coco');
-    await expect(page.locator('[data-testid="avatar-pick"].sel')).toHaveCount(1);
-    await expect(page.getByTestId('custom-preview').locator('img')).toBeVisible();
+    await expect(page.locator('[data-testid="pick"][data-first="Coco"].sel')).toHaveCount(1);
     await expect(page.getByTestId('join-btn')).toBeEnabled();
+    // Custom panel stays collapsed for gallery picks
+    await expect(page.getByTestId('custom-wife')).not.toHaveAttribute('open');
 
-    // Selecting another card updates name + image
+    // Selecting another card updates name
     await page.locator('[data-testid="pick"][data-first="Betty"]').click();
     await expect(page.getByTestId('custom-name')).toHaveValue('Betty');
+    await expect(page.locator('[data-testid="pick"][data-first="Betty"].sel')).toHaveCount(1);
+
+    // Open Add your own to edit name after pick — detaches roster selection
+    await page.getByTestId('custom-wife').locator('summary').click();
     await expect(page.locator('[data-testid="avatar-pick"].sel')).toHaveCount(1);
     await expect(page.getByTestId('custom-preview').locator('img')).toHaveAttribute('src', /secretary/);
-
-    // Editing name after pick keeps image, detaches roster selection
     await page.getByTestId('custom-name').fill('Nova');
     await expect(page.locator('[data-testid="pick"].sel')).toHaveCount(0);
     await expect(page.locator('[data-testid="avatar-pick"].sel')).toHaveCount(1);
@@ -289,6 +293,8 @@ test.describe('Planning Poker — features 1–9', () => {
     const roomUrl = await createRoom(host);
     await pickWife(host, 'Coco');
     await expect(host.getByTestId('host-bar')).toBeVisible();
+    await host.getByTestId('host-menu-btn').click();
+    await expect(host.getByTestId('host-menu')).toBeVisible();
     await host.getByTestId('lock-toggle').check();
     await expect.poll(async () => {
       const r = await host.evaluate(async () => {
@@ -305,10 +311,15 @@ test.describe('Planning Poker — features 1–9', () => {
     await guest.getByTestId('join-btn').click();
     await expect(guest.getByTestId('join-err')).toContainText(/locked/i);
 
+    // Re-open host menu if closed
+    if (!(await host.getByTestId('host-menu').isVisible())) {
+      await host.getByTestId('host-menu-btn').click();
+    }
     await host.getByTestId('lock-toggle').uncheck();
     await guest.getByTestId('join-btn').click();
     await expect(guest.getByTestId('game-screen')).toBeVisible();
 
+    await host.locator('[data-testid="seat-menu-btn"]').click();
     await host.locator('[data-testid="kick-btn"]').click();
     await expect(host.getByTestId('boardroom')).not.toContainText('Betty');
     await expect.poll(async () => guest.getByTestId('join-screen').isVisible()).toBeTruthy();
@@ -321,12 +332,12 @@ test.describe('Planning Poker — features 1–9', () => {
     await createRoom(page);
     await pickWife(page, 'Coco');
     await page.locator('#question').fill('Ship the deck');
-    await page.locator('#saveQ').click();
+    await page.locator('#question').blur();
     await page.locator('[data-testid="card"][data-v="8"]').click();
     await page.getByTestId('reveal-btn').click();
     await expect(page.getByTestId('vote-summary')).toBeVisible();
-    await expect(page.getByTestId('vote-summary')).toContainText(/Average/i);
-    await expect(page.getByTestId('vote-summary')).toContainText('8');
+    await expect(page.getByTestId('summary-mode')).toHaveText('8');
+    await expect(page.getByTestId('vote-summary')).toContainText(/Avg/i);
     await page.getByTestId('next-btn').click();
     await expect(page.getByTestId('history-list').locator('[data-testid="history-item"]')).toHaveCount(1);
     await expect(page.getByTestId('history-list')).toContainText('Ship the deck');
@@ -338,6 +349,9 @@ test.describe('Planning Poker — features 1–9', () => {
     await expect(page.getByTestId('room-code-big')).toBeVisible();
     await expect(page.locator('#roomCodeBig')).toHaveText(/^[a-z0-9]{6}$/);
     await expect(page.getByTestId('share-btn')).toBeVisible();
+    await expect(page.getByTestId('copy-btn')).toBeVisible();
+    // Long URL stays in DOM for clipboard but is not a permanent invite field
+    await expect(page.getByTestId('share-url')).toBeHidden();
   });
 
   test('observer badge is clear and vote deck stays hidden', async ({ browser }) => {
@@ -359,6 +373,7 @@ test.describe('Planning Poker — features 1–9', () => {
   test('sound toggle persists preference', async ({ page }) => {
     await createRoom(page);
     await pickWife(page, 'Coco');
+    await page.getByTestId('host-menu-btn').click();
     const toggle = page.getByTestId('sound-toggle');
     await expect(toggle).toBeVisible();
     const initial = await toggle.isChecked();
@@ -366,6 +381,7 @@ test.describe('Planning Poker — features 1–9', () => {
     await expect(toggle).toBeChecked({ checked: !initial });
     await page.reload();
     await expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 15000 });
+    await page.getByTestId('host-menu-btn').click();
     await expect(page.getByTestId('sound-toggle')).toBeChecked({ checked: !initial });
     await leave(page);
   });
