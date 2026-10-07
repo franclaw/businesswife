@@ -403,6 +403,114 @@ test.describe('Pomodoro PWA', () => {
   });
 });
 
+test.describe('Planning Poker — saved custom wives (this device)', () => {
+  const KEY = 'sbw_custom_wives';
+
+  async function joinCustomWife(page, name) {
+    await createRoom(page);
+    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-name').fill(name);
+    await page.locator('[data-testid="avatar-pick"]').first().click();
+    await expect(page.getByTestId('join-btn')).toBeEnabled();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+  }
+
+  async function openJoinScreen(page) {
+    await page.goto(POKER);
+    await page.getByTestId('create-btn').click();
+    await expect(page.getByTestId('join-screen')).toBeVisible();
+  }
+
+  test('a custom wife is remembered and offered again next visit', async ({ page }) => {
+    await joinCustomWife(page, 'Nova');
+
+    const stored = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '[]'), KEY);
+    expect(stored).toHaveLength(1);
+    expect(stored[0].name).toBe('Nova');
+    expect(stored[0].icon).toBeTruthy();
+
+    // A later visit to the site offers her without re-entering anything.
+    await openJoinScreen(page);
+    const saved = page.getByTestId('saved-pick');
+    await expect(saved).toHaveCount(1);
+    await expect(saved.first()).toContainText('Nova');
+    // Stock portraits render from the small thumbnail, never the multi-MB original.
+    await expect(saved.first().locator('img')).toHaveAttribute('src', /\/img\/thumb\//);
+  });
+
+  test('one tap on a saved wife joins the room', async ({ page }) => {
+    await joinCustomWife(page, 'Nova');
+    await openJoinScreen(page);
+
+    await page.getByTestId('saved-pick').first().click();
+    await expect(page.getByTestId('custom-name')).toHaveValue('Nova');
+    await expect(page.getByTestId('join-btn')).toBeEnabled();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.getByTestId('boardroom')).toContainText('Nova');
+
+    // Re-joining refreshes the entry instead of stacking duplicates.
+    await openJoinScreen(page);
+    await expect(page.getByTestId('saved-pick')).toHaveCount(1);
+  });
+
+  test('a saved wife can be removed', async ({ page }) => {
+    await joinCustomWife(page, 'Nova');
+    await openJoinScreen(page);
+
+    await expect(page.getByTestId('saved-pick')).toHaveCount(1);
+    await page.getByTestId('saved-remove').first().click();
+    await expect(page.getByTestId('saved-pick')).toHaveCount(0);
+    await expect(page.getByTestId('saved-wrap')).toBeHidden();
+    const stored = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '[]'), KEY);
+    expect(stored).toHaveLength(0);
+  });
+
+  test('at most ten are kept, oldest first out', async ({ page }) => {
+    await page.goto(POKER);
+    // Seed eleven entries, oldest first, then let the app read them back.
+    await page.evaluate(([k, n]) => {
+      localStorage.setItem(k, JSON.stringify(
+        Array.from({ length: 11 }, (_, i) => ({ name: 'W' + i, icon: '/img/hr.png', savedAt: i }))
+      ));
+    }, [KEY, 11]);
+    await openJoinScreen(page);
+    await expect(page.getByTestId('saved-pick')).toHaveCount(10);
+    // The least recent (W0) is the one that is not shown.
+    await expect(page.getByTestId('saved-pick').filter({ hasText: 'W0' })).toHaveCount(0);
+    await expect(page.getByTestId('saved-pick').filter({ hasText: 'W10' })).toHaveCount(1);
+  });
+
+  test('corrupt storage does not break the join screen', async ({ page }) => {
+    await page.goto(POKER);
+    await page.evaluate((k) => localStorage.setItem(k, '{not json'), KEY);
+    await openJoinScreen(page);
+    await expect(page.getByTestId('join-screen')).toBeVisible();
+    await expect(page.getByTestId('saved-wrap')).toBeHidden();
+    // And the normal flow still works afterwards.
+    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-name').fill('Nova');
+    await page.locator('[data-testid="avatar-pick"]').first().click();
+    await expect(page.getByTestId('join-btn')).toBeEnabled();
+  });
+
+  test('saved wives are device-local', async ({ browser }) => {
+    const a = await browser.newContext();
+    const pa = await a.newPage();
+    await joinCustomWife(pa, 'Nova');
+
+    const b = await browser.newContext();
+    const pb = await b.newPage();
+    await openJoinScreen(pb);
+    await expect(pb.getByTestId('saved-wrap')).toBeHidden();
+    await expect(pb.getByTestId('saved-pick')).toHaveCount(0);
+
+    await a.close();
+    await b.close();
+  });
+});
+
 test.describe('Poker PWA', () => {
   test('manifest and service worker are served', async ({ request }) => {
     const man = await request.get('/planning-poker/manifest.webmanifest');

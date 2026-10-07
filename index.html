@@ -333,6 +333,7 @@
     text-align: left;
   }
   .pick {
+    position: relative;
     display: flex; flex-direction: column; align-items: stretch; gap: 0;
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 10px; padding: 0; cursor: pointer; color: var(--text);
@@ -342,6 +343,19 @@
   .pick:hover { border-color: var(--border-strong); background: #241c20; transform: translateY(-2px); }
   .pick.sel { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
   .pick.taken { opacity: .4; filter: grayscale(.8); cursor: not-allowed; transform: none; }
+  /* Remove affordance on locally saved custom wives */
+  .pick .rm {
+    position: absolute; top: 4px; right: 4px; z-index: 2;
+    width: 22px; height: 22px; line-height: 20px; border-radius: 50%;
+    font-size: 0.85rem; color: var(--muted);
+    background: rgba(15, 12, 14, 0.78); border: 1px solid var(--border-strong);
+    cursor: pointer; opacity: 0; transition: opacity .12s, color .12s;
+  }
+  .pick:hover .rm, .pick:focus-within .rm { opacity: 1; }
+  .pick .rm:hover { color: var(--accent); border-color: var(--accent); }
+  @media (hover: none) { .pick .rm { opacity: .85; } }
+  .saved-h { font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+  .saved-note { font-size: 0.72rem; color: var(--faint); margin-top: 8px; }
   .pick.taken:hover { border-color: var(--border); background: var(--surface-2); }
   .pick .pic {
     width: 100%; height: 132px; object-fit: cover; object-position: top;
@@ -765,6 +779,11 @@
     <!-- JOIN -->
     <div id="join" class="card hidden" data-testid="join-screen">
       <h2>Choose your Business Wife</h2>
+      <div id="savedWrap" class="hidden" data-testid="saved-wrap">
+        <h2 class="saved-h">Yours</h2>
+        <div class="grid-names" id="savedGrid" data-testid="saved-grid"></div>
+        <p class="saved-note">Saved on this device. Tap to reuse, × to remove.</p>
+      </div>
       <div class="grid-names" id="nameGrid"></div>
       <div id="takenWrap" class="hidden" data-testid="taken-wrap">
         <h2 class="taken-h">Already in the boardroom</h2>
@@ -1060,6 +1079,124 @@ ROSTER.forEach(r => {
   $("nameGrid").appendChild(b);
 });
 
+// --- Saved custom wives (this device only) ---
+// A custom wife is rebuilt on every visit otherwise, which hurts most when the
+// picture was an upload: re-picking the file each time is the whole friction.
+const CUSTOM_WIVES_KEY = "sbw_custom_wives";
+const CUSTOM_WIVES_MAX = 10;
+const savedBtns = {};
+
+function loadCustomWives() {
+  try {
+    const list = JSON.parse(localStorage.getItem(CUSTOM_WIVES_KEY) || "[]");
+    return Array.isArray(list) ? list.filter(w => w && w.name && w.icon) : [];
+  } catch { return []; }
+}
+
+// Newest first, so the cap always drops the least recently used wife.
+// Sorted by savedAt rather than array order: storage can be written by hand,
+// by an older build, or by a merge, and the cap should still mean the same thing.
+function trimByRecency(list) {
+  return list
+    .slice()
+    .sort((a, b) => (Number(b && b.savedAt) || 0) - (Number(a && a.savedAt) || 0))
+    .slice(0, CUSTOM_WIVES_MAX);
+}
+
+// Uploads arrive as ~180KB data URLs, so the 5MB origin quota is reachable.
+// Trim the oldest entries and retry instead of letting the join fail.
+function saveCustomWives(list) {
+  let items = trimByRecency(list);
+  while (items.length) {
+    try {
+      localStorage.setItem(CUSTOM_WIVES_KEY, JSON.stringify(items));
+      return true;
+    } catch {
+      items = items.slice(0, -1);
+    }
+  }
+  try { localStorage.removeItem(CUSTOM_WIVES_KEY); } catch {}
+  return false;
+}
+
+function rememberCustomWife(name, icon) {
+  if (!name || !icon) return false;
+  const key = String(name).toLowerCase();
+  const rest = loadCustomWives().filter(w => String(w.name).toLowerCase() !== key);
+  const ok = saveCustomWives([{ name: String(name), icon, savedAt: Date.now() }, ...rest]);
+  renderCustomWives();
+  return ok;
+}
+
+function forgetCustomWife(name) {
+  const key = String(name).toLowerCase();
+  saveCustomWives(loadCustomWives().filter(w => String(w.name).toLowerCase() !== key));
+  if (joinMode === "custom" && !myId && myPick && String(myPick.name).toLowerCase() === key) {
+    myPick = null;
+    clearCustomSelection(true);
+    syncJoinBtn();
+  }
+  renderCustomWives();
+}
+
+function selectCustomWife(w) {
+  joinMode = "custom";
+  myPick = { name: w.name, icon: w.icon };
+  document.querySelectorAll(".pick").forEach(x => x.classList.remove("sel"));
+  const b = savedBtns[String(w.name).toLowerCase()];
+  if (b) b.classList.add("sel");
+  $("customName").value = w.name;
+  customIcon = w.icon;
+  customAvatarPath = null;
+  $("customFile").value = "";
+  $("customUrl").value = "";
+  document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
+  setCustomPreview(String(w.icon).startsWith("/img/") ? thumbPath(w.icon) : w.icon, w.name);
+  syncJoinBtn();
+}
+
+function renderCustomWives() {
+  const wrap = $("savedWrap");
+  const grid = $("savedGrid");
+  if (!wrap || !grid) return;
+  // Display cap: storage may hold more than we show (older build, smaller cap).
+  const list = trimByRecency(loadCustomWives());
+  grid.innerHTML = "";
+  Object.keys(savedBtns).forEach(k => { delete savedBtns[k]; });
+  wrap.classList.toggle("hidden", !list.length);
+  for (const w of list) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "pick";
+    b.dataset.testid = "saved-pick";
+    b.dataset.name = w.name;
+    b.title = w.name;
+    const src = String(w.icon).startsWith("/img/") ? thumbPath(w.icon) : w.icon;
+    b.innerHTML = `<img class="pic" src="${escapeAttr(src)}" alt="" data-fb="\ud83d\ud644"><span class="who">${escapeHtml(w.name)}</span>`;
+    b.onclick = () => {
+      if (b.classList.contains("taken")) return;
+      selectCustomWife(w);
+    };
+    const x = document.createElement("span");
+    x.className = "rm";
+    x.dataset.testid = "saved-remove";
+    x.setAttribute("role", "button");
+    x.setAttribute("aria-label", "Remove " + w.name);
+    x.textContent = "\u00d7";
+    x.onclick = (e) => { e.stopPropagation(); forgetCustomWife(w.name); };
+    b.appendChild(x);
+    savedBtns[String(w.name).toLowerCase()] = b;
+    grid.appendChild(b);
+  }
+  bindImgFallback(grid);
+  if (joinMode === "custom" && myPick) {
+    const b = savedBtns[String(myPick.name || "").toLowerCase()];
+    if (b) b.classList.add("sel");
+  }
+}
+
+renderCustomWives();
+
 (function paintAvatarGrid() {
   const grid = $("avatarGrid");
   if (!grid) return;
@@ -1232,6 +1369,12 @@ function updateTaken(names) {
       $("nameGrid").appendChild(b);
     }
   });
+  // Locally saved custom wives can be taken as well.
+  for (const [key, b] of Object.entries(savedBtns)) {
+    const isTaken = taken.has(key);
+    b.classList.toggle("taken", isTaken);
+    b.dataset.testid = isTaken ? "pick-taken" : "saved-pick";
+  }
   $("takenWrap").classList.toggle("hidden", !any);
 }
 
@@ -1383,6 +1526,8 @@ $("joinBtn").onclick = async () => {
   const { id } = await res.json();
   myId = id;
   myPick = payload;
+  // Keep a custom wife on this device so she is offered again next visit.
+  if (joinMode === "custom") rememberCustomWife(payload.name, payload.icon);
   myMeta = { name: payload.name, icon: payload.icon, role: "player" };
   saveSession(roomId, { playerId: id, name: payload.name, icon: payload.icon, role: "player" });
   show("game");
