@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Business Wife hub — planning poker + pomodoro
-// Zero-dependency Node: rooms + static UI + in-memory state + SSE.
+// Business Wife hub — planning poker + pomodoro + poll
+// Zero-dependency Node: rooms + polls + static UI + in-memory state + SSE.
 
 const http = require('http');
 const fs = require('fs');
@@ -12,6 +12,7 @@ const ROOT = __dirname;
 const HUB = path.join(ROOT, 'hub.html');
 const POKER_INDEX = path.join(ROOT, 'index.html');
 const POMODORO_DIR = path.join(ROOT, 'pomodoro');
+const POLL_DIR = path.join(ROOT, 'poll');
 const POKER_PWA_DIR = path.join(ROOT, 'planning-poker');
 const PUBLIC = path.join(ROOT, 'public');
 const ROOM_RE = /^[a-z0-9]{6}$/;
@@ -20,6 +21,16 @@ const STALE_MS = 45_000;
 const IDLE_REMOVE_MS = 90_000;
 
 const rooms = new Map(); // id -> room
+const polls = new Map(); // id -> poll
+
+const POLL_QUESTION_MAX = 200;
+const POLL_OPTION_MAX = 80;
+const POLL_MIN_OPTIONS = 2;
+const POLL_MAX_OPTIONS = 8;
+const POLL_VOTER_MAX = 64;
+const POLL_SWEEP_MS = 60_000;
+const POLL_TTL_MS = 6 * 3_600_000;
+const POLL_EMPTY_TTL_MS = 30 * 60_000;
 
 function newRoomId() {
   for (let n = 0; n < 20; n++) {
@@ -48,6 +59,81 @@ function makeRoom(id) {
 function now() {
   return Date.now();
 }
+
+// ---------- Polls ----------
+function newPollId() {
+  for (let n = 0; n < 20; n++) {
+    let id = '';
+    const buf = crypto.randomBytes(6);
+    for (let i = 0; i < 6; i++) id += ID_CHARS[buf[i] % ID_CHARS.length];
+    if (!polls.has(id)) return id;
+  }
+  return crypto.randomBytes(4).toString('hex').slice(0, 6);
+}
+
+function makePoll(question, options) {
+  return {
+    id: null,
+    question,
+    options: options.map((label, i) => ({ id: 'o' + (i + 1), label })),
+    votes: new Map(), // voterId -> optionId
+    creatorId: null,
+    closed: false,
+    createdAt: now(),
+    sse: new Set(),
+  };
+}
+
+function pollState(poll) {
+  const counts = new Map(poll.options.map(o => [o.id, 0]));
+  for (const optionId of poll.votes.values()) {
+    if (counts.has(optionId)) counts.set(optionId, counts.get(optionId) + 1);
+  }
+  return {
+    id: poll.id,
+    question: poll.question,
+    closed: poll.closed,
+    totalVotes: poll.votes.size,
+    options: poll.options.map(o => ({ id: o.id, label: o.label, count: counts.get(o.id) || 0 })),
+  };
+}
+
+function broadcastPoll(poll) {
+  const data = `data: ${JSON.stringify(pollState(poll))}\n\n`;
+  for (const res of poll.sse) {
+    try { res.write(data); } catch { poll.sse.delete(res); }
+  }
+}
+
+function validVoterId(v) {
+  return typeof v === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(v);
+}
+
+function parsePollCreate(body) {
+  const question = String(body?.question ?? '').trim().slice(0, POLL_QUESTION_MAX);
+  if (!question) return { error: 'question required' };
+  const raw = Array.isArray(body?.options) ? body.options : [];
+  const options = raw.map(o => String(o ?? '').trim().slice(0, POLL_OPTION_MAX)).filter(Boolean);
+  if (options.length < POLL_MIN_OPTIONS) return { error: `at least ${POLL_MIN_OPTIONS} options required` };
+  if (options.length > POLL_MAX_OPTIONS) return { error: `at most ${POLL_MAX_OPTIONS} options` };
+  const seen = new Set();
+  for (const o of options) {
+    const key = o.toLowerCase();
+    if (seen.has(key)) return { error: 'duplicate options' };
+    seen.add(key);
+  }
+  return { question, options };
+}
+
+// Poll sweeper — retire stale polls so memory doesn't creep
+setInterval(() => {
+  const t = now();
+  for (const [id, poll] of polls) {
+    const idle = t - poll.createdAt;
+    const empty = !poll.votes.size && !poll.sse.size;
+    if (idle > POLL_TTL_MS || (empty && idle > POLL_EMPTY_TTL_MS)) polls.delete(id);
+  }
+}, POLL_SWEEP_MS).unref();
 
 function isNumericVote(v) {
   return v != null && /^\d+$/.test(String(v));
@@ -163,6 +249,11 @@ setInterval(() => {
   for (const room of rooms.values()) {
     for (const res of room.sse) {
       try { res.write(': ping\n\n'); } catch { room.sse.delete(res); }
+    }
+  }
+  for (const poll of polls.values()) {
+    for (const res of poll.sse) {
+      try { res.write(': ping\n\n'); } catch { poll.sse.delete(res); }
     }
   }
 }, 25000);
@@ -343,6 +434,85 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && pathname.startsWith('/pomodoro/icons/')) {
     return serveUnder(res, path.join(POMODORO_DIR, 'icons'), pathname.slice('/pomodoro/icons/'.length));
+  }
+
+  // --- Poll ---
+  if (req.method === 'GET' && (
+    pathname === '/poll' || pathname === '/poll/' ||
+    pathname === '/poll/index.html' ||
+    /^\/poll\/[a-z0-9]{6}\/?$/.test(pathname)
+  )) {
+    return serveHtml(res, path.join(POLL_DIR, 'index.html'));
+  }
+  if (req.method === 'GET' && pathname === '/poll/manifest.webmanifest') {
+    return sendFile(res, path.join(POLL_DIR, 'manifest.webmanifest'), 'application/manifest+json; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/poll/sw.js') {
+    return sendFile(res, path.join(POLL_DIR, 'sw.js'), 'application/javascript; charset=utf-8', 'no-cache');
+  }
+  if (req.method === 'GET' && pathname.startsWith('/poll/icons/')) {
+    return serveUnder(res, path.join(POLL_DIR, 'icons'), pathname.slice('/poll/icons/'.length));
+  }
+
+  // --- Poll API ---
+  try {
+    if (req.method === 'POST' && pathname === '/poll/api/polls') {
+      const body = await readBody(req);
+      const parsed = parsePollCreate(body);
+      if (parsed.error) return json(res, 400, { error: parsed.error });
+      const id = newPollId();
+      const poll = makePoll(parsed.question, parsed.options);
+      poll.id = id;
+      if (validVoterId(body && body.creatorId)) poll.creatorId = body.creatorId;
+      polls.set(id, poll);
+      return json(res, 200, { id });
+    }
+
+    const pollM = pathname.match(/^\/poll\/api\/polls\/([a-z0-9]{6})(\/.*)?$/);
+    if (pollM) {
+      const poll = polls.get(pollM[1]);
+      const sub = pollM[2] || '';
+      if (!poll) return json(res, 404, { error: 'poll not found' });
+
+      if (req.method === 'GET' && !sub) {
+        return json(res, 200, pollState(poll));
+      }
+
+      if (req.method === 'GET' && sub === '/events') {
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'X-Accel-Buffering': 'no',
+          'Access-Control-Allow-Origin': '*',
+        });
+        poll.sse.add(res);
+        res.write(`data: ${JSON.stringify(pollState(poll))}\n\n`);
+        req.on('close', () => poll.sse.delete(res));
+        return;
+      }
+
+      if (req.method === 'POST' && sub === '/vote') {
+        const { voterId, optionId } = await readBody(req);
+        if (!validVoterId(voterId)) return json(res, 400, { error: 'bad voter' });
+        if (poll.closed) return json(res, 409, { error: 'poll closed' });
+        if (!poll.options.some(o => o.id === optionId)) return json(res, 400, { error: 'bad option' });
+        poll.votes.set(voterId, optionId);
+        if (!poll.creatorId) poll.creatorId = voterId;
+        broadcastPoll(poll);
+        return json(res, 200, { ok: true });
+      }
+
+      if (req.method === 'POST' && sub === '/close') {
+        const { voterId } = await readBody(req);
+        if (!poll.creatorId || voterId !== poll.creatorId) return json(res, 403, { error: 'creator only' });
+        poll.closed = true;
+        broadcastPoll(poll);
+        return json(res, 200, { ok: true, closed: true });
+      }
+    }
+  } catch {
+    return json(res, 400, { error: 'bad request' });
   }
 
   // --- Shared static ---

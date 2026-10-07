@@ -1,0 +1,31 @@
+{
+  "name": "Poll — Business Wife",
+  "short_name": "Poll",
+  "description": "Live polls. She counts the room before you finish the question.",
+  "start_url": "/poll/",
+  "scope": "/poll/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0c0e",
+  "theme_color": "#0f0c0e",
+  "icons": [
+    {
+      "src": "/poll/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/poll/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/poll/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
