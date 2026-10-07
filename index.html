@@ -233,6 +233,15 @@
     color: var(--text); word-break: break-word;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
+  .player .sub {
+    display: block;
+    font-size: 0.68rem;
+    line-height: 1.25;
+    margin-top: 2px;
+    color: var(--muted);
+    word-break: break-word;
+  }
+  }
   .player .vote {
     margin: auto 0 0; width: 100%; font-size: 1.2rem; min-height: 40px;
     display: flex; align-items: center; justify-content: center;
@@ -333,6 +342,7 @@
     text-align: left;
   }
   .pick {
+    position: relative;
     display: flex; flex-direction: column; align-items: stretch; gap: 0;
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 10px; padding: 0; cursor: pointer; color: var(--text);
@@ -342,6 +352,19 @@
   .pick:hover { border-color: var(--border-strong); background: #241c20; transform: translateY(-2px); }
   .pick.sel { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
   .pick.taken { opacity: .4; filter: grayscale(.8); cursor: not-allowed; transform: none; }
+  /* Remove affordance on locally saved custom wives */
+  .pick .rm {
+    position: absolute; top: 4px; right: 4px; z-index: 2;
+    width: 22px; height: 22px; line-height: 20px; border-radius: 50%;
+    font-size: 0.85rem; color: var(--muted);
+    background: rgba(15, 12, 14, 0.78); border: 1px solid var(--border-strong);
+    cursor: pointer; opacity: 0; transition: opacity .12s, color .12s;
+  }
+  .pick:hover .rm, .pick:focus-within .rm { opacity: 1; }
+  .pick .rm:hover { color: var(--accent); border-color: var(--accent); }
+  @media (hover: none) { .pick .rm { opacity: .85; } }
+  .saved-h { font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+  .saved-note { font-size: 0.72rem; color: var(--faint); margin-top: 8px; }
   .pick.taken:hover { border-color: var(--border); background: var(--surface-2); }
   .pick .pic {
     width: 100%; height: 132px; object-fit: cover; object-position: top;
@@ -765,6 +788,11 @@
     <!-- JOIN -->
     <div id="join" class="card hidden" data-testid="join-screen">
       <h2>Choose your Business Wife</h2>
+      <div id="savedWrap" class="hidden" data-testid="saved-wrap">
+        <h2 class="saved-h">Yours</h2>
+        <div class="grid-names" id="savedGrid" data-testid="saved-grid"></div>
+        <p class="saved-note">Saved on this device. Tap to reuse, × to remove.</p>
+      </div>
       <div class="grid-names" id="nameGrid"></div>
       <div id="takenWrap" class="hidden" data-testid="taken-wrap">
         <h2 class="taken-h">Already in the boardroom</h2>
@@ -779,6 +807,10 @@
           <div class="field">
             <label for="customName">Display name</label>
             <input id="customName" data-testid="custom-name" type="text" maxlength="24" placeholder="Your Business Wife name" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="customSubtitle">Subtitle <span style="color:var(--faint)">(optional)</span></label>
+            <input id="customSubtitle" data-testid="custom-subtitle" type="text" maxlength="40" placeholder="Closes deals before lunch" autocomplete="off">
           </div>
           <div class="field">
             <label>Picture <span style="color:var(--faint)">(optional)</span></label>
@@ -1060,6 +1092,129 @@ ROSTER.forEach(r => {
   $("nameGrid").appendChild(b);
 });
 
+// --- Saved custom wives (this device only) ---
+// A custom wife is rebuilt on every visit otherwise, which hurts most when the
+// picture was an upload: re-picking the file each time is the whole friction.
+const CUSTOM_WIVES_KEY = "sbw_custom_wives";
+const CUSTOM_WIVES_MAX = 10;
+const savedBtns = {};
+
+function loadCustomWives() {
+  try {
+    const list = JSON.parse(localStorage.getItem(CUSTOM_WIVES_KEY) || "[]");
+    return Array.isArray(list) ? list.filter(w => w && w.name && w.icon) : [];
+  } catch { return []; }
+}
+
+// Newest first, so the cap always drops the least recently used wife.
+// Sorted by savedAt rather than array order: storage can be written by hand,
+// by an older build, or by a merge, and the cap should still mean the same thing.
+function trimByRecency(list) {
+  return list
+    .slice()
+    .sort((a, b) => (Number(b && b.savedAt) || 0) - (Number(a && a.savedAt) || 0))
+    .slice(0, CUSTOM_WIVES_MAX);
+}
+
+// Uploads arrive as ~180KB data URLs, so the 5MB origin quota is reachable.
+// Trim the oldest entries and retry instead of letting the join fail.
+function saveCustomWives(list) {
+  let items = trimByRecency(list);
+  while (items.length) {
+    try {
+      localStorage.setItem(CUSTOM_WIVES_KEY, JSON.stringify(items));
+      return true;
+    } catch {
+      items = items.slice(0, -1);
+    }
+  }
+  try { localStorage.removeItem(CUSTOM_WIVES_KEY); } catch {}
+  return false;
+}
+
+function rememberCustomWife(name, icon, subtitle) {
+  if (!name || !icon) return false;
+  const key = String(name).toLowerCase();
+  const rest = loadCustomWives().filter(w => String(w.name).toLowerCase() !== key);
+  const entry = { name: String(name), icon, savedAt: Date.now() };
+  const sub = String(subtitle || "").replace(/\s+/g, " ").trim();
+  if (sub) entry.subtitle = sub.slice(0, 40);
+  const ok = saveCustomWives([entry, ...rest]);
+  renderCustomWives();
+  return ok;
+}
+
+function forgetCustomWife(name) {
+  const key = String(name).toLowerCase();
+  saveCustomWives(loadCustomWives().filter(w => String(w.name).toLowerCase() !== key));
+  if (joinMode === "custom" && !myId && myPick && String(myPick.name).toLowerCase() === key) {
+    myPick = null;
+    clearCustomSelection(true);
+    syncJoinBtn();
+  }
+  renderCustomWives();
+}
+
+function selectCustomWife(w) {
+  joinMode = "custom";
+  myPick = { name: w.name, icon: w.icon };
+  document.querySelectorAll(".pick").forEach(x => x.classList.remove("sel"));
+  const b = savedBtns[String(w.name).toLowerCase()];
+  if (b) b.classList.add("sel");
+  $("customName").value = w.name;
+  $("customSubtitle").value = w.subtitle || "";
+  customIcon = w.icon;
+  customAvatarPath = null;
+  $("customFile").value = "";
+  $("customUrl").value = "";
+  document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
+  setCustomPreview(String(w.icon).startsWith("/img/") ? thumbPath(w.icon) : w.icon, w.name);
+  syncJoinBtn();
+}
+
+function renderCustomWives() {
+  const wrap = $("savedWrap");
+  const grid = $("savedGrid");
+  if (!wrap || !grid) return;
+  // Display cap: storage may hold more than we show (older build, smaller cap).
+  const list = trimByRecency(loadCustomWives());
+  grid.innerHTML = "";
+  Object.keys(savedBtns).forEach(k => { delete savedBtns[k]; });
+  wrap.classList.toggle("hidden", !list.length);
+  for (const w of list) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "pick";
+    b.dataset.testid = "saved-pick";
+    b.dataset.name = w.name;
+    b.title = w.name;
+    const src = String(w.icon).startsWith("/img/") ? thumbPath(w.icon) : w.icon;
+    const sub = w.subtitle ? ` <span class="ttl">${escapeHtml(w.subtitle)}</span>` : "";
+    b.innerHTML = `<img class="pic" src="${escapeAttr(src)}" alt="" data-fb="\ud83d\ud644"><span class="who">${escapeHtml(w.name)}${sub}</span>`;
+    b.onclick = () => {
+      if (b.classList.contains("taken")) return;
+      selectCustomWife(w);
+    };
+    const x = document.createElement("span");
+    x.className = "rm";
+    x.dataset.testid = "saved-remove";
+    x.setAttribute("role", "button");
+    x.setAttribute("aria-label", "Remove " + w.name);
+    x.textContent = "\u00d7";
+    x.onclick = (e) => { e.stopPropagation(); forgetCustomWife(w.name); };
+    b.appendChild(x);
+    savedBtns[String(w.name).toLowerCase()] = b;
+    grid.appendChild(b);
+  }
+  bindImgFallback(grid);
+  if (joinMode === "custom" && myPick) {
+    const b = savedBtns[String(myPick.name || "").toLowerCase()];
+    if (b) b.classList.add("sel");
+  }
+}
+
+renderCustomWives();
+
 (function paintAvatarGrid() {
   const grid = $("avatarGrid");
   if (!grid) return;
@@ -1099,7 +1254,10 @@ function setCustomPreview(src, hint) {
 function clearCustomSelection(clearName) {
   customIcon = null;
   customAvatarPath = null;
-  if (clearName) $("customName").value = "";
+  if (clearName) {
+    $("customName").value = "";
+    $("customSubtitle").value = "";
+  }
   $("customFile").value = "";
   $("customUrl").value = "";
   document.querySelectorAll(".avatar-pick").forEach(x => x.classList.remove("sel"));
@@ -1232,6 +1390,12 @@ function updateTaken(names) {
       $("nameGrid").appendChild(b);
     }
   });
+  // Locally saved custom wives can be taken as well.
+  for (const [key, b] of Object.entries(savedBtns)) {
+    const isTaken = taken.has(key);
+    b.classList.toggle("taken", isTaken);
+    b.dataset.testid = isTaken ? "pick-taken" : "saved-pick";
+  }
   $("takenWrap").classList.toggle("hidden", !any);
 }
 
@@ -1293,6 +1457,7 @@ async function tryReclaim(id) {
     if (sess.name) body.name = sess.name;
     if (sess.icon) body.icon = sess.icon;
     if (sess.role) body.role = sess.role;
+    if (sess.subtitle) body.subtitle = sess.subtitle;
   }
   const res = await api("/join", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -1304,7 +1469,7 @@ async function tryReclaim(id) {
     if (st && st.players.some(p => p.id === reclaimId)) {
       myId = reclaimId;
       myMeta = sess;
-      saveSession(id, { playerId: myId, name: (sess && sess.name) || "", icon: (sess && sess.icon) || "", role: (sess && sess.role) || "player" });
+      saveSession(id, { playerId: myId, name: (sess && sess.name) || "", icon: (sess && sess.icon) || "", role: (sess && sess.role) || "player", subtitle: (sess && sess.subtitle) || "" });
       return true;
     }
     clearSession(id);
@@ -1319,6 +1484,7 @@ async function tryReclaim(id) {
     name: (sess && sess.name) || (myMeta && myMeta.name) || "",
     icon: (sess && sess.icon) || (myMeta && myMeta.icon) || "",
     role: (sess && sess.role) || (myMeta && myMeta.role) || "player",
+    subtitle: (sess && sess.subtitle) || (myMeta && myMeta.subtitle) || "",
   });
   return true;
 }
@@ -1354,12 +1520,13 @@ $("joinBtn").onclick = async () => {
     payload = { name: myPick.name, icon: myPick.icon };
   } else if (joinMode === "custom") {
     const name = ($("customName").value || "").trim().slice(0, 24);
+    const subtitle = ($("customSubtitle").value || "").trim().slice(0, 40);
     const icon = customIcon || customAvatarPath;
     if (!name || !icon) {
       $("joinErr").textContent = "Custom wife needs a name and a picture (upload, URL, or boardroom portrait).";
       return;
     }
-    payload = { name, icon };
+    payload = { name, icon, subtitle };
   } else {
     $("joinErr").textContent = "Pick a Business Wife or create your own.";
     return;
@@ -1383,8 +1550,10 @@ $("joinBtn").onclick = async () => {
   const { id } = await res.json();
   myId = id;
   myPick = payload;
-  myMeta = { name: payload.name, icon: payload.icon, role: "player" };
-  saveSession(roomId, { playerId: id, name: payload.name, icon: payload.icon, role: "player" });
+  // Keep a custom wife on this device so she is offered again next visit.
+  if (joinMode === "custom") rememberCustomWife(payload.name, payload.icon, payload.subtitle);
+  myMeta = { name: payload.name, icon: payload.icon, role: "player", subtitle: payload.subtitle || "" };
+  saveSession(roomId, { playerId: id, name: payload.name, icon: payload.icon, role: "player", subtitle: payload.subtitle || "" });
   show("game");
   setShare();
   startHeartbeat();
@@ -1668,7 +1837,10 @@ function render(s) {
 
     // Names are clamped to two lines, so carry the full label as a tooltip
     // (hover on desktop, long-press on Android) instead of losing it.
-    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm" title="${escapeAttr(playerLabel(p))}">${escapeHtml(playerLabel(p))}</span><div class="vote">${voteText}</div>${seatMenu}`;
+    const subHtml = p.subtitle
+      ? `<span class="sub" data-testid="seat-subtitle">${escapeHtml(p.subtitle)}</span>`
+      : "";
+    d.innerHTML = `<div class="badges">${chips.join("")}</div>${playerAvatar(p, "pic")}<span class="nm" title="${escapeAttr(playerLabel(p))}">${escapeHtml(playerLabel(p))}</span>${subHtml}<div class="vote">${voteText}</div>${seatMenu}`;
     bindImgFallback(d);
     const seatBtn = d.querySelector(".seat-menu-btn");
     const seatPanel = d.querySelector(".seat-menu");
