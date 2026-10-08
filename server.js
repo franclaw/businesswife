@@ -13,6 +13,7 @@ const HUB = path.join(ROOT, 'hub.html');
 const POKER_INDEX = path.join(ROOT, 'index.html');
 const POMODORO_DIR = path.join(ROOT, 'pomodoro');
 const POLL_DIR = path.join(ROOT, 'poll');
+const DATES_DIR = path.join(ROOT, 'dates');
 const POKER_PWA_DIR = path.join(ROOT, 'planning-poker');
 const PUBLIC = path.join(ROOT, 'public');
 const ROOM_RE = /^[a-z0-9]{6}$/;
@@ -29,6 +30,7 @@ function cleanSubtitle(value) {
 
 const rooms = new Map(); // id -> room
 const polls = new Map(); // id -> poll
+const dates = new Map(); // id -> date pick
 
 const POLL_QUESTION_MAX = 200;
 const POLL_OPTION_MAX = 80;
@@ -38,6 +40,22 @@ const POLL_VOTER_MAX = 64;
 const POLL_SWEEP_MS = 60_000;
 const POLL_TTL_MS = 6 * 3_600_000;
 const POLL_EMPTY_TTL_MS = 30 * 60_000;
+
+const DATE_TITLE_MAX = 80;
+const DATE_MAX_DAYS = 14;
+const DATE_MAX_AHEAD_DAYS = 90;
+const DATE_VOTER_MAX = 64;
+const DATE_SWEEP_MS = 60_000;
+const DATE_TTL_MS = 6 * 3_600_000;
+const DATE_EMPTY_TTL_MS = 30 * 60_000;
+const DATE_NAME_MAX = 24;
+const DATE_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Coarse by design: a phone grid cannot hold day x block x precise hour.
+const DATE_BLOCKS = [
+  { id: 'morning', label: 'Morning', short: 'M' },
+  { id: 'afternoon', label: 'Afternoon', short: 'A' },
+  { id: 'evening', label: 'Evening', short: 'E' },
+];
 
 function newRoomId() {
   for (let n = 0; n < 20; n++) {
@@ -141,6 +159,132 @@ setInterval(() => {
     if (idle > POLL_TTL_MS || (empty && idle > POLL_EMPTY_TTL_MS)) polls.delete(id);
   }
 }, POLL_SWEEP_MS).unref();
+
+// ---------- Date picker ----------
+function newDateId() {
+  for (let n = 0; n < 20; n++) {
+    let id = '';
+    const buf = crypto.randomBytes(6);
+    for (let i = 0; i < 6; i++) id += ID_CHARS[buf[i] % ID_CHARS.length];
+    if (!dates.has(id)) return id;
+  }
+  return crypto.randomBytes(4).toString('hex').slice(0, 6);
+}
+
+function slotKey(date, block) {
+  return date + '|' + block;
+}
+
+function makeDatePick(title, days) {
+  return {
+    id: null,
+    title,
+    days,                                  // ['2026-10-15', ...] sorted
+    marks: new Map(),                      // voterId -> Set<slotKey>
+    names: new Map(),                      // voterId -> display name
+    creatorId: null,
+    closed: false,
+    chosen: null,                          // slotKey once locked
+    createdAt: now(),
+    sse: new Set(),
+  };
+}
+
+// Overlap wins: most people free, then earliest day, then earliest block.
+function bestSlot(pick) {
+  const tally = new Map();
+  for (const set of pick.marks.values()) {
+    for (const key of set) tally.set(key, (tally.get(key) || 0) + 1);
+  }
+  let best = null;
+  let bestCount = 0;
+  for (const [key, count] of tally) {
+    if (!count) continue;
+    const [date, block] = key.split('|');
+    const rank = pick.days.indexOf(date) * 10 + DATE_BLOCKS.findIndex((b) => b.id === block);
+    if (!best) { best = { key, date, block, count, rank }; bestCount = count; continue; }
+    if (count > bestCount || (count === bestCount && rank < best.rank)) {
+      best = { key, date, block, count, rank };
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function dateState(pick) {
+  const voters = [...pick.marks.keys()];
+  const total = voters.length;
+  const days = pick.days.map((date) => ({
+    date,
+    blocks: DATE_BLOCKS.map((b) => {
+      const key = slotKey(date, b.id);
+      // IDs, not names: two people called "Marc" must not light each other's dot.
+      const who = voters
+        .filter((v) => pick.marks.get(v).has(key))
+        .map((v) => ({ id: v, name: pick.names.get(v) || 'Guest' }));
+      return { id: b.id, label: b.label, short: b.short, count: who.length, who };
+    }),
+  }));
+  const best = bestSlot(pick);
+  return {
+    id: pick.id,
+    title: pick.title,
+    closed: pick.closed,
+    chosen: pick.chosen,
+    totalVoters: total,
+    participants: voters.map((v) => ({
+      id: v,
+      name: pick.names.get(v) || 'Guest',
+      count: pick.marks.get(v).size,
+    })),
+    days,
+    best: best ? { date: best.date, block: best.block, count: best.count } : null,
+  };
+}
+
+function broadcastDate(pick) {
+  const data = `data: ${JSON.stringify(dateState(pick))}\n\n`;
+  for (const res of pick.sse) {
+    try { res.write(data); } catch { pick.sse.delete(res); }
+  }
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDateCreate(body) {
+  const title = String(body?.title ?? '').replace(/\s+/g, ' ').trim().slice(0, DATE_TITLE_MAX);
+  if (!title) return { error: 'title required' };
+  const raw = Array.isArray(body?.days) ? body.days : [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const maxDate = new Date(today.getTime() + DATE_MAX_AHEAD_DAYS * 86_400_000);
+  const seen = new Set();
+  const days = [];
+  for (const value of raw) {
+    const d = String(value ?? '');
+    if (!ISO_DAY.test(d)) return { error: 'bad date' };
+    const t = new Date(d + 'T00:00:00Z').getTime();
+    if (Number.isNaN(t)) return { error: 'bad date' };
+    if (t < today.getTime() - 86_400_000 || t > maxDate.getTime()) return { error: 'date out of range' };
+    if (seen.has(d)) continue;
+    seen.add(d);
+    days.push(d);
+  }
+  if (!days.length) return { error: 'pick at least one day' };
+  if (days.length > DATE_MAX_DAYS) return { error: `at most ${DATE_MAX_DAYS} days` };
+  days.sort();
+  return { title, days };
+}
+
+// Date sweeper — same shape as polls so memory cannot creep.
+setInterval(() => {
+  const t = now();
+  for (const [id, pick] of dates) {
+    const idle = t - pick.createdAt;
+    const empty = !pick.marks.size && !pick.sse.size;
+    if (idle > DATE_TTL_MS || (empty && idle > DATE_EMPTY_TTL_MS)) dates.delete(id);
+  }
+}, DATE_SWEEP_MS).unref();
 
 function isNumericVote(v) {
   return v != null && /^\d+$/.test(String(v));
@@ -462,6 +606,24 @@ const server = http.createServer(async (req, res) => {
     return serveUnder(res, path.join(POLL_DIR, 'icons'), pathname.slice('/poll/icons/'.length));
   }
 
+  // --- Date picker ---
+  if (req.method === 'GET' && (
+    pathname === '/dates' || pathname === '/dates/' ||
+    pathname === '/dates/index.html' ||
+    /^\/dates\/[a-z0-9]{6}\/?$/.test(pathname)
+  )) {
+    return serveHtml(res, path.join(DATES_DIR, 'index.html'));
+  }
+  if (req.method === 'GET' && pathname === '/dates/manifest.webmanifest') {
+    return sendFile(res, path.join(DATES_DIR, 'manifest.webmanifest'), 'application/manifest+json; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/dates/sw.js') {
+    return sendFile(res, path.join(DATES_DIR, 'sw.js'), 'application/javascript; charset=utf-8', 'no-cache');
+  }
+  if (req.method === 'GET' && pathname.startsWith('/dates/icons/')) {
+    return serveUnder(res, path.join(DATES_DIR, 'icons'), pathname.slice('/dates/icons/'.length));
+  }
+
   // --- Poll API ---
   try {
     if (req.method === 'POST' && pathname === '/poll/api/polls') {
@@ -517,6 +679,91 @@ const server = http.createServer(async (req, res) => {
         poll.closed = true;
         broadcastPoll(poll);
         return json(res, 200, { ok: true, closed: true });
+      }
+    }
+  } catch {
+    return json(res, 400, { error: 'bad request' });
+  }
+
+  // --- Date picker API ---
+  try {
+    if (req.method === 'POST' && pathname === '/dates/api/picks') {
+      const body = await readBody(req);
+      const parsed = parseDateCreate(body);
+      if (parsed.error) return json(res, 400, { error: parsed.error });
+      const id = newDateId();
+      const pick = makeDatePick(parsed.title, parsed.days);
+      pick.id = id;
+      if (validVoterId(body && body.creatorId)) pick.creatorId = body.creatorId;
+      dates.set(id, pick);
+      return json(res, 200, { id });
+    }
+
+    const dateM = pathname.match(/^\/dates\/api\/picks\/([a-z0-9]{6})(\/.*)?$/);
+    if (dateM) {
+      const pick = dates.get(dateM[1]);
+      const sub = dateM[2] || '';
+      if (!pick) return json(res, 404, { error: 'pick not found' });
+
+      if (req.method === 'GET' && !sub) {
+        return json(res, 200, dateState(pick));
+      }
+
+      if (req.method === 'GET' && sub === '/events') {
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'X-Accel-Buffering': 'no',
+          'Access-Control-Allow-Origin': '*',
+        });
+        pick.sse.add(res);
+        res.write(`data: ${JSON.stringify(dateState(pick))}\n\n`);
+        req.on('close', () => pick.sse.delete(res));
+        return;
+      }
+
+      if (req.method === 'POST' && sub === '/mark') {
+        const { voterId, name, date, block, on } = await readBody(req);
+        if (!validVoterId(voterId)) return json(res, 400, { error: 'bad voter' });
+        if (pick.closed) return json(res, 409, { error: 'date is locked' });
+        if (!pick.days.includes(date)) return json(res, 400, { error: 'day not in this pick' });
+        if (!DATE_BLOCKS.some((b) => b.id === block)) return json(res, 400, { error: 'bad block' });
+        if (!pick.marks.has(voterId)) {
+          if (pick.marks.size >= DATE_VOTER_MAX) return json(res, 409, { error: 'room is full' });
+          pick.marks.set(voterId, new Set());
+          const first = String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, DATE_NAME_MAX);
+          pick.names.set(voterId, first || 'Guest');
+        }
+        const key = slotKey(date, block);
+        const set = pick.marks.get(voterId);
+        if (on) set.add(key);
+        else set.delete(key);
+        if (name != null) {
+          const clean = String(name).replace(/\s+/g, ' ').trim().slice(0, DATE_NAME_MAX);
+          if (clean) pick.names.set(voterId, clean);
+        }
+        if (!pick.creatorId) pick.creatorId = voterId;
+        broadcastDate(pick);
+        return json(res, 200, { ok: true, count: set.size });
+      }
+
+      if (req.method === 'POST' && (sub === '/lock' || sub === '/unlock')) {
+        const body = await readBody(req);
+        const { voterId, date, block } = body;
+        if (!pick.creatorId || voterId !== pick.creatorId) return json(res, 403, { error: 'creator only' });
+        if (sub === '/unlock') {
+          pick.closed = false;
+          pick.chosen = null;
+          broadcastDate(pick);
+          return json(res, 200, { ok: true, closed: false });
+        }
+        if (!pick.days.includes(date)) return json(res, 400, { error: 'day not in this pick' });
+        if (!DATE_BLOCKS.some((b) => b.id === block)) return json(res, 400, { error: 'bad block' });
+        pick.closed = true;
+        pick.chosen = slotKey(date, block);
+        broadcastDate(pick);
+        return json(res, 200, { ok: true, closed: true, chosen: pick.chosen });
       }
     }
   } catch {
