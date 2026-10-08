@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Date Picker — Business Wife</title>
+<meta name="theme-color" content="#0f0c0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Tap the blocks that work. The overlap finds itself.">
+<link rel="manifest" href="/dates/manifest.webmanifest">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/dates/icons/icon-192.png">
+<style>
+  :root {
+    --bg: #0f0c0e; --surface: #171214; --surface-2: #1e171a;
+    --border: #2e2428; --border-strong: #3d3036;
+    --text: #f2ebe6; --muted: #9a8a90; --faint: #6b5c62;
+    --accent: #c43d6e; --accent-hover: #d54f7f; --accent-soft: rgba(196, 61, 110, 0.14);
+    --gold: #c9a227; --gold-soft: rgba(201, 162, 39, 0.12);
+    --radius: 10px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); font-family: var(--font);
+    padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    max-width: 620px; margin-inline: auto; -webkit-tap-highlight-color: transparent;
+  }
+  .kicker { font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+  h1 { font-size: 1.35rem; margin: 4px 0 2px; font-weight: 650; word-break: break-word; }
+  .sub { color: var(--muted); font-size: .8rem; margin: 0 0 16px; }
+  .hidden { display: none !important; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  label { display: block; font-size: .72rem; color: var(--muted); margin: 0 0 6px; }
+  input[type=text], input[type=date] {
+    width: 100%; padding: 11px 12px; border-radius: var(--radius); background: var(--surface-2);
+    border: 1px solid var(--border-strong); color: var(--text); font-family: inherit; font-size: .9rem;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .field { margin-bottom: 14px; }
+  button {
+    font-family: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
+    min-height: 44px; padding: 10px 16px; border-radius: var(--radius);
+    border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text);
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:disabled, button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: transparent; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .err { color: var(--danger, #e0557a); font-size: .76rem; min-height: 1.2em; margin: 8px 0 0; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    padding: 8px 12px; border-radius: 20px; border: 1px solid var(--border-strong);
+    background: var(--surface-2); font-size: .76rem; min-height: 36px; color: var(--text);
+  }
+  .chip.sel { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+
+  /* code + people */
+  .codebar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .code { font-family: var(--mono); font-size: 1.05rem; letter-spacing: .18em; color: var(--gold); }
+  .who { margin-left: auto; display: flex; }
+  .av {
+    width: 24px; height: 24px; border-radius: 50%; margin-left: -7px; border: 2px solid var(--surface);
+    font-size: .6rem; font-weight: 700; display: grid; place-items: center; color: #140f11;
+    background: var(--accent);
+  }
+  .legend { display: flex; gap: 12px; font-size: .64rem; color: var(--faint); margin-bottom: 8px; flex-wrap: wrap; }
+  .legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
+
+  /* grid */
+  .gridwrap { overflow-x: auto; padding-bottom: 4px; }
+  .grid { display: grid; gap: 4px; }
+  .day { text-align: center; font-size: .6rem; color: var(--muted); padding: 4px 0 6px; line-height: 1.25; }
+  .day b { display: block; font-size: .82rem; color: var(--text); font-weight: 650; }
+  .blk {
+    font-size: .56rem; color: var(--faint); display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 6px; text-transform: uppercase; letter-spacing: .05em; min-width: 52px;
+  }
+  .cell {
+    height: 46px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    position: relative; cursor: pointer; min-width: 44px; -webkit-appearance: none; appearance: none;
+    padding: 0; font: inherit; color: inherit;
+  }
+  .cell:disabled { cursor: default; }
+  .dots { display: flex; gap: 3px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
+  .dot.on { background: var(--accent); }
+  .n { font-size: .58rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .c1 { background: var(--surface-2); }
+  .c2 { background: rgba(196,61,110,.10); border-color: rgba(196,61,110,.28); }
+  .c3 { background: rgba(196,61,110,.19); border-color: rgba(196,61,110,.42); }
+  .best { background: var(--gold-soft); border-color: var(--gold); }
+  .best .n { color: var(--gold); font-weight: 700; }
+  .best .dot.on { background: var(--gold); }
+  .mine { box-shadow: inset 0 0 0 1px var(--accent-hover); }
+  .mine::after {
+    content: ""; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px;
+    border-radius: 50%; background: var(--accent-hover);
+  }
+
+  .verdict { margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: var(--radius); padding: 12px 14px; }
+  .verdict .k { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  .verdict .v { font-size: 1.02rem; font-weight: 650; margin: 3px 0 2px; }
+  .verdict .m { font-size: .74rem; color: var(--muted); }
+  .locked { border-left-color: var(--accent); }
+  .share { margin-top: 16px; }
+  .share input { font-family: var(--mono); font-size: .78rem; }
+  .live { font-size: .64rem; color: var(--faint); margin-top: 10px; }
+  .live b { color: var(--accent); }
+  footer { margin-top: 22px; color: var(--faint); font-size: .68rem; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="kicker">Date Picker</div>
+  <h1 id="title">When are we all free?</h1>
+  <p class="sub" id="tagline">Tap the blocks that work for you. The overlap finds itself.</p>
+
+  <!-- LOBBY -->
+  <div id="lobby" data-testid="lobby">
+    <div class="card">
+      <div class="field">
+        <label for="name-input">Your name</label>
+        <input id="name-input" data-testid="name-input" type="text" maxlength="24" placeholder="Marc" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="create-title">What are we picking?</label>
+        <input id="create-title" data-testid="create-title" type="text" maxlength="80" placeholder="Team dinner" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Window</label>
+        <div class="chips" data-testid="range-chips">
+          <button type="button" class="chip sel" data-testid="range-7" data-days="7">Next 7 days</button>
+          <button type="button" class="chip" data-testid="range-10" data-days="10">Next 10 days</button>
+          <button type="button" class="chip" data-testid="range-14" data-days="14">Next 14 days</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="start-date">Or start from a specific day</label>
+        <input id="start-date" data-testid="start-date" type="date">
+      </div>
+      <button type="button" class="primary" data-testid="create-btn" id="createBtn" disabled>Create date pick</button>
+      <p class="err" data-testid="create-error" id="createError"></p>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="field">
+        <label for="join-code">Have a code?</label>
+        <input id="join-code" data-testid="join-code" type="text" maxlength="6" placeholder="K7M2QA" autocapitalize="characters" autocomplete="off">
+      </div>
+      <button type="button" data-testid="join-btn" id="joinBtn">Join</button>
+      <p class="err" data-testid="join-error" id="joinError"></p>
+    </div>
+  </div>
+
+  <!-- GRID -->
+  <div id="board" class="hidden" data-testid="board">
+    <div class="codebar">
+      <span class="code" data-testid="pick-code" id="codeLabel">------</span>
+      <button type="button" class="ghost" style="min-height:32px;padding:4px 10px;font-size:.72rem" data-testid="copy-code" id="copyCode">Copy</button>
+      <span class="who" data-testid="participants" id="participants"></span>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:rgba(196,61,110,.42)"></i>some free</span>
+      <span><i style="background:var(--gold)"></i>everyone free</span>
+      <span><i style="background:var(--accent-hover);border-radius:50%"></i>you marked it</span>
+    </div>
+
+    <div class="gridwrap"><div class="grid" id="grid" data-testid="grid"></div></div>
+
+    <div class="verdict" id="verdict" data-testid="verdict">
+      <div class="k">Best overlap</div>
+      <div class="v" id="bestLabel">Nobody has marked yet</div>
+      <div class="m" id="bestMeta">Tap a block that works for you.</div>
+    </div>
+
+    <div class="row" style="margin-top:14px" id="creatorRow">
+      <button type="button" class="primary" data-testid="lock-btn" id="lockBtn" disabled>Lock it in</button>
+    </div>
+    <button type="button" class="ghost" data-testid="unlock-btn" id="unlockBtn" style="width:100%;margin-top:10px">Reopen voting</button>
+
+    <div class="share">
+      <label for="share-url">Share link</label>
+      <input id="share-url" data-testid="share-url" type="text" readonly>
+    </div>
+    <p class="live" id="live" data-testid="live"><b>●</b> Live</p>
+    <p class="err" data-testid="board-error" id="boardError"></p>
+  </div>
+
+  <footer>Business Wife<br>"She closes the deal before lunch."</footer>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const API = "/dates/api/picks";
+const BLOCKS = [
+  { id: "morning", label: "Morning", short: "M" },
+  { id: "afternoon", label: "Afternoon", short: "A" },
+  { id: "evening", label: "Evening", short: "E" },
+];
+const AV_COLORS = ["#c43d6e", "#c9a227", "#7f9c6b", "#6b8cc4", "#b56ad1", "#d1795a", "#5fb3a1", "#d15f8f"];
+
+const state = {
+  pickId: null,
+  voterId: voterId(),
+  name: "",
+  data: null,
+  mine: new Set(),
+  es: null,
+  timer: null,
+  rangeDays: 7,
+};
+
+// Stable per browser, not per tab: you are the same person when you come back.
+function voterId() {
+  let id = localStorage.getItem("bw_date_voter");
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
+    localStorage.setItem("bw_date_voter", id);
+  }
+  return id;
+}
+const creatorKey = (id) => "bw_date_creator_" + id;
+const marksKey = (id) => "bw_date_marks_" + id;
+
+function loadMarks() {
+  try { return new Set(JSON.parse(localStorage.getItem(marksKey(state.pickId)) || "[]")); }
+  catch { return new Set(); }
+}
+function saveMarks() {
+  try { localStorage.setItem(marksKey(state.pickId), JSON.stringify([...state.mine])); } catch {}
+}
+
+// ---------- lobby ----------
+function isoDay(offset) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+function windowDays() {
+  const start = $("#start-date").value;
+  const from = start ? new Date(start + "T12:00:00") : new Date();
+  const out = [];
+  for (let i = 0; i < state.rangeDays; i++) {
+    const d = new Date(from.getTime());
+    d.setDate(from.getDate() + i);
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+function syncCreate() {
+  const hasName = $("#name-input").value.trim().length > 0;
+  const hasTitle = $("#create-title").value.trim().length > 0;
+  $("#createBtn").disabled = !(hasName && hasTitle);
+}
+$("#name-input").addEventListener("input", () => { state.name = $("#name-input").value; syncCreate(); });
+$("#create-title").addEventListener("input", syncCreate);
+document.querySelectorAll("[data-testid=range-chips] .chip").forEach((chip) => {
+  chip.onclick = () => {
+    document.querySelectorAll("[data-testid=range-chips] .chip").forEach((c) => c.classList.remove("sel"));
+    chip.classList.add("sel");
+    state.rangeDays = Number(chip.dataset.days);
+  };
+});
+
+$("#createBtn").onclick = async () => {
+  $("#createError").textContent = "";
+  const name = $("#name-input").value.trim();
+  state.name = name;
+  localStorage.setItem("bw_date_name", name);
+  try {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: $("#create-title").value.trim(), days: windowDays(), creatorId: state.voterId }),
+    });
+    const body = await res.json();
+    if (!res.ok) { $("#createError").textContent = body.error || "Could not create"; return; }
+    localStorage.setItem(creatorKey(body.id), "1");
+    location.href = "/dates/" + body.id;
+  } catch { $("#createError").textContent = "Network hiccup — try again"; }
+};
+
+$("#joinBtn").onclick = async () => {
+  const code = $("#join-code").value.trim().toLowerCase();
+  $("#joinError").textContent = "";
+  if (!/^[a-z0-9]{6}$/.test(code)) { $("#joinError").textContent = "Codes are 6 characters"; return; }
+  const name = $("#name-input").value.trim();
+  if (!name) { $("#joinError").textContent = "Add your name first"; return; }
+  localStorage.setItem("bw_date_name", name);
+  try {
+    const res = await fetch(`${API}/${code}`);
+    if (res.status === 404) { $("#joinError").textContent = "No pick with that code"; return; }
+    if (!res.ok) { $("#joinError").textContent = "Could not open that pick"; return; }
+    location.href = "/dates/" + code;
+  } catch { $("#joinError").textContent = "Network hiccup — try again"; }
+};
+
+// ---------- board ----------
+function fmtDay(iso) {
+  const d = new Date(iso + "T12:00:00");
+  return { dow: d.toLocaleDateString(undefined, { weekday: "short" }), num: d.getDate(), mon: d.toLocaleDateString(undefined, { month: "short" }) };
+}
+function fmtLong(iso, blockId) {
+  const d = new Date(iso + "T12:00:00");
+  const label = BLOCKS.find((b) => b.id === blockId)?.label || "";
+  return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + " · " + label;
+}
+
+function render() {
+  const d = state.data;
+  if (!d) return;
+  $("#title").textContent = d.title;
+  $("#codeLabel").textContent = d.id.toUpperCase();
+  $("#share-url").value = location.origin + "/dates/" + d.id;
+
+  $("#participants").innerHTML = d.participants
+    .slice(0, 6)
+    .map((p, i) => `<span class="av" style="background:${AV_COLORS[i % AV_COLORS.length]}" title="${esc(p.name)}">${esc((p.name || "?").slice(0, 1).toUpperCase())}</span>`)
+    .join("");
+
+  const total = d.totalVoters || 0;
+  const cols = "minmax(52px,1fr) repeat(" + d.days.length + ", minmax(44px,1fr))";
+  const grid = $("#grid");
+  grid.style.gridTemplateColumns = cols;
+  let html = "<div></div>" + d.days.map((day) => {
+    const f = fmtDay(day.date);
+    return `<div class="day">${esc(f.dow)}<b>${f.num}</b></div>`;
+  }).join("");
+
+  for (const b of BLOCKS) {
+    html += `<div class="blk">${b.label}</div>` + d.days.map((day) => {
+      const cell = day.blocks.find((x) => x.id === b.id);
+      const key = day.date + "|" + b.id;
+      // Authoritative "mine" comes from the server; the local set only covers the
+      // optimistic gap between a tap and the state arriving back.
+      const isMine = cell.who.some((w) => w.id === state.voterId) || state.mine.has(key);
+      const isBest = d.best && d.best.date === day.date && d.best.block === b.id;
+      const allIn = total > 0 && cell.count === total;
+      const cls = isBest && allIn ? "best" : cell.count === 3 ? "c3" : cell.count === 2 ? "c2" : cell.count === 1 ? "c1" : "";
+      const dots = d.participants.slice(0, 6).map((p) => {
+        const on = cell.who.some((w) => w.id === p.id);
+        return `<span class="dot${on ? " on" : ""}"></span>`;
+      }).join("");
+      const names = cell.who.map((w) => w.name).join(", ");
+      return `<button type="button" class="cell ${cls}${isMine ? " mine" : ""}" ${d.closed ? "disabled" : ""}
+        data-testid="cell" data-key="${key}" aria-pressed="${isMine}" title="${esc(names || "nobody yet")}"
+        aria-label="${esc(fmtDay(day.date).dow)} ${fmtDay(day.date).num} ${b.label}, ${cell.count} free${isMine ? ", you marked" : ""}">
+        <span class="dots">${dots}</span><span class="n">${cell.count || ""}</span></button>`;
+    }).join("");
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll(".cell").forEach((c) => { c.onclick = () => toggle(c.dataset.key); });
+
+  // verdict
+  const verdict = $("#verdict");
+  if (d.closed && d.chosen) {
+    const [cd, cb] = d.chosen.split("|");
+    verdict.classList.add("locked");
+    verdict.querySelector(".k").textContent = "Locked in";
+    $("#bestLabel").textContent = fmtLong(cd, cb);
+    $("#bestMeta").textContent = "The date is set. Reopen voting to change it.";
+    $("#creatorRow").classList.add("hidden");
+    $("#unlockBtn").classList.toggle("hidden", !d.creator);
+  } else {
+    verdict.classList.remove("locked");
+    verdict.querySelector(".k").textContent = "Best overlap";
+    if (d.best) {
+      $("#bestLabel").textContent = fmtLong(d.best.date, d.best.block);
+      const of = total ? ` ${d.best.count} of ${total} free` : "";
+      $("#bestMeta").textContent = d.best.count === total && total > 1
+        ? `Everyone is free${of}.`
+        : `Most people free${of}.`;
+    } else {
+      $("#bestLabel").textContent = "Nobody has marked yet";
+      $("#bestMeta").textContent = "Tap a block that works for you.";
+    }
+    $("#unlockBtn").classList.add("hidden");
+  }
+
+  const isCreator = d.creator;
+  $("#creatorRow").classList.toggle("hidden", !isCreator || d.closed);
+  $("#lockBtn").disabled = !d.best || d.closed;
+  $("#tagline").textContent = d.closed
+    ? "Voting is closed."
+    : total === 0 ? "Tap the blocks that work for you. The overlap finds itself." : `${total} ${total === 1 ? "person has" : "people have"} marked.`;
+}
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function toggle(key) {
+  if (state.data?.closed) return;
+  const [date, block] = key.split("|");
+  const on = !state.mine.has(key);
+  // optimistic: the grid must respond on the tap, not after the round trip
+  on ? state.mine.add(key) : state.mine.delete(key);
+  saveMarks();
+  render();
+  try {
+    const res = await fetch(`${API}/${state.pickId}/mark`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voterId: state.voterId, name: state.name, date, block, on }),
+    });
+    if (res.status === 409) { $("#boardError").textContent = "This date has been locked."; refresh(); return; }
+    if (!res.ok) {
+      on ? state.mine.delete(key) : state.mine.add(key);
+      saveMarks(); render();
+      $("#boardError").textContent = "Could not save that mark.";
+    } else {
+      $("#boardError").textContent = "";
+    }
+  } catch {
+    on ? state.mine.delete(key) : state.mine.add(key);
+    saveMarks(); render();
+    $("#boardError").textContent = "Network hiccup — try again.";
+  }
+}
+
+$("#lockBtn").onclick = async () => {
+  const b = state.data?.best;
+  if (!b) return;
+  const res = await fetch(`${API}/${state.pickId}/lock`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ voterId: state.voterId, date: b.date, block: b.block }),
+  });
+  if (res.ok) refresh();
+  else $("#boardError").textContent = "Only the creator can lock the date.";
+};
+$("#unlockBtn").onclick = async () => {
+  const res = await fetch(`${API}/${state.pickId}/unlock`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ voterId: state.voterId }),
+  });
+  if (res.ok) refresh();
+};
+$("#copyCode").onclick = async () => {
+  const url = $("#share-url").value;
+  try { await navigator.clipboard.writeText(url); $("#copyCode").textContent = "Copied"; }
+  catch { $("#share-url").select(); $("#copyCode").textContent = "Copy link"; }
+  setTimeout(() => { $("#copyCode").textContent = "Copy"; }, 1400);
+};
+
+async function refresh() {
+  try {
+    const res = await fetch(`${API}/${state.pickId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    data.creator = !!state.isCreator;
+    state.data = data;
+    render();
+  } catch {}
+}
+
+function watch() {
+  const es = new EventSource(`${API}/${state.pickId}/events`);
+  es.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      data.creator = !!state.isCreator;
+      state.data = data;
+      render();
+      $("#live").innerHTML = "<b>●</b> Live";
+    } catch {}
+  };
+  es.onerror = () => { $("#live").innerHTML = "<b>●</b> Reconnecting…"; };
+  state.es = es;
+  // SSE reconnects itself; poll anyway so a dead proxy cannot freeze the grid.
+  state.timer = setInterval(refresh, 5000);
+}
+
+async function boot(id) {
+  state.pickId = id;
+  state.name = localStorage.getItem("bw_date_name") || "";
+  state.isCreator = localStorage.getItem(creatorKey(id)) === "1";
+  state.mine = loadMarks();
+  $("#lobby").classList.add("hidden");
+  $("#board").classList.remove("hidden");
+  await refresh();
+  watch();
+}
+
+(function start() {
+  const m = location.pathname.match(/^\/dates\/([a-z0-9]{6})\/?$/);
+  $("#start-date").min = isoDay(0);
+  $("#start-date").max = isoDay(90);
+  if (m) {
+    boot(m[1]);
+  } else {
+    $("#name-input").value = localStorage.getItem("bw_date_name") || "";
+    syncCreate();
+  }
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/dates/sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>
