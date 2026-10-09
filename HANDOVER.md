@@ -89,7 +89,7 @@ All under `/dates/api`. Bodies and responses are JSON.
 | `POST /picks/:id/mark` | `name`, `date`, `block`, `on` | 400 `name required`; 400 if that part was not proposed; **423 `{error:"locked", name}`** if locked and credential missing/wrong; 409 once a date is set |
 | `POST /picks/:id/lock` | `name` | 200 `{ name, token }`. 400 nothing marked; 409 already locked |
 | `POST /picks/:id/unlock` | `name`, credential | 403 wrong credential. The same link keeps working after unlock |
-| `GET /picks/:id/?token=<uuid>> | — | `{role:"admin"}` for the creator URL, `{role:"person", name, locked}` for a lock link, 403 otherwise. Lets a link resolve on a fresh device |
+| `GET /picks/:id/who` | a query param carrying either credential | resolves `{role:"admin"}` for the creator URL, `{role:"person", name, locked}` for a lock link, 403 otherwise. Lets a link resolve on a fresh device |
 | `GET /picks/:id/events` | — | SSE. First frame is full state, then one per change |
 | `POST /picks/:id/choose` | creator credential, `date`, `block` | **403 `creator link only`** without it. Sets the date, closes the pick |
 | `POST /picks/:id/reopen` | creator credential | reopens |
