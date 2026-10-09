@@ -25,11 +25,19 @@ async function createPick(page, { title = 'Team dinner', days = [[0, ALL], [1, A
     for (const b of ALL.filter((x) => !blocks.includes(x))) await row.locator(`[data-block="${b}"]`).click();
   }
   await page.getByTestId('create-btn').click();
-  await expect(page).toHaveURL(/\/dates\/[a-z0-9]{6}$/);
-  await expect(page.getByTestId('board')).toBeVisible();
+  // The creator lands on their desk, not on the voting page.
+  await expect(page).toHaveURL(/\/dates\/[a-z0-9]{6}\/admin$/);
+  await expect(page.getByTestId('admin')).toBeVisible();
   const code = page.url().match(/\/dates\/([a-z0-9]{6})/)[1];
   const ownerUrl = await page.getByTestId('owner-url').inputValue();
   return { code, ownerUrl };
+}
+
+// Creator switches from the desk to the voting page to mark their own dates.
+async function toVote(page) {
+  await page.getByTestId('to-vote').click();
+  await expect(page.getByTestId('board')).toBeVisible();
+  await expect(page.getByTestId('admin')).toBeHidden();
 }
 
 async function apiCreate(request, days = [[0, ALL], [1, ALL]]) {
@@ -44,11 +52,11 @@ async function apiCreate(request, days = [[0, ALL], [1, ALL]]) {
 const cell = (page, offset, block) => page.locator(`[data-testid="cell"][data-key="${iso(offset)}|${block}"]`);
 const count = async (page, offset, block) => (await cell(page, offset, block).locator('.n').textContent()).trim();
 
-async function openAs(browser, url, name) {
+async function openAs(browser, url, name, view = 'board') {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await page.goto(url);
-  await expect(page.getByTestId('board')).toBeVisible();
+  await expect(page.getByTestId(view)).toBeVisible();
   if (name) await page.getByTestId('name-input').fill(name);
   return { ctx, page };
 }
@@ -91,24 +99,39 @@ test.describe('Date Picker — create', () => {
 
   test('only the proposed parts of each date are offered', async ({ page }) => {
     await createPick(page, { days: [[1, ['evening']], [2, ['morning', 'afternoon']]] });
+    await toVote(page);
     await expect(page.getByTestId('cell')).toHaveCount(3);
     await expect(cell(page, 1, 'evening')).toBeVisible();
     await expect(cell(page, 1, 'morning')).toHaveCount(0);
     await expect(cell(page, 2, 'evening')).toHaveCount(0);
   });
 
-  test('the creator link is shown once, loudly, and stays out of the address bar', async ({ page }) => {
+  test('the creator link is shown once, on the desk, and stays out of the address bar', async ({ page }) => {
     const { code, ownerUrl } = await createPick(page);
     await expect(page.getByTestId('owner-link-card')).toBeVisible();
     expect(ownerUrl).toMatch(new RegExp(`/dates/${code}/admin/[0-9a-f-]{36}$`));
-    await expect(page).toHaveURL(new RegExp(`/dates/${code}$`));
+    await expect(page).toHaveURL(new RegExp(`/dates/${code}/admin$`));
+    await expect(page.getByTestId('share-url')).toHaveValue(new RegExp(`/dates/${code}$`));
     await page.getByTestId('owner-link-done').click();
     await expect(page.getByTestId('owner-link-card')).toBeHidden();
     await page.reload();
-    await expect(page.getByTestId('board')).toBeVisible();
+    await expect(page.getByTestId('admin')).toBeVisible();
     await expect(page.getByTestId('owner-link-card')).toBeHidden();
-    // Still the creator on this device.
-    await expect(page.getByTestId('creator-panel')).toBeVisible();
+  });
+
+  test('the voting page carries no creator controls, even for the creator', async ({ page }) => {
+    await createPick(page);
+    await toVote(page);
+    for (const id of ['choose-btn', 'reopen-btn', 'owner-link-card', 'people', 'add-dates-btn', 'share-url']) {
+      await expect(page.getByTestId(id)).toBeHidden();
+    }
+    // Just a quiet way back to the desk.
+    await expect(page.getByTestId('to-admin')).toBeVisible();
+    await page.getByTestId('to-admin').click();
+    await expect(page.getByTestId('admin')).toBeVisible();
+    await page.goBack();
+    await expect(page.getByTestId('board')).toBeVisible();
+    await expect(page.getByTestId('admin')).toBeHidden();
   });
 
   test('an unknown code is reported, not followed', async ({ page }) => {
@@ -130,6 +153,7 @@ test.describe('Date Picker — create', () => {
 test.describe('Date Picker — marking', () => {
   test('a name is required before a tap counts', async ({ page, request }) => {
     const { code } = await createPick(page);
+    await toVote(page);
     await cell(page, 0, 'evening').click();
     await expect(page.getByTestId('board-error')).toContainText(/name/i);
     await expect(page.getByTestId('name-input')).toBeFocused();
@@ -139,6 +163,7 @@ test.describe('Date Picker — marking', () => {
 
   test('a tap marks, a second tap clears, and the name is remembered', async ({ page }) => {
     await createPick(page);
+    await toVote(page);
     await page.getByTestId('name-input').fill('Marc');
     await cell(page, 0, 'evening').click();
     await expect(cell(page, 0, 'evening')).toHaveClass(/mine/);
@@ -149,22 +174,22 @@ test.describe('Date Picker — marking', () => {
     await cell(page, 1, 'morning').click();
     await expect.poll(() => count(page, 1, 'morning')).toBe('1');
     await page.reload();
+    await expect(page.getByTestId('board')).toBeVisible();
     await expect(page.getByTestId('name-input')).toHaveValue('Marc');
     await expect(cell(page, 1, 'morning')).toHaveClass(/mine/);
   });
 
   test('anyone can fill in or correct anyone else’s answers, live', async ({ page, browser }) => {
     const { code } = await createPick(page, { title: 'Offsite' });
+    await toVote(page);
     await page.getByTestId('name-input').fill('Marc');
 
     const b = await openAs(browser, `${DATES}/${code}`, 'Sana');
     await cell(b.page, 1, 'afternoon').click();
     await expect.poll(() => count(page, 1, 'afternoon'), 'Sana should appear on Marc').toBe('1');
-    await expect(page.getByTestId('people')).toContainText('Sana');
 
     // Marc corrects Sana's answer from his own phone.
-    await page.getByTestId('person').filter({ hasText: 'Sana' }).click();
-    await expect(page.getByTestId('name-input')).toHaveValue('Sana');
+    await page.getByTestId('name-input').fill('Sana');
     await expect(cell(page, 1, 'afternoon')).toHaveClass(/mine/);
     await cell(page, 1, 'afternoon').click();
     await expect.poll(() => count(b.page, 1, 'afternoon')).toBe('');
@@ -173,6 +198,7 @@ test.describe('Date Picker — marking', () => {
 
   test('names match regardless of case and spacing', async ({ page, request }) => {
     const { code } = await createPick(page);
+    await toVote(page);
     await page.getByTestId('name-input').fill('Sana');
     await cell(page, 0, 'morning').click();
     await expect.poll(() => count(page, 0, 'morning')).toBe('1');
@@ -186,15 +212,20 @@ test.describe('Date Picker — marking', () => {
 
   test('the overlap goes gold and is named in plain words', async ({ page, browser }) => {
     const { code } = await createPick(page);
+    await toVote(page);
     await page.getByTestId('name-input').fill('Marc');
     await cell(page, 2, 'evening').click();
-    await expect(page.locator('[data-testid="verdict"] .v')).toContainText(/evening/i);
+    await expect(page.getByTestId('verdict')).toContainText(/evening/i);
 
     const b = await openAs(browser, `${DATES}/${code}`, 'Sana');
     await cell(b.page, 2, 'evening').click();
     await expect.poll(() => count(page, 2, 'evening')).toBe('2');
     await expect(cell(page, 2, 'evening')).toHaveClass(/\ball\b/);
     await expect(page.getByTestId('verdict')).toContainText(/everyone is free, 2 of 2/i);
+    await page.getByTestId('to-admin').click();
+    await expect(page.getByTestId('admin-verdict')).toContainText(/evening/i);
+    await expect(page.getByTestId('answer')).toHaveCount(2);
+    await expect(page.getByTestId('people')).toContainText('Sana');
     await b.ctx.close();
   });
 });
@@ -202,6 +233,7 @@ test.describe('Date Picker — marking', () => {
 test.describe('Date Picker — locked answers', () => {
   test('locking hands out an edit link and stops others typing over it', async ({ page, browser, request }) => {
     const { code } = await createPick(page);
+    await toVote(page);
     await page.getByTestId('name-input').fill('Marc');
     await cell(page, 0, 'evening').click();
     await expect(page.getByTestId('lock-btn')).toBeVisible();
@@ -227,6 +259,7 @@ test.describe('Date Picker — locked answers', () => {
 
   test('an edit link opens on a fresh device as that person and can unlock', async ({ page, browser }) => {
     const { code } = await createPick(page);
+    await toVote(page);
     await page.getByTestId('name-input').fill('Marc');
     await cell(page, 0, 'evening').click();
     await page.getByTestId('lock-btn').click();
@@ -241,7 +274,8 @@ test.describe('Date Picker — locked answers', () => {
     await expect.poll(() => count(page, 2, 'morning')).toBe('1');
     await b.page.getByTestId('unlock-btn').click();
     await expect(b.page.getByTestId('lock-btn')).toBeVisible();
-    await expect(page.getByTestId('person').filter({ hasText: 'Marc' })).not.toContainText('🔒');
+    await page.getByTestId('to-admin').click();
+    await expect(page.getByTestId('answer').filter({ hasText: 'Marc' })).not.toContainText('🔒');
     await b.ctx.close();
   });
 
@@ -258,37 +292,42 @@ test.describe('Date Picker — locked answers', () => {
 });
 
 test.describe('Date Picker — creator', () => {
-  test('only the creator link shows the creator panel', async ({ page, browser }) => {
+  test('only the creator link opens the desk', async ({ page, browser }) => {
     const { code, ownerUrl } = await createPick(page);
-    const guest = await openAs(browser, `${DATES}/${code}`);
-    await expect(guest.page.getByTestId('creator-panel')).toBeHidden();
+    const guest = await openAs(browser, `${DATES}/${code}/admin`);
+    await expect(guest.page).toHaveURL(new RegExp(`/dates/${code}$`));
+    await expect(guest.page.getByTestId('admin')).toBeHidden();
+    await expect(guest.page.getByTestId('to-admin')).toBeHidden();
     await guest.ctx.close();
 
-    const phone = await openAs(browser, ownerUrl);
-    await expect(phone.page.getByTestId('creator-panel')).toBeVisible();
-    await expect(phone.page).toHaveURL(new RegExp(`/dates/${code}$`));
+    const phone = await openAs(browser, ownerUrl, null, 'admin');
+    await expect(phone.page).toHaveURL(new RegExp(`/dates/${code}/admin$`));
+    await expect(phone.page.getByTestId('owner-link-card')).toBeHidden();
     await phone.ctx.close();
   });
 
-  test('the creator sets the date, voting stops, and can reopen', async ({ page, request }) => {
+  test('the creator sets the date, voters see it, and the creator can reopen', async ({ page, browser, request }) => {
     const { code } = await createPick(page);
-    await page.getByTestId('name-input').fill('Marc');
-    await cell(page, 1, 'evening').click();
-    await expect.poll(() => count(page, 1, 'evening')).toBe('1');
+    const guest = await openAs(browser, `${DATES}/${code}`, 'Sana');
+    await cell(guest.page, 1, 'evening').click();
     await expect(page.getByTestId('choose-slot')).toHaveValue(`${iso(1)}|evening`);
     await page.getByTestId('choose-btn').click();
-    await expect(page.getByTestId('verdict')).toContainText(/the date is set/i);
-    await expect(cell(page, 1, 'evening')).toHaveClass(/chosen/);
-    await expect(cell(page, 0, 'morning')).toBeDisabled();
-    await expect(page.getByTestId('lock-btn')).toBeHidden();
+    await expect(page.getByTestId('admin-verdict')).toHaveClass(/set/);
+    await expect(page.getByTestId('reopen-btn')).toBeVisible();
+
+    await expect(guest.page.getByTestId('verdict')).toContainText(/the date is set/i);
+    await expect(cell(guest.page, 1, 'evening')).toHaveClass(/chosen/);
+    await expect(cell(guest.page, 0, 'morning')).toBeDisabled();
+    await expect(guest.page.getByTestId('lock-btn')).toBeHidden();
 
     const late = await request.post(`${API}/${code}/mark`, { data: { name: 'Late', date: iso(0), block: 'morning', on: true } });
     expect(late.status()).toBe(409);
 
     await page.getByTestId('reopen-btn').click();
-    await expect(page.getByTestId('verdict')).toContainText(/best overlap/i);
-    await cell(page, 0, 'morning').click();
-    await expect.poll(() => count(page, 0, 'morning')).toBe('1');
+    await expect(guest.page.getByTestId('verdict')).toContainText(/best so far/i);
+    await cell(guest.page, 0, 'morning').click();
+    await expect.poll(() => count(guest.page, 0, 'morning')).toBe('1');
+    await guest.ctx.close();
   });
 
   test('the creator puts more dates on the table and everyone sees them', async ({ page, browser }) => {
@@ -316,6 +355,7 @@ test.describe('Date Picker — mobile', () => {
   test('a two-week grid scrolls inside itself, not the page', async ({ page }) => {
     const days = Array.from({ length: 14 }, (_, i) => [i, ALL]);
     await createPick(page, { days });
+    await toVote(page);
     await expect(page.getByTestId('cell')).toHaveCount(42);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);

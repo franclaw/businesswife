@@ -651,11 +651,12 @@ const server = http.createServer(async (req, res) => {
   // --- Date picker ---
   // /dates/<id> is the shared board; /dates/<id>/<uuid> is a person's private
   // edit link, handed out when they lock their dates in; /dates/<id>/admin/<uuid>
-  // is the creator link. The page reads its own path and decides which it is.
+  // is the creator link, and /dates/<id>/admin is the creator's view once that
+  // link has been remembered. The page reads its own path and decides.
   if (req.method === 'GET' && (
     pathname === '/dates' || pathname === '/dates/' ||
     pathname === '/dates/index.html' ||
-    /^\/dates\/[a-z0-9]{6}\/?$/.test(pathname) ||
+    /^\/dates\/[a-z0-9]{6}(\/admin)?\/?$/.test(pathname) ||
     /^\/dates\/[a-z0-9]{6}\/(admin\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/.test(pathname)
   )) {
     return serveHtml(res, path.join(DATES_DIR, 'index.html'));

@@ -80,11 +80,15 @@
   .part[aria-pressed=true] { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
   .x { min-height: 36px; min-width: 36px; padding: 0; background: transparent; border-color: transparent; color: var(--faint); font-size: 1.1rem; }
 
-  /* board header */
-  .codebar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  /* board */
+  .kicker { display: flex; align-items: center; gap: 8px; }
+  .live { font-size: .6rem; letter-spacing: .04em; text-transform: none; color: var(--faint); font-weight: 500; }
+  .labelrow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .manage, .switch { color: var(--accent-hover); font-size: .74rem; font-weight: 600; text-decoration: none; cursor: pointer; }
+  .manage { padding: 4px 0; }
+  .switch { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: 0 0 10px; }
+  .manage:hover, .switch:hover { text-decoration: underline; }
   .code { font-family: var(--mono); font-size: 1.05rem; letter-spacing: .18em; color: var(--gold); }
-  .live { margin-left: auto; font-size: .64rem; color: var(--faint); }
-  .live b { color: var(--accent); }
 
   /* save-this-link cards */
   .keep { border-color: var(--gold); background: linear-gradient(var(--gold-soft), var(--gold-soft)), var(--surface); margin-bottom: 14px; }
@@ -97,9 +101,6 @@
     font-size: .8rem; line-height: 1.45; margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius);
     background: var(--accent-soft); border: 1px solid rgba(196,61,110,.35);
   }
-
-  .legend { display: flex; gap: 12px; font-size: .64rem; color: var(--faint); margin-bottom: 8px; flex-wrap: wrap; }
-  .legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
 
   /* grid */
   .gridwrap { overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
@@ -133,29 +134,33 @@
     border-radius: 50%; background: var(--accent-hover);
   }
 
-  .verdict { margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: var(--radius); padding: 12px 14px; }
-  .verdict .k { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
-  .verdict .v { font-size: 1.02rem; font-weight: 650; margin: 3px 0 2px; }
-  .verdict .m { font-size: .74rem; color: var(--muted); }
-  .verdict.set { border-left-color: var(--accent); }
+  .result {
+    margin: 14px 0 0; font-size: .82rem; color: var(--muted); line-height: 1.45;
+    padding-left: 10px; border-left: 2px solid var(--border-strong);
+  }
+  .result b { color: var(--text); font-weight: 650; }
+  .result.set { border-left-color: var(--gold); }
+  .result.set b { color: var(--gold); }
 
   .mine-row { margin-top: 14px; }
   .mine-row .row { flex-wrap: wrap; }
 
-  .people { margin-top: 18px; }
-  .people .k { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 6px; }
-  .people ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
-  .people li { display: flex; align-items: center; gap: 2px; }
-  .pchip { min-height: 36px; padding: 4px 12px 4px 6px; border-radius: 18px; font-size: .76rem; display: flex; align-items: center; gap: 6px; }
-  .pchip[aria-current=true] { border-color: var(--accent); background: var(--accent-soft); }
-  .av { width: 22px; height: 22px; border-radius: 50%; font-size: .6rem; font-weight: 700; display: grid; place-items: center; color: #140f11; }
-  .pchip small { color: var(--faint); font-weight: 500; }
-
-  .creator { margin-top: 18px; border-color: var(--border-strong); }
-  .creator .row { align-items: stretch; }
-  details { margin-top: 12px; }
-  summary { cursor: pointer; font-size: .78rem; color: var(--muted); padding: 8px 0; min-height: 36px; }
-  details[open] summary { margin-bottom: 8px; }
+  /* admin */
+  .card .k { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin: 0 0 8px; font-weight: 700; }
+  .big { font-size: 1.05rem; font-weight: 650; margin: 0; }
+  .big.set { color: var(--gold); }
+  .sharerow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .sharerow .copyrow { min-width: 230px; }
+  .answers { list-style: none; margin: 0; padding: 0; }
+  .answers li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .answers li:first-child { border-top: 0; padding-top: 0; }
+  .answers .who { flex: 1; min-width: 0; }
+  .answers .nm { font-size: .84rem; font-weight: 600; }
+  .answers .sl { font-size: .7rem; color: var(--faint); margin-top: 2px; line-height: 1.4; }
+  .av { width: 26px; height: 26px; flex: 0 0 26px; border-radius: 50%; font-size: .64rem; font-weight: 700; display: grid; place-items: center; color: #140f11; }
+  details { margin: 0; }
+  summary { cursor: pointer; font-size: .8rem; color: var(--muted); padding: 4px 0; min-height: 32px; display: flex; align-items: center; }
+  details[open] summary { margin-bottom: 10px; }
 
   footer { margin-top: 22px; color: var(--faint); font-size: .68rem; text-align: center; line-height: 1.6; }
 
@@ -168,7 +173,7 @@
 </head>
 <body>
   <header>
-    <div class="kicker">Date Picker</div>
+    <div class="kicker">Date Picker <span class="live hidden" id="live" data-testid="live" role="status"></span></div>
     <h1 id="title">When are we all free?</h1>
     <p class="sub" id="tagline">Put the dates on the table. Everyone taps what works. She finds the overlap.</p>
   </header>
@@ -204,42 +209,20 @@
     </form>
   </main>
 
-  <!-- BOARD -->
-  <main id="board" class="hidden" data-testid="board">
-    <section class="card keep hidden" id="ownerCard" data-testid="owner-link-card" aria-labelledby="ownerCardTitle">
-      <h2 id="ownerCardTitle">Save your creator link</h2>
-      <p>It is the only way to set the final date, from any device. Keep it to yourself — share the room code instead.</p>
-      <div class="copyrow">
-        <input type="text" readonly id="owner-url" data-testid="owner-url" aria-label="Creator link">
-        <button type="button" data-copy="owner-url">Copy</button>
-      </div>
-      <button type="button" class="ghost sm" id="ownerCardDone" data-testid="owner-link-done">I saved it</button>
-    </section>
-
-    <div class="codebar">
-      <span class="code" data-testid="pick-code" id="codeLabel">------</span>
-      <button type="button" class="ghost sm" data-testid="share-btn" id="shareBtn">Share</button>
-      <span class="live" id="live" data-testid="live"><b aria-hidden="true">●</b> Live</span>
-    </div>
-
+  <!-- VOTING VIEW: what a participant needs, nothing else -->
+  <main id="vote" class="hidden" data-testid="board">
     <div class="field">
-      <label for="name-input">Marking as</label>
+      <div class="labelrow">
+        <label for="name-input">Marking as</label>
+        <a class="manage hidden" id="toAdmin" data-nav data-testid="to-admin">Manage</a>
+      </div>
       <input id="name-input" data-testid="name-input" type="text" maxlength="24" placeholder="Your name" autocomplete="nickname">
     </div>
     <p class="notice hidden" id="lockNotice" data-testid="lock-notice" role="status"></p>
 
-    <div class="legend" aria-hidden="true">
-      <span><i style="background:rgba(196,61,110,.42)"></i>some free</span>
-      <span><i style="background:var(--gold)"></i>everyone free</span>
-      <span><i style="background:var(--accent-hover);border-radius:50%"></i>this name is in</span>
-    </div>
     <div class="gridwrap"><div class="grid" id="grid" data-testid="grid" role="group" aria-label="Availability"></div></div>
 
-    <div class="verdict" id="verdict" data-testid="verdict" aria-live="polite">
-      <div class="k" id="verdictKicker">Best overlap</div>
-      <div class="v" id="bestLabel">Nobody has marked yet</div>
-      <div class="m" id="bestMeta"></div>
-    </div>
+    <p class="result" id="result" data-testid="verdict" aria-live="polite"></p>
 
     <section class="mine-row" id="mineRow" data-testid="my-answers">
       <div class="row">
@@ -259,24 +242,52 @@
       </div>
       <button type="button" class="ghost sm" id="personCardDone">I saved it</button>
     </section>
+  </main>
 
-    <section class="people hidden" id="people" data-testid="people">
-      <h2 class="k">Who is in</h2>
-      <ul id="peopleList"></ul>
-      <p class="hint">Tap a name to fill in or correct their answers.</p>
+  <!-- ADMIN VIEW: the creator's desk, reached through the creator link -->
+  <main id="admin" class="hidden" data-testid="admin">
+    <section class="card keep hidden" id="ownerCard" data-testid="owner-link-card" aria-labelledby="ownerCardTitle">
+      <h2 id="ownerCardTitle">Save your creator link</h2>
+      <p>It is the only way back to this page, from any device. Keep it to yourself — share the room link below instead.</p>
+      <div class="copyrow">
+        <input type="text" readonly id="owner-url" data-testid="owner-url" aria-label="Creator link">
+        <button type="button" data-copy="owner-url">Copy</button>
+      </div>
+      <button type="button" class="ghost sm" id="ownerCardDone" data-testid="owner-link-done">I saved it</button>
     </section>
 
-    <section class="card creator hidden" id="creatorPanel" data-testid="creator-panel" aria-labelledby="creatorTitle">
-      <h2 id="creatorTitle">Creator</h2>
-      <div id="chooseBox">
-        <label for="choose-slot">Final date</label>
-        <div class="row">
-          <select id="choose-slot" data-testid="choose-slot"></select>
-          <button type="button" class="primary" data-testid="choose-btn" id="chooseBtn" style="flex:0 0 auto">Set the date</button>
+    <a class="switch" id="toVote" data-nav data-testid="to-vote">Mark my own availability <span aria-hidden="true">→</span></a>
+
+    <section class="card" aria-labelledby="decideTitle">
+      <h2 class="k" id="decideTitle">Decision</h2>
+      <p class="big" id="adminVerdict" data-testid="admin-verdict" aria-live="polite"></p>
+      <p class="hint" id="adminVerdictMeta"></p>
+      <div id="chooseBox" class="row" style="margin-top:12px">
+        <select id="choose-slot" data-testid="choose-slot" aria-label="Final date"></select>
+        <button type="button" class="primary" data-testid="choose-btn" id="chooseBtn" style="flex:0 0 auto">Set the date</button>
+      </div>
+      <button type="button" class="wide hidden" data-testid="reopen-btn" id="reopenBtn" style="margin-top:12px">Reopen voting</button>
+    </section>
+
+    <section class="card" aria-labelledby="shareTitle">
+      <h2 class="k" id="shareTitle">Invite</h2>
+      <div class="sharerow">
+        <span class="code" data-testid="pick-code" id="codeLabel">------</span>
+        <div class="copyrow" style="margin:0;flex:1">
+          <input type="text" readonly id="share-url" data-testid="share-url" aria-label="Room link">
+          <button type="button" data-testid="share-btn" id="shareBtn">Share</button>
         </div>
       </div>
-      <button type="button" class="wide hidden" data-testid="reopen-btn" id="reopenBtn">Reopen voting</button>
-      <details id="addMore">
+    </section>
+
+    <section class="card" aria-labelledby="answersTitle" data-testid="people">
+      <h2 class="k" id="answersTitle">Answers</h2>
+      <ul class="answers" id="answers"></ul>
+      <p class="hint" id="answersEmpty">Nobody has answered yet. Send the room link.</p>
+    </section>
+
+    <section class="card" id="addMore">
+      <details>
         <summary>Put more dates on the table</summary>
         <fieldset id="moreDates" data-testid="more-dates" aria-label="More dates">
           <div class="adder">
@@ -287,17 +298,10 @@
           <button type="button" class="primary wide" data-testid="add-dates-btn" id="addDatesBtn" style="margin-top:10px" disabled>Add to the pick</button>
         </fieldset>
       </details>
-      <details>
-        <summary>Your creator link</summary>
-        <div class="copyrow">
-          <input type="text" readonly id="owner-url-2" aria-label="Creator link">
-          <button type="button" data-copy="owner-url-2">Copy</button>
-        </div>
-      </details>
     </section>
-
-    <p class="err" role="alert" data-testid="board-error" id="boardError"></p>
   </main>
+
+  <p class="err" role="alert" data-testid="board-error" id="boardError"></p>
 
   <footer>Business Wife<br>"She closes the deal before lunch."</footer>
 
@@ -312,7 +316,7 @@ const BLOCKS = [
 const MAX_DAYS = 14;
 const MAX_AHEAD_DAYS = 90;
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-const PATH_RE = new RegExp(`^/dates/([a-z0-9]{6})(?:/(?:admin/)?(${UUID}))?/?$`);
+const PATH_RE = new RegExp(`^/dates/([a-z0-9]{6})(?:/(admin))?(?:/(${UUID}))?/?$`);
 const AV_COLORS = ["#c43d6e", "#c9a227", "#7f9c6b", "#6b8cc4", "#b56ad1", "#d1795a", "#5fb3a1", "#d15f8f"];
 const NAME_STORE = "bw_date_name";
 
@@ -323,6 +327,7 @@ const state = {
   keys: { owner: null, people: {} },   // capability links held by this browser
   chooseValue: null,
   showPersonLink: false,
+  view: "vote",
   es: null,
   timer: null,
 };
@@ -467,7 +472,7 @@ $("#createForm").onsubmit = async (e) => {
     if (!r.ok) { $("#createError").textContent = r.data.error || "Could not create that pick"; syncCreate(); return; }
     localStorage.setItem(keysStore(r.data.id), JSON.stringify({ owner: r.data.ownerToken, people: {} }));
     sessionStorage.setItem(freshStore(r.data.id), "1");
-    location.href = "/dates/" + r.data.id;
+    location.href = `/dates/${r.data.id}/admin`;
   } catch {
     $("#createError").textContent = "Network hiccup — try again";
     syncCreate();
@@ -487,18 +492,46 @@ $("#joinForm").onsubmit = async (e) => {
   } catch { $("#joinError").textContent = "Network hiccup — try again"; }
 };
 
-// ---------- board ----------
+// ---------- board: one pick, two views ----------
+// The plain room link is the voting view. The creator's desk lives at
+// /dates/<id>/admin and only opens in a browser that holds the creator link.
 const moreDates = proposalEditor($("#moreDates"), () => {
   $("#addDatesBtn").disabled = !moreDates.payload().length;
 });
 
+const viewPath = (view) => `/dates/${state.pickId}${view === "admin" ? "/admin" : ""}`;
 function showError(msg) { $("#boardError").textContent = msg; }
 function findCell(key) {
   const [date, block] = key.split("|");
   return state.data.days.find((d) => d.date === date)?.blocks.find((b) => b.id === block);
 }
 const lockedText = (name) => `${name}’s answers are locked. Only their edit link can change them.`;
+const slotText = (key) => { const [date, block] = key.split("|"); return fmtLong(date, block); };
 
+function setView(view, how = "push") {
+  if (view === "admin" && !isOwner()) view = "vote";
+  state.view = view;
+  const url = viewPath(view);
+  if (how === "push" && location.pathname !== url) history.pushState(null, "", url);
+  if (how === "replace") history.replaceState(null, "", url);
+  $("#vote").classList.toggle("hidden", view !== "vote");
+  $("#admin").classList.toggle("hidden", view !== "admin");
+  showError("");
+  render();
+  window.scrollTo(0, 0);
+}
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("a[data-nav]");
+  if (!link || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  e.preventDefault();
+  setView(link.id === "toAdmin" ? "admin" : "vote");
+});
+window.addEventListener("popstate", () => {
+  if (!state.pickId) return;
+  setView(/\/admin\/?$/.test(location.pathname) ? "admin" : "vote", "none");
+});
+
+// ----- voting view -----
 function renderGrid(d, me) {
   const grid = $("#grid");
   const focused = grid.contains(document.activeElement) ? document.activeElement.dataset.key : null;
@@ -528,29 +561,24 @@ function renderGrid(d, me) {
     }).join("");
   }
   grid.innerHTML = html;
-  // SSE re-renders must not throw a keyboard user out of the grid.
+  // Live re-renders must not throw a keyboard user out of the grid.
   if (focused) grid.querySelector(`[data-key="${focused}"]`)?.focus();
 }
 
-function renderVerdict(d) {
+function renderResult(d) {
   const total = d.totalPeople;
-  $("#verdict").classList.toggle("set", !!(d.closed && d.chosen));
-  if (d.closed && d.chosen) {
-    const [date, block] = d.chosen.split("|");
+  const el = $("#result");
+  const set = !!(d.closed && d.chosen);
+  el.classList.toggle("set", set);
+  if (set) {
     const cell = findCell(d.chosen);
-    $("#verdictKicker").textContent = "The date is set";
-    $("#bestLabel").textContent = fmtLong(date, block);
-    $("#bestMeta").textContent = `${cell ? cell.count : 0} of ${total} free. Diaries, please.`;
+    el.innerHTML = `The date is set: <b>${esc(slotText(d.chosen))}</b>. ${cell ? cell.count : 0} of ${total} free.`;
   } else if (d.best) {
-    $("#verdictKicker").textContent = "Best overlap";
-    $("#bestLabel").textContent = fmtLong(d.best.date, d.best.block);
-    $("#bestMeta").textContent = d.best.count === total && total > 1
-      ? `Everyone is free, ${total} of ${total}.`
-      : `Most people free, ${d.best.count} of ${total}.`;
+    const all = d.best.count === total && total > 1;
+    el.innerHTML = `Best so far: <b>${esc(fmtLong(d.best.date, d.best.block))}</b> — ` +
+      (all ? `everyone is free, ${total} of ${total}.` : `${d.best.count} of ${total} free.`);
   } else {
-    $("#verdictKicker").textContent = "Best overlap";
-    $("#bestLabel").textContent = "Nobody has marked yet";
-    $("#bestMeta").textContent = "Add your name, then tap the parts that work.";
+    el.textContent = "Nobody has marked yet.";
   }
 }
 
@@ -560,7 +588,7 @@ function renderMine(d, meP) {
   const lockedMine = !d.closed && meP?.locked && held;
   $("#lockBtn").classList.toggle("hidden", !canLock);
   $("#unlockBtn").classList.toggle("hidden", !lockedMine);
-  $("#showPersonLink").classList.toggle("hidden", !(meP && held));
+  $("#showPersonLink").classList.toggle("hidden", !(meP && held && !d.closed));
   $("#mineHint").textContent = lockedMine
     ? "Your answers are locked. Only your edit link can change them."
     : canLock ? "Lock in to stop anyone else typing over your answers." : "";
@@ -580,57 +608,80 @@ function renderMine(d, meP) {
   }
 }
 
-function renderPeople(d, me) {
-  $("#people").classList.toggle("hidden", !d.people.length);
-  $("#peopleList").innerHTML = d.people.map((p, i) => {
-    const k = nameKey(p.name);
-    const unlock = isOwner() && p.locked && !state.keys.people[k] && !d.closed
-      ? `<button type="button" class="link" data-unlock="${esc(p.name)}" data-testid="owner-unlock" aria-label="Unlock ${esc(p.name)}’s answers">Unlock</button>` : "";
-    return `<li><button type="button" class="pchip" data-person="${esc(p.name)}" data-testid="person" aria-current="${k === me}"
-        aria-label="Mark as ${esc(p.name)}${p.locked ? ", locked" : ""}, ${p.count} marked">
-        <span class="av" style="background:${AV_COLORS[i % AV_COLORS.length]}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>
-        ${esc(p.name)}${p.locked ? ' <span aria-hidden="true">🔒</span>' : ""} <small>${p.count}</small></button>${unlock}</li>`;
-  }).join("");
+function renderVote(d) {
+  const me = nameKey(state.name);
+  const meP = me ? d.people.find((p) => nameKey(p.name) === me) : null;
+  $("#tagline").textContent = d.closed ? "Voting is closed." : "Add your name, then tap the parts that work for you.";
+  $("#toAdmin").classList.toggle("hidden", !isOwner());
+  $("#toAdmin").href = viewPath("admin");
+  renderGrid(d, me);
+  renderResult(d);
+  renderMine(d, meP);
 }
 
-function renderCreator(d) {
-  const owner = isOwner();
-  $("#creatorPanel").classList.toggle("hidden", !owner);
-  if (!owner) return;
-  $("#owner-url-2").value = `${location.origin}/dates/${d.id}/admin/${state.keys.owner}`;
+// ----- admin view -----
+function renderAdmin(d) {
+  const total = d.totalPeople;
+  $("#tagline").textContent = total
+    ? `${total} ${total === 1 ? "person has" : "people have"} answered.`
+    : "Send the room link. Answers land here live.";
+  $("#toVote").href = viewPath("vote");
+
+  const verdict = $("#adminVerdict");
+  const set = !!(d.closed && d.chosen);
+  verdict.classList.toggle("set", set);
+  if (set) {
+    verdict.textContent = slotText(d.chosen);
+    $("#adminVerdictMeta").textContent = "The date is set and voting is closed.";
+  } else if (d.best) {
+    verdict.textContent = fmtLong(d.best.date, d.best.block);
+    $("#adminVerdictMeta").textContent = d.best.count === total && total > 1
+      ? `Best overlap — everyone is free, ${total} of ${total}.`
+      : `Best overlap so far — ${d.best.count} of ${total} free.`;
+  } else {
+    verdict.textContent = "Nobody has marked yet";
+    $("#adminVerdictMeta").textContent = "Set the date once the answers are in.";
+  }
   $("#chooseBox").classList.toggle("hidden", d.closed);
   $("#reopenBtn").classList.toggle("hidden", !d.closed);
-  $("#addMore").classList.toggle("hidden", d.closed);
   const options = d.days.flatMap((day) => day.blocks.map((b) => ({ key: day.date + "|" + b.id, date: day.date, block: b.id, count: b.count })));
   const bestKey = d.best ? d.best.date + "|" + d.best.block : options[0]?.key;
-  const value = options.some((o) => o.key === state.chooseValue) ? state.chooseValue : bestKey;
   const select = $("#choose-slot");
   select.innerHTML = options.map((o) =>
-    `<option value="${o.key}">${esc(fmtShort(o.date))} · ${blockLabel(o.block)} (${o.count} of ${d.totalPeople})</option>`
+    `<option value="${o.key}">${esc(fmtShort(o.date))} · ${blockLabel(o.block)} (${o.count} of ${total})</option>`
   ).join("");
-  select.value = value;
+  select.value = options.some((o) => o.key === state.chooseValue) ? state.chooseValue : bestKey;
+
+  $("#codeLabel").textContent = d.id.toUpperCase();
+  $("#share-url").value = `${location.origin}/dates/${d.id}`;
+
+  const slotsOf = (name) => d.days.flatMap((day) => day.blocks
+    .filter((b) => b.who.some((w) => nameKey(w.name) === nameKey(name)))
+    .map((b) => `${fmtShort(day.date)} · ${b.label}`));
+  $("#answersEmpty").classList.toggle("hidden", d.people.length > 0);
+  $("#answers").innerHTML = d.people.map((p, i) => {
+    const slots = slotsOf(p.name);
+    const unlock = p.locked && !d.closed
+      ? `<button type="button" class="ghost sm" data-unlock="${esc(p.name)}" data-testid="owner-unlock" aria-label="Unlock ${esc(p.name)}’s answers">Unlock</button>` : "";
+    return `<li data-testid="answer">
+      <span class="av" style="background:${AV_COLORS[i % AV_COLORS.length]}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>
+      <div class="who"><div class="nm">${esc(p.name)}${p.locked ? ' <span aria-label="locked">🔒</span>' : ""}</div>
+      <div class="sl">${slots.length ? esc(slots.join(", ")) : "No parts marked"}</div></div>${unlock}</li>`;
+  }).join("");
+
+  $("#addMore").classList.toggle("hidden", d.closed);
 }
 
 function render() {
   const d = state.data;
   if (!d) return;
-  const me = nameKey(state.name);
-  const meP = me ? d.people.find((p) => nameKey(p.name) === me) : null;
   document.title = `${d.title} — Date Picker`;
   $("#title").textContent = d.title;
-  $("#codeLabel").textContent = d.id.toUpperCase();
-  const total = d.totalPeople;
-  $("#tagline").textContent = d.closed
-    ? "Voting is closed."
-    : total ? `${total} ${total === 1 ? "person has" : "people have"} weighed in.`
-    : "Add your name and tap the parts that work. The overlap finds itself.";
-  renderGrid(d, me);
-  renderVerdict(d);
-  renderMine(d, meP);
-  renderPeople(d, me);
-  renderCreator(d);
+  if (state.view === "admin") renderAdmin(d);
+  else renderVote(d);
 }
 
+// ----- actions -----
 // Optimistic: the grid answers the tap, the next state frame confirms it.
 function applyLocal(key, name, on) {
   const d = state.data;
@@ -682,20 +733,12 @@ $("#grid").addEventListener("click", (e) => {
   if (cell) toggle(cell.dataset.key);
 });
 
-function setName(name) {
-  state.name = name;
-  $("#name-input").value = name;
-  try { localStorage.setItem(NAME_STORE, name.trim()); } catch {}
+$("#name-input").addEventListener("input", (e) => {
+  state.name = e.target.value;
+  try { localStorage.setItem(NAME_STORE, state.name.trim()); } catch {}
   state.showPersonLink = false;
   showError("");
   render();
-}
-$("#name-input").addEventListener("input", (e) => setName(e.target.value));
-$("#peopleList").addEventListener("click", (e) => {
-  const unlock = e.target.closest("[data-unlock]");
-  if (unlock) { ownerUnlock(unlock.dataset.unlock); return; }
-  const chip = e.target.closest("[data-person]");
-  if (chip) setName(chip.dataset.person);
 });
 
 $("#lockBtn").onclick = async () => {
@@ -715,13 +758,15 @@ $("#lockBtn").onclick = async () => {
 async function unlock(body) {
   try {
     const r = await api(`/${state.pickId}/unlock`, body);
-    if (!r.ok) showError(r.data.error || "Could not unlock that.");
-    else showError("");
+    showError(r.ok ? "" : (r.data.error || "Could not unlock that."));
   } catch { showError("Network hiccup — try again."); }
   refresh();
 }
 $("#unlockBtn").onclick = () => unlock({ name: state.name.trim(), token: myKey() });
-function ownerUnlock(name) { unlock({ name, ownerToken: state.keys.owner }); }
+$("#answers").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-unlock]");
+  if (btn) unlock({ name: btn.dataset.unlock, ownerToken: state.keys.owner });
+});
 
 $("#showPersonLink").onclick = () => { state.showPersonLink = !state.showPersonLink; render(); };
 $("#personCardDone").onclick = () => { state.showPersonLink = false; render(); };
@@ -751,21 +796,22 @@ $("#addDatesBtn").onclick = async () => {
     const r = await api(`/${state.pickId}/dates`, { ownerToken: state.keys.owner, days: moreDates.payload() });
     if (!r.ok) { showError(r.data.error || "Could not add those dates."); return; }
     moreDates.clear();
-    $("#addMore").open = false;
+    $("#addMore details").open = false;
     showError("");
   } catch { showError("Network hiccup — try again."); }
   refresh();
 };
 
 $("#shareBtn").onclick = async () => {
-  const url = `${location.origin}/dates/${state.pickId}`;
+  const url = $("#share-url").value;
   if (navigator.share && matchMedia("(pointer: coarse)").matches) {
     try { await navigator.share({ title: state.data?.title || "Date Picker", text: "When are we all free?", url }); return; }
     catch (e) { if (e.name === "AbortError") return; }
   }
-  copyText(url, $("#shareBtn"));
+  copyText(url, $("#shareBtn"), $("#share-url"));
 };
 
+// ----- data -----
 async function refresh() {
   try {
     const res = await fetch(`${API}/${state.pickId}`);
@@ -781,58 +827,60 @@ async function refresh() {
   } catch {}
 }
 
+function setLive(text) {
+  $("#live").textContent = text;
+  $("#live").classList.toggle("hidden", !text);
+}
 function watch() {
   const es = new EventSource(`${API}/${state.pickId}/events`);
   es.onmessage = (e) => {
-    try {
-      state.data = JSON.parse(e.data);
-      render();
-      $("#live").innerHTML = '<b aria-hidden="true">●</b> Live';
-    } catch {}
+    try { state.data = JSON.parse(e.data); render(); setLive(""); } catch {}
   };
-  es.onerror = () => { $("#live").innerHTML = '<b aria-hidden="true">●</b> Reconnecting…'; };
+  es.onerror = () => setLive("· reconnecting…");
   state.es = es;
   // SSE reconnects itself; poll anyway so a dead proxy cannot freeze the grid.
   state.timer = setInterval(refresh, 5000);
 }
 
-async function boot(id, link) {
+async function boot(id, wantsAdmin, link) {
   state.pickId = id;
   state.keys = loadKeys(id);
   state.name = localStorage.getItem(NAME_STORE) || "";
   $("#lobby").classList.add("hidden");
-  $("#board").classList.remove("hidden");
+  let view = wantsAdmin ? "admin" : "vote";
   if (link) {
     try {
       const r = await api(`/${id}/who?token=${encodeURIComponent(link)}`);
       if (r.ok && r.data.role === "admin") {
         state.keys.owner = link;
         saveKeys();
+        view = "admin";
       } else if (r.ok && r.data.role === "person") {
         state.keys.people[nameKey(r.data.name)] = link;
         saveKeys();
         state.name = r.data.name;
         localStorage.setItem(NAME_STORE, r.data.name);
+        view = "vote";
       } else if (r.status !== 404) {
         showError("That link does not open anything on this pick.");
       }
     } catch { showError("Network hiccup — reload to try the link again."); }
-    // The link is now remembered here; keep it out of the address bar so what
-    // people copy from it is always the safe room link.
-    history.replaceState(null, "", `/dates/${id}`);
   }
   $("#name-input").value = state.name;
   if (isOwner() && sessionStorage.getItem(freshStore(id))) {
     $("#owner-url").value = `${location.origin}/dates/${id}/admin/${state.keys.owner}`;
     $("#ownerCard").classList.remove("hidden");
   }
+  // Private links are remembered now; keep them out of the address bar so
+  // whatever gets copied from it is never a secret.
+  setView(view, "replace");
   await refresh();
   watch();
 }
 
 (function start() {
   const m = location.pathname.match(PATH_RE);
-  if (m) boot(m[1], m[2]);
+  if (m) boot(m[1], !!m[2], m[3]);
   else syncCreate();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/dates/sw.js").catch(() => {});
 })();
