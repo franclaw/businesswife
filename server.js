@@ -193,12 +193,18 @@ function makeDatePick(title, slots) {
     title,
     slots,                                  // [{date, block}] proposed by the creator
     people: new Map(),                      // nameKey -> { name, slots:Set, locked, token }
-    creatorId: null,
+    // The creator's capability URL. Portable by design: a device-local id meant
+    // you lost creator powers by switching phones.
+    ownerToken: null,
     closed: false,                          // final date set by the creator
     chosen: null,
     createdAt: now(),
     sse: new Set(),
   };
+}
+
+function isAdmin(pick, token) {
+  return !!pick.ownerToken && token === pick.ownerToken;
 }
 
 function person(pick, name) {
@@ -642,7 +648,7 @@ const server = http.createServer(async (req, res) => {
     pathname === '/dates' || pathname === '/dates/' ||
     pathname === '/dates/index.html' ||
     /^\/dates\/[a-z0-9]{6}\/?$/.test(pathname) ||
-    /^\/dates\/[a-z0-9]{6}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/.test(pathname)
+    /^\/dates\/[a-z0-9]{6}\/(admin\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/.test(pathname)
   )) {
     return serveHtml(res, path.join(DATES_DIR, 'index.html'));
   }
@@ -726,9 +732,10 @@ const server = http.createServer(async (req, res) => {
       const id = newDateId();
       const pick = makeDatePick(parsed.title, parsed.slots);
       pick.id = id;
-      if (validVoterId(body && body.creatorId)) pick.creatorId = body.creatorId;
+      pick.ownerToken = crypto.randomUUID();
       dates.set(id, pick);
-      return json(res, 200, { id });
+      // Returned once. It is never included in broadcast state after this.
+      return json(res, 200, { id, ownerToken: pick.ownerToken });
     }
 
     const dateM = pathname.match(/^\/dates\/api\/picks\/([a-z0-9]{6})(\/.*)?$/);
@@ -744,8 +751,11 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'GET' && sub === '/who') {
         const token = (query.get('token') || '').trim();
         if (!token) return json(res, 400, { error: 'token required' });
+        if (pick.ownerToken && pick.ownerToken === token) {
+          return json(res, 200, { role: 'admin' });
+        }
         for (const p of pick.people.values()) {
-          if (p.token === token) return json(res, 200, { name: p.name, locked: p.locked });
+          if (p.token === token) return json(res, 200, { role: 'person', name: p.name, locked: p.locked });
         }
         return json(res, 403, { error: 'not a valid edit link' });
       }
@@ -811,10 +821,25 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true, name: p.name });
       }
 
-      if (req.method === 'POST' && (sub === '/choose' || sub === '/reopen')) {
+      if (req.method === 'POST' && (sub === '/choose' || sub === '/reopen' || sub === '/dates')) {
         const body = await readBody(req);
-        const { voterId, date, block } = body;
-        if (!pick.creatorId || voterId !== pick.creatorId) return json(res, 403, { error: 'creator only' });
+        const { ownerToken, date, block, days } = body;
+        if (!pick.ownerToken || ownerToken !== pick.ownerToken) return json(res, 403, { error: 'creator link only' });
+
+        // The creator may put more dates on the table after the fact.
+        if (sub === '/dates') {
+          if (pick.closed) return json(res, 409, { error: 'a date is already set' });
+          const extra = parseDateCreate({ title: pick.title, days });
+          if (extra.error) return json(res, 400, { error: extra.error });
+          for (const slot of extra.slots) {
+            if (!pick.slots.some((x) => x.date === slot.date && x.block === slot.block)) pick.slots.push(slot);
+          }
+          pick.slots.sort((a, b) => (a.date === b.date
+            ? DATE_BLOCKS.findIndex((x) => x.id === a.block) - DATE_BLOCKS.findIndex((x) => x.id === b.block)
+            : a.date < b.date ? -1 : 1));
+          broadcastDate(pick);
+          return json(res, 200, { ok: true, slots: pick.slots.length });
+        }
         if (sub === '/reopen') {
           pick.closed = false;
           pick.chosen = null;
