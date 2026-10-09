@@ -349,6 +349,55 @@ test.describe('Date Picker — creator', () => {
   });
 });
 
+test.describe('Date Picker — none of these work', () => {
+  test('a quiet line offers it once a name is in, and it can be undone', async ({ page }) => {
+    await createPick(page);
+    await toVote(page);
+    await expect(page.getByTestId('none-line')).toBeHidden();
+    await page.getByTestId('name-input').fill('Marc');
+    await expect(page.getByTestId('none-btn')).toHaveText('None of these work for me');
+    await page.getByTestId('none-btn').click();
+    await expect(page.getByTestId('none-line')).toContainText('You can’t make any of these');
+    await expect(page.getByTestId('grid')).toHaveClass(/dim/);
+    await expect(page.getByTestId('verdict')).toContainText('Marc can’t make any.');
+    await page.getByTestId('none-undo').click();
+    await expect(page.getByTestId('none-btn')).toBeVisible();
+    await expect(page.getByTestId('grid')).not.toHaveClass(/dim/);
+    await expect(page.getByTestId('verdict')).toContainText('Nobody has marked yet');
+  });
+
+  test('tapping a part replaces "none" with a real answer', async ({ page }) => {
+    await createPick(page);
+    await toVote(page);
+    await page.getByTestId('name-input').fill('Marc');
+    await page.getByTestId('none-btn').click();
+    await expect(page.getByTestId('none-undo')).toBeVisible();
+    await cell(page, 1, 'evening').click();
+    await expect(page.getByTestId('none-btn')).toBeVisible();
+    await expect(page.getByTestId('grid')).not.toHaveClass(/dim/);
+    await expect.poll(() => count(page, 1, 'evening')).toBe('1');
+  });
+
+  test('someone out keeps "everyone is free" honest, and the desk flags it', async ({ page, browser }) => {
+    const { code } = await createPick(page);
+    const sana = await openAs(browser, `${DATES}/${code}`, 'Sana');
+    await cell(sana.page, 1, 'evening').click();
+    await expect(sana.page.getByTestId('verdict')).toContainText(/1 of 1 free/);
+    const marc = await openAs(browser, `${DATES}/${code}`, 'Marc');
+    await marc.page.getByTestId('none-btn').click();
+    await expect(sana.page.getByTestId('verdict')).toContainText('1 of 2 free. Marc can’t make any.');
+    await expect(sana.page.getByTestId('verdict')).not.toContainText(/everyone/i);
+
+    const row = page.getByTestId('answer').filter({ hasText: 'Marc' });
+    await expect(row).toContainText('None of these work');
+    await row.getByRole('button', { name: 'add dates' }).click();
+    await expect(page.locator('#addMore details')).toHaveAttribute('open', '');
+    await expect(page.getByTestId('more-dates').getByTestId('add-day')).toBeFocused();
+    await sana.ctx.close();
+    await marc.ctx.close();
+  });
+});
+
 test.describe('Date Picker — mobile', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -420,6 +469,45 @@ test.describe('Date Picker — API', () => {
     const state = await (await request.get(`${API}/${id}`)).json();
     expect(state.totalPeople).toBe(1);
     expect(state.best).toEqual({ date: iso(0), block: 'evening', count: 1 });
+  });
+
+  test('"none of these work" is its own answer and follows the lock rules', async ({ request }) => {
+    const { id } = await apiCreate(request, [[0, ALL]]);
+    const url = `${API}/${id}`;
+    const state = async () => (await request.get(url)).json();
+    const marc = async () => (await state()).people.find((p) => p.name === 'Marc');
+
+    await request.post(`${url}/mark`, { data: { name: 'Marc', date: iso(0), block: 'evening', on: true } });
+    await request.post(`${url}/mark`, { data: { name: 'Sana', date: iso(0), block: 'evening', on: true } });
+    expect((await state()).best.count).toBe(2);
+
+    // Choosing it clears the marks but keeps the person in the head count.
+    expect((await request.post(`${url}/none`, { data: { name: 'marc', on: true } })).status()).toBe(200);
+    let st = await state();
+    expect(st.totalPeople).toBe(2);
+    expect(st.best).toEqual({ date: iso(0), block: 'evening', count: 1 });
+    expect(await marc()).toMatchObject({ none: true, count: 0 });
+
+    // Any mark clears it again.
+    await request.post(`${url}/mark`, { data: { name: 'Marc', date: iso(0), block: 'morning', on: true } });
+    expect(await marc()).toMatchObject({ none: false, count: 1 });
+
+    // Undo with no marks left means no answer at all.
+    await request.post(`${url}/none`, { data: { name: 'Marc', on: true } });
+    await request.post(`${url}/none`, { data: { name: 'Marc', on: false } });
+    st = await state();
+    expect(st.totalPeople).toBe(1);
+    expect(await marc()).toBeUndefined();
+
+    // It can be locked in, and a lock protects it.
+    await request.post(`${url}/none`, { data: { name: 'Pim', on: true } });
+    const lock = await request.post(`${url}/lock`, { data: { name: 'Pim' } });
+    expect(lock.status()).toBe(200);
+    expect((await request.post(`${url}/none`, { data: { name: 'Pim', on: false } })).status()).toBe(423);
+    const pimKey = (await lock.json()).token;
+    expect((await request.post(`${url}/none`, { data: { name: 'Pim', on: false, token: pimKey } })).status()).toBe(200);
+
+    expect((await request.post(`${url}/none`, { data: { name: ' ', on: true } })).status()).toBe(400);
   });
 
   test('page routes serve the app, including both kinds of link', async ({ request }) => {

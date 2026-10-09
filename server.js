@@ -205,7 +205,7 @@ function makeDatePick(title, slots) {
     id: null,
     title,
     slots,                                  // [{date, block}] proposed by the creator
-    people: new Map(),                      // nameKey -> { name, slots:Set, locked, token }
+    people: new Map(),                      // nameKey -> { name, slots:Set, none, locked, token }
     // The creator's capability URL. Portable by design: a device-local id meant
     // you lost creator powers by switching phones.
     ownerToken: null,
@@ -225,9 +225,16 @@ function person(pick, name) {
   if (!key) return null;
   if (!pick.people.has(key)) {
     if (pick.people.size >= DATE_PEOPLE_MAX) return null;
-    pick.people.set(key, { name: cleanPersonName(name), slots: new Set(), locked: false, token: null });
+    pick.people.set(key, { name: cleanPersonName(name), slots: new Set(), none: false, locked: false, token: null });
   }
   return pick.people.get(key);
+}
+
+// Someone with no answer left leaves the head count, so "everyone is free" is
+// not held hostage by an empty row. A name that ever had an edit link stays, so
+// the link keeps resolving.
+function dropIfEmpty(pick, p) {
+  if (!p.slots.size && !p.none && !p.token) pick.people.delete(nameKey(p.name));
 }
 
 // Overlap wins among proposed slots only: most people free, then earliest day,
@@ -270,7 +277,7 @@ function dateState(pick) {
           return { id: b.id, label: b.label, short: b.short, count: who.length, who };
         }),
     })),
-    people: people.map((p) => ({ name: p.name, locked: p.locked, count: p.slots.size })),
+    people: people.map((p) => ({ name: p.name, locked: p.locked, count: p.slots.size, none: p.none })),
     best: best ? { date: best.date, block: best.block, count: best.count } : null,
   };
 }
@@ -799,14 +806,38 @@ const server = http.createServer(async (req, res) => {
         if (p.locked && p.token !== token) {
           return json(res, 423, { error: 'locked', name: p.name });
         }
-        if (on) p.slots.add(key);
-        else p.slots.delete(key);
-        // Someone who clears every mark leaves the head count, so "everyone is
-        // free" is not held hostage by an empty row. A name that ever had an
-        // edit link stays, so the link keeps resolving.
-        if (!p.slots.size && !p.token) pick.people.delete(nameKey(clean));
+        if (on) {
+          p.slots.add(key);
+          p.none = false;                     // a real mark replaces "none of these work"
+        } else {
+          p.slots.delete(key);
+        }
+        dropIfEmpty(pick, p);
         broadcastDate(pick);
         return json(res, 200, { ok: true, count: p.slots.size });
+      }
+
+      // "None of these work for me" is an answer, not the absence of one: the
+      // person stays in the head count, so "everyone is free" cannot be reached
+      // while they are out. Choosing it clears their marks; undoing it leaves
+      // them with no answer at all.
+      if (req.method === 'POST' && sub === '/none') {
+        const { name, on, token } = await readBody(req);
+        const clean = cleanPersonName(name);
+        if (!clean) return json(res, 400, { error: 'name required' });
+        if (pick.closed) return json(res, 409, { error: 'a date is already set' });
+        const existing = pick.people.get(nameKey(clean));
+        if (!on && !existing) return json(res, 200, { ok: true, none: false });
+        const p = existing || person(pick, clean);
+        if (!p) return json(res, 409, { error: 'too many people on this pick' });
+        if (p.locked && p.token !== token) {
+          return json(res, 423, { error: 'locked', name: p.name });
+        }
+        p.none = !!on;
+        if (p.none) p.slots.clear();
+        dropIfEmpty(pick, p);
+        broadcastDate(pick);
+        return json(res, 200, { ok: true, none: p.none });
       }
 
       // Lock a name in: mints the one edit link. The token is never broadcast.
@@ -816,7 +847,7 @@ const server = http.createServer(async (req, res) => {
         if (!clean) return json(res, 400, { error: 'name required' });
         const p = pick.people.get(nameKey(clean));
         if (!p) return json(res, 400, { error: 'mark at least one date first' });
-        if (!p.slots.size) return json(res, 400, { error: 'mark at least one date first' });
+        if (!p.slots.size && !p.none) return json(res, 400, { error: 'mark at least one date first' });
         if (p.locked) return json(res, 409, { error: 'already locked in' });
         p.locked = true;
         p.token = crypto.randomUUID();

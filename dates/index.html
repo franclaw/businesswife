@@ -134,6 +134,11 @@
     border-radius: 50%; background: var(--accent-hover);
   }
 
+  .grid.dim { opacity: .4; transition: opacity .15s; }
+  .none-line { margin: 10px 0 0; font-size: .76rem; color: var(--muted); }
+  .none-line button { background: none; border: 0; padding: 6px 0; min-height: 32px; font-size: inherit; font-weight: 500; color: var(--faint); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
+  .none-line button:hover { color: var(--text); }
+  .answers .sl button { background: none; border: 0; padding: 0; min-height: 0; font: inherit; color: var(--accent-hover); text-decoration: underline; text-underline-offset: 2px; }
   .result {
     margin: 14px 0 0; font-size: .82rem; color: var(--muted); line-height: 1.45;
     padding-left: 10px; border-left: 2px solid var(--border-strong);
@@ -221,6 +226,7 @@
     <p class="notice hidden" id="lockNotice" data-testid="lock-notice" role="status"></p>
 
     <div class="gridwrap"><div class="grid" id="grid" data-testid="grid" role="group" aria-label="Availability"></div></div>
+    <p class="none-line hidden" id="noneLine" data-testid="none-line"></p>
 
     <p class="result" id="result" data-testid="verdict" aria-live="polite"></p>
 
@@ -561,8 +567,17 @@ function renderGrid(d, me) {
     }).join("");
   }
   grid.innerHTML = html;
+  grid.classList.toggle("dim", !!d.people.find((p) => p.none && nameKey(p.name) === me));
   // Live re-renders must not throw a keyboard user out of the grid.
   if (focused) grid.querySelector(`[data-key="${focused}"]`)?.focus();
+}
+
+// "Marc can't make any." / "Marc and Sana can't make any." / "3 people can't make any."
+function noneText(d) {
+  const names = d.people.filter((p) => p.none).map((p) => p.name);
+  if (!names.length) return "";
+  const who = names.length === 1 ? names[0] : names.length === 2 ? names.join(" and ") : `${names.length} people`;
+  return ` ${who} can’t make any.`;
 }
 
 function renderResult(d) {
@@ -576,15 +591,15 @@ function renderResult(d) {
   } else if (d.best) {
     const all = d.best.count === total && total > 1;
     el.innerHTML = `Best so far: <b>${esc(fmtLong(d.best.date, d.best.block))}</b> — ` +
-      (all ? `everyone is free, ${total} of ${total}.` : `${d.best.count} of ${total} free.`);
+      (all ? `everyone is free, ${total} of ${total}.` : `${d.best.count} of ${total} free.`) + esc(noneText(d));
   } else {
-    el.textContent = "Nobody has marked yet.";
+    el.textContent = (total ? "No date works for anyone yet." : "Nobody has marked yet.") + noneText(d);
   }
 }
 
 function renderMine(d, meP) {
   const held = !!myKey();
-  const canLock = !d.closed && meP && !meP.locked && meP.count > 0;
+  const canLock = !d.closed && meP && !meP.locked && (meP.count > 0 || meP.none);
   const lockedMine = !d.closed && meP?.locked && held;
   $("#lockBtn").classList.toggle("hidden", !canLock);
   $("#unlockBtn").classList.toggle("hidden", !lockedMine);
@@ -595,6 +610,12 @@ function renderMine(d, meP) {
 
   const notice = $("#lockNotice");
   const blocked = !d.closed && meP?.locked && !held;
+  // One quiet line under the grid: the offer, or the state with its undo.
+  const line = $("#noneLine");
+  line.classList.toggle("hidden", d.closed || !state.name.trim() || blocked);
+  line.innerHTML = meP?.none
+    ? `You can’t make any of these · <button type="button" data-none="off" data-testid="none-undo">Undo</button>`
+    : `<button type="button" data-none="on" data-testid="none-btn">None of these work for me</button>`;
   notice.classList.toggle("hidden", !blocked);
   if (blocked) notice.textContent = lockedText(meP.name);
 
@@ -659,6 +680,8 @@ function renderAdmin(d) {
     .filter((b) => b.who.some((w) => nameKey(w.name) === nameKey(name)))
     .map((b) => `${fmtShort(day.date)} · ${b.label}`));
   $("#answersEmpty").classList.toggle("hidden", d.people.length > 0);
+  // The nudge to add dates sits on the first "none" row only, so it never repeats.
+  const firstNone = d.people.find((p) => p.none);
   $("#answers").innerHTML = d.people.map((p, i) => {
     const slots = slotsOf(p.name);
     const unlock = p.locked && !d.closed
@@ -666,7 +689,9 @@ function renderAdmin(d) {
     return `<li data-testid="answer">
       <span class="av" style="background:${AV_COLORS[i % AV_COLORS.length]}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>
       <div class="who"><div class="nm">${esc(p.name)}${p.locked ? ' <span aria-label="locked">🔒</span>' : ""}</div>
-      <div class="sl">${slots.length ? esc(slots.join(", ")) : "No parts marked"}</div></div>${unlock}</li>`;
+      <div class="sl">${p.none
+        ? `None of these work${d.closed || p !== firstNone ? "" : ` · <button type="button" data-add-dates>add dates</button>`}`
+        : slots.length ? esc(slots.join(", ")) : "No parts marked"}</div></div>${unlock}</li>`;
   }).join("");
 
   $("#addMore").classList.toggle("hidden", d.closed);
@@ -689,7 +714,8 @@ function applyLocal(key, name, on) {
   const cell = findCell(key);
   let p = d.people.find((x) => nameKey(x.name) === k);
   if (on) {
-    if (!p) { p = { name, locked: false, count: 0 }; d.people.push(p); d.totalPeople++; }
+    if (!p) { p = { name, locked: false, count: 0, none: false }; d.people.push(p); d.totalPeople++; }
+    p.none = false;
     cell.who.push({ name: p.name, locked: p.locked });
     p.count++;
   } else {
@@ -766,6 +792,25 @@ $("#unlockBtn").onclick = () => unlock({ name: state.name.trim(), token: myKey()
 $("#answers").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-unlock]");
   if (btn) unlock({ name: btn.dataset.unlock, ownerToken: state.keys.owner });
+  if (e.target.closest("[data-add-dates]")) {
+    $("#addMore details").open = true;
+    $("#addMore").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("#moreDates [data-role=day]").focus({ preventScroll: true });
+  }
+});
+
+$("#noneLine").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-none]");
+  if (!btn) return;
+  const name = state.name.trim();
+  try {
+    const body = { name, on: btn.dataset.none === "on" };
+    if (myKey()) body.token = myKey();
+    const r = await api(`/${state.pickId}/none`, body);
+    showError(r.ok ? "" : r.status === 423 ? lockedText(r.data.name || name) : (r.data.error || "Could not save that."));
+  } catch { showError("Network hiccup — try again."); }
+  await refresh();
+  $("#noneLine button")?.focus();
 });
 
 $("#showPersonLink").onclick = () => { state.showPersonLink = !state.showPersonLink; render(); };
