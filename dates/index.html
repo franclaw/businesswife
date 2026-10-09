@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0f0c0e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="Tap the blocks that work. The overlap finds itself.">
+<meta name="description" content="Put the dates on the table. Everyone taps what works. She finds the overlap.">
 <link rel="manifest" href="/dates/manifest.webmanifest">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/dates/icons/icon-192.png">
@@ -18,6 +18,7 @@
     --text: #f2ebe6; --muted: #9a8a90; --faint: #6b5c62;
     --accent: #c43d6e; --accent-hover: #d54f7f; --accent-soft: rgba(196, 61, 110, 0.14);
     --gold: #c9a227; --gold-soft: rgba(201, 162, 39, 0.12);
+    --danger: #e0557a;
     --radius: 10px;
     --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -26,79 +27,109 @@
   body {
     margin: 0; background: var(--bg); color: var(--text); font-family: var(--font);
     padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
-    max-width: 620px; margin-inline: auto; -webkit-tap-highlight-color: transparent;
+    max-width: 680px; margin-inline: auto; -webkit-tap-highlight-color: transparent;
   }
   .kicker { font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
   h1 { font-size: 1.35rem; margin: 4px 0 2px; font-weight: 650; word-break: break-word; }
+  h2 { font-size: .95rem; margin: 0 0 6px; font-weight: 650; }
   .sub { color: var(--muted); font-size: .8rem; margin: 0 0 16px; }
   .hidden { display: none !important; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
-  label { display: block; font-size: .72rem; color: var(--muted); margin: 0 0 6px; }
-  input[type=text], input[type=date] {
+  .card + .card { margin-top: 14px; }
+  label, legend { display: block; font-size: .72rem; color: var(--muted); margin: 0 0 6px; padding: 0; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  input[type=text], input[type=date], select {
     width: 100%; padding: 11px 12px; border-radius: var(--radius); background: var(--surface-2);
-    border: 1px solid var(--border-strong); color: var(--text); font-family: inherit; font-size: .9rem;
+    border: 1px solid var(--border-strong); color: var(--text); font-family: inherit; font-size: 1rem;
+    min-height: 44px; color-scheme: dark;
   }
-  input:focus { outline: none; border-color: var(--accent); }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
   .field { margin-bottom: 14px; }
   button {
     font-family: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
     min-height: 44px; padding: 10px 16px; border-radius: var(--radius);
     border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text);
   }
+  button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.primary:disabled, button:disabled { opacity: .45; cursor: not-allowed; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
   button.ghost { background: transparent; }
+  button.sm { min-height: 34px; padding: 4px 12px; font-size: .74rem; }
+  button.link { background: none; border: 0; padding: 6px 0; min-height: 32px; color: var(--accent-hover); font-size: .76rem; }
+  .wide { width: 100%; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
-  .err { color: var(--danger, #e0557a); font-size: .76rem; min-height: 1.2em; margin: 8px 0 0; }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip {
-    padding: 8px 12px; border-radius: 20px; border: 1px solid var(--border-strong);
-    background: var(--surface-2); font-size: .76rem; min-height: 36px; color: var(--text);
-  }
-  .chip.sel { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+  .err { color: var(--danger); font-size: .76rem; min-height: 1.2em; margin: 8px 0 0; }
+  .hint { color: var(--faint); font-size: .72rem; margin: 6px 0 0; line-height: 1.45; }
 
-  /* code + people */
+  /* proposal editor: dates + the parts of each day on the table */
+  .adder { display: flex; gap: 8px; }
+  .adder input { flex: 1; }
+  .proposals { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+  .prop {
+    display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .prop .pd { font-size: .8rem; font-weight: 600; min-width: 84px; }
+  .prop.empty .pd { color: var(--faint); text-decoration: line-through; }
+  .parts { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+  .part {
+    min-height: 36px; padding: 4px 10px; font-size: .72rem; font-weight: 600; border-radius: 18px;
+    background: transparent; color: var(--muted);
+  }
+  .part[aria-pressed=true] { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+  .x { min-height: 36px; min-width: 36px; padding: 0; background: transparent; border-color: transparent; color: var(--faint); font-size: 1.1rem; }
+
+  /* board header */
   .codebar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
   .code { font-family: var(--mono); font-size: 1.05rem; letter-spacing: .18em; color: var(--gold); }
-  .who { margin-left: auto; display: flex; }
-  .av {
-    width: 24px; height: 24px; border-radius: 50%; margin-left: -7px; border: 2px solid var(--surface);
-    font-size: .6rem; font-weight: 700; display: grid; place-items: center; color: #140f11;
-    background: var(--accent);
+  .live { margin-left: auto; font-size: .64rem; color: var(--faint); }
+  .live b { color: var(--accent); }
+
+  /* save-this-link cards */
+  .keep { border-color: var(--gold); background: linear-gradient(var(--gold-soft), var(--gold-soft)), var(--surface); margin-bottom: 14px; }
+  .keep h2 { color: var(--gold); }
+  .keep p { font-size: .78rem; color: var(--muted); margin: 0 0 10px; line-height: 1.45; }
+  .copyrow { display: flex; gap: 8px; margin-bottom: 10px; }
+  .copyrow input { flex: 1; font-family: var(--mono); font-size: .74rem; }
+
+  .notice {
+    font-size: .8rem; line-height: 1.45; margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius);
+    background: var(--accent-soft); border: 1px solid rgba(196,61,110,.35);
   }
+
   .legend { display: flex; gap: 12px; font-size: .64rem; color: var(--faint); margin-bottom: 8px; flex-wrap: wrap; }
   .legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
 
   /* grid */
-  .gridwrap { overflow-x: auto; padding-bottom: 4px; }
+  .gridwrap { overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
   .grid { display: grid; gap: 4px; }
   .day { text-align: center; font-size: .6rem; color: var(--muted); padding: 4px 0 6px; line-height: 1.25; }
   .day b { display: block; font-size: .82rem; color: var(--text); font-weight: 650; }
+  .blk, .corner { position: sticky; left: 0; z-index: 1; background: var(--bg); }
   .blk {
     font-size: .56rem; color: var(--faint); display: flex; align-items: center; justify-content: flex-end;
-    padding-right: 6px; text-transform: uppercase; letter-spacing: .05em; min-width: 52px;
+    padding-right: 6px; text-transform: uppercase; letter-spacing: .05em;
   }
   .cell {
-    height: 46px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface);
+    height: 52px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    position: relative; cursor: pointer; min-width: 44px; -webkit-appearance: none; appearance: none;
-    padding: 0; font: inherit; color: inherit;
+    position: relative; cursor: pointer; min-width: 48px; min-height: 0; padding: 0; color: inherit;
   }
-  .cell:disabled { cursor: default; }
-  .dots { display: flex; gap: 3px; }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
-  .dot.on { background: var(--accent); }
-  .n { font-size: .58rem; color: var(--faint); font-variant-numeric: tabular-nums; }
-  .c1 { background: var(--surface-2); }
-  .c2 { background: rgba(196,61,110,.10); border-color: rgba(196,61,110,.28); }
-  .c3 { background: rgba(196,61,110,.19); border-color: rgba(196,61,110,.42); }
-  .best { background: var(--gold-soft); border-color: var(--gold); }
-  .best .n { color: var(--gold); font-weight: 700; }
-  .best .dot.on { background: var(--gold); }
+  .cell.off { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--surface) 5px 6px); border-style: dashed; cursor: default; }
+  .cell:disabled { cursor: default; opacity: 1; }
+  .n { font-size: .78rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1; }
+  .ini { font-size: .52rem; color: var(--faint); letter-spacing: .04em; line-height: 1; min-height: .52rem; }
+  .c1 { background: rgba(196,61,110,.08); border-color: rgba(196,61,110,.22); }
+  .c2 { background: rgba(196,61,110,.18); border-color: rgba(196,61,110,.42); }
+  .c2 .n { color: var(--text); }
+  .all { background: var(--gold-soft); border-color: var(--gold); }
+  .all .n { color: var(--gold); }
+  .chosen { background: var(--gold); border-color: var(--gold); }
+  .chosen .n, .chosen .ini { color: #140f11; }
   .mine { box-shadow: inset 0 0 0 1px var(--accent-hover); }
   .mine::after {
-    content: ""; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px;
+    content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px;
     border-radius: 50%; background: var(--accent-hover);
   }
 
@@ -106,192 +137,348 @@
   .verdict .k { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
   .verdict .v { font-size: 1.02rem; font-weight: 650; margin: 3px 0 2px; }
   .verdict .m { font-size: .74rem; color: var(--muted); }
-  .locked { border-left-color: var(--accent); }
-  .share { margin-top: 16px; }
-  .share input { font-family: var(--mono); font-size: .78rem; }
-  .live { font-size: .64rem; color: var(--faint); margin-top: 10px; }
-  .live b { color: var(--accent); }
+  .verdict.set { border-left-color: var(--accent); }
+
+  .mine-row { margin-top: 14px; }
+  .mine-row .row { flex-wrap: wrap; }
+
+  .people { margin-top: 18px; }
+  .people .k { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 6px; }
+  .people ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+  .people li { display: flex; align-items: center; gap: 2px; }
+  .pchip { min-height: 36px; padding: 4px 12px 4px 6px; border-radius: 18px; font-size: .76rem; display: flex; align-items: center; gap: 6px; }
+  .pchip[aria-current=true] { border-color: var(--accent); background: var(--accent-soft); }
+  .av { width: 22px; height: 22px; border-radius: 50%; font-size: .6rem; font-weight: 700; display: grid; place-items: center; color: #140f11; }
+  .pchip small { color: var(--faint); font-weight: 500; }
+
+  .creator { margin-top: 18px; border-color: var(--border-strong); }
+  .creator .row { align-items: stretch; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; font-size: .78rem; color: var(--muted); padding: 8px 0; min-height: 36px; }
+  details[open] summary { margin-bottom: 8px; }
+
   footer { margin-top: 22px; color: var(--faint); font-size: .68rem; text-align: center; line-height: 1.6; }
+
+  @media (max-width: 420px) {
+    .prop { flex-wrap: wrap; }
+    .prop .pd { min-width: 0; flex: 1; }
+    .parts { order: 3; flex-basis: 100%; }
+  }
 </style>
 </head>
 <body>
-  <div class="kicker">Date Picker</div>
-  <h1 id="title">When are we all free?</h1>
-  <p class="sub" id="tagline">Tap the blocks that work for you. The overlap finds itself.</p>
+  <header>
+    <div class="kicker">Date Picker</div>
+    <h1 id="title">When are we all free?</h1>
+    <p class="sub" id="tagline">Put the dates on the table. Everyone taps what works. She finds the overlap.</p>
+  </header>
 
   <!-- LOBBY -->
-  <div id="lobby" data-testid="lobby">
-    <div class="card">
-      <div class="field">
-        <label for="name-input">Your name</label>
-        <input id="name-input" data-testid="name-input" type="text" maxlength="24" placeholder="Marc" autocomplete="off">
-      </div>
+  <main id="lobby" data-testid="lobby">
+    <form class="card" id="createForm" novalidate>
       <div class="field">
         <label for="create-title">What are we picking?</label>
         <input id="create-title" data-testid="create-title" type="text" maxlength="80" placeholder="Team dinner" autocomplete="off">
       </div>
-      <div class="field">
-        <label>Window</label>
-        <div class="chips" data-testid="range-chips">
-          <button type="button" class="chip sel" data-testid="range-7" data-days="7">Next 7 days</button>
-          <button type="button" class="chip" data-testid="range-10" data-days="10">Next 10 days</button>
-          <button type="button" class="chip" data-testid="range-14" data-days="14">Next 14 days</button>
+      <fieldset class="field" id="createDates" data-testid="create-dates">
+        <legend>Dates on the table</legend>
+        <div class="adder">
+          <input type="date" data-role="day" data-testid="add-day" aria-label="Date to propose">
+          <button type="button" data-role="add" data-testid="add-day-btn">Add</button>
         </div>
-      </div>
-      <div class="field">
-        <label for="start-date">Or start from a specific day</label>
-        <input id="start-date" data-testid="start-date" type="date">
-      </div>
-      <button type="button" class="primary" data-testid="create-btn" id="createBtn" disabled>Create date pick</button>
-      <p class="err" data-testid="create-error" id="createError"></p>
-    </div>
+        <button type="button" class="link" data-role="week" data-testid="add-week">Or put the next 7 days on the table</button>
+        <ul class="proposals" data-role="list" data-testid="proposals"></ul>
+        <p class="hint">Switch off the parts of a day that are not on offer.</p>
+      </fieldset>
+      <button type="submit" class="primary wide" data-testid="create-btn" id="createBtn" disabled>Create date pick</button>
+      <p class="err" role="alert" data-testid="create-error" id="createError"></p>
+    </form>
 
-    <div class="card" style="margin-top:14px">
+    <form class="card" id="joinForm" novalidate>
       <div class="field">
         <label for="join-code">Have a code?</label>
-        <input id="join-code" data-testid="join-code" type="text" maxlength="6" placeholder="K7M2QA" autocapitalize="characters" autocomplete="off">
+        <input id="join-code" data-testid="join-code" type="text" maxlength="6" placeholder="K7M2QA" autocapitalize="characters" autocomplete="off" spellcheck="false">
       </div>
-      <button type="button" data-testid="join-btn" id="joinBtn">Join</button>
-      <p class="err" data-testid="join-error" id="joinError"></p>
-    </div>
-  </div>
+      <button type="submit" class="wide" data-testid="join-btn">Join</button>
+      <p class="err" role="alert" data-testid="join-error" id="joinError"></p>
+    </form>
+  </main>
 
-  <!-- GRID -->
-  <div id="board" class="hidden" data-testid="board">
+  <!-- BOARD -->
+  <main id="board" class="hidden" data-testid="board">
+    <section class="card keep hidden" id="ownerCard" data-testid="owner-link-card" aria-labelledby="ownerCardTitle">
+      <h2 id="ownerCardTitle">Save your creator link</h2>
+      <p>It is the only way to set the final date, from any device. Keep it to yourself — share the room code instead.</p>
+      <div class="copyrow">
+        <input type="text" readonly id="owner-url" data-testid="owner-url" aria-label="Creator link">
+        <button type="button" data-copy="owner-url">Copy</button>
+      </div>
+      <button type="button" class="ghost sm" id="ownerCardDone" data-testid="owner-link-done">I saved it</button>
+    </section>
+
     <div class="codebar">
       <span class="code" data-testid="pick-code" id="codeLabel">------</span>
-      <button type="button" class="ghost" style="min-height:32px;padding:4px 10px;font-size:.72rem" data-testid="copy-code" id="copyCode">Copy</button>
-      <span class="who" data-testid="participants" id="participants"></span>
+      <button type="button" class="ghost sm" data-testid="share-btn" id="shareBtn">Share</button>
+      <span class="live" id="live" data-testid="live"><b aria-hidden="true">●</b> Live</span>
     </div>
 
-    <div class="legend">
+    <div class="field">
+      <label for="name-input">Marking as</label>
+      <input id="name-input" data-testid="name-input" type="text" maxlength="24" placeholder="Your name" autocomplete="nickname">
+    </div>
+    <p class="notice hidden" id="lockNotice" data-testid="lock-notice" role="status"></p>
+
+    <div class="legend" aria-hidden="true">
       <span><i style="background:rgba(196,61,110,.42)"></i>some free</span>
       <span><i style="background:var(--gold)"></i>everyone free</span>
-      <span><i style="background:var(--accent-hover);border-radius:50%"></i>you marked it</span>
+      <span><i style="background:var(--accent-hover);border-radius:50%"></i>this name is in</span>
     </div>
+    <div class="gridwrap"><div class="grid" id="grid" data-testid="grid" role="group" aria-label="Availability"></div></div>
 
-    <div class="gridwrap"><div class="grid" id="grid" data-testid="grid"></div></div>
-
-    <div class="verdict" id="verdict" data-testid="verdict">
-      <div class="k">Best overlap</div>
+    <div class="verdict" id="verdict" data-testid="verdict" aria-live="polite">
+      <div class="k" id="verdictKicker">Best overlap</div>
       <div class="v" id="bestLabel">Nobody has marked yet</div>
-      <div class="m" id="bestMeta">Tap a block that works for you.</div>
+      <div class="m" id="bestMeta"></div>
     </div>
 
-    <div class="row" style="margin-top:14px" id="creatorRow">
-      <button type="button" class="primary" data-testid="lock-btn" id="lockBtn" disabled>Lock it in</button>
-    </div>
-    <button type="button" class="ghost" data-testid="unlock-btn" id="unlockBtn" style="width:100%;margin-top:10px">Reopen voting</button>
+    <section class="mine-row" id="mineRow" data-testid="my-answers">
+      <div class="row">
+        <button type="button" class="hidden" data-testid="lock-btn" id="lockBtn">Lock in my answers</button>
+        <button type="button" class="ghost hidden" data-testid="unlock-btn" id="unlockBtn">Unlock my answers</button>
+        <button type="button" class="ghost hidden" data-testid="show-person-link" id="showPersonLink">My edit link</button>
+      </div>
+      <p class="hint" id="mineHint"></p>
+    </section>
 
-    <div class="share">
-      <label for="share-url">Share link</label>
-      <input id="share-url" data-testid="share-url" type="text" readonly>
-    </div>
-    <p class="live" id="live" data-testid="live"><b>●</b> Live</p>
-    <p class="err" data-testid="board-error" id="boardError"></p>
-  </div>
+    <section class="card keep hidden" id="personCard" data-testid="person-link-card" aria-labelledby="personCardTitle" style="margin-top:14px">
+      <h2 id="personCardTitle">Save your edit link</h2>
+      <p id="personCardText"></p>
+      <div class="copyrow">
+        <input type="text" readonly id="person-url" data-testid="person-url" aria-label="Your edit link">
+        <button type="button" data-copy="person-url">Copy</button>
+      </div>
+      <button type="button" class="ghost sm" id="personCardDone">I saved it</button>
+    </section>
+
+    <section class="people hidden" id="people" data-testid="people">
+      <h2 class="k">Who is in</h2>
+      <ul id="peopleList"></ul>
+      <p class="hint">Tap a name to fill in or correct their answers.</p>
+    </section>
+
+    <section class="card creator hidden" id="creatorPanel" data-testid="creator-panel" aria-labelledby="creatorTitle">
+      <h2 id="creatorTitle">Creator</h2>
+      <div id="chooseBox">
+        <label for="choose-slot">Final date</label>
+        <div class="row">
+          <select id="choose-slot" data-testid="choose-slot"></select>
+          <button type="button" class="primary" data-testid="choose-btn" id="chooseBtn" style="flex:0 0 auto">Set the date</button>
+        </div>
+      </div>
+      <button type="button" class="wide hidden" data-testid="reopen-btn" id="reopenBtn">Reopen voting</button>
+      <details id="addMore">
+        <summary>Put more dates on the table</summary>
+        <fieldset id="moreDates" data-testid="more-dates" aria-label="More dates">
+          <div class="adder">
+            <input type="date" data-role="day" data-testid="add-day" aria-label="Date to add">
+            <button type="button" data-role="add" data-testid="add-day-btn">Add</button>
+          </div>
+          <ul class="proposals" data-role="list" data-testid="proposals"></ul>
+          <button type="button" class="primary wide" data-testid="add-dates-btn" id="addDatesBtn" style="margin-top:10px" disabled>Add to the pick</button>
+        </fieldset>
+      </details>
+      <details>
+        <summary>Your creator link</summary>
+        <div class="copyrow">
+          <input type="text" readonly id="owner-url-2" aria-label="Creator link">
+          <button type="button" data-copy="owner-url-2">Copy</button>
+        </div>
+      </details>
+    </section>
+
+    <p class="err" role="alert" data-testid="board-error" id="boardError"></p>
+  </main>
 
   <footer>Business Wife<br>"She closes the deal before lunch."</footer>
 
 <script>
-const $ = (s) => document.querySelector(s);
+const $ = (s, root = document) => root.querySelector(s);
 const API = "/dates/api/picks";
 const BLOCKS = [
-  { id: "morning", label: "Morning", short: "M" },
-  { id: "afternoon", label: "Afternoon", short: "A" },
-  { id: "evening", label: "Evening", short: "E" },
+  { id: "morning", label: "Morning" },
+  { id: "afternoon", label: "Afternoon" },
+  { id: "evening", label: "Evening" },
 ];
+const MAX_DAYS = 14;
+const MAX_AHEAD_DAYS = 90;
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const PATH_RE = new RegExp(`^/dates/([a-z0-9]{6})(?:/(?:admin/)?(${UUID}))?/?$`);
 const AV_COLORS = ["#c43d6e", "#c9a227", "#7f9c6b", "#6b8cc4", "#b56ad1", "#d1795a", "#5fb3a1", "#d15f8f"];
+const NAME_STORE = "bw_date_name";
 
 const state = {
   pickId: null,
-  voterId: voterId(),
   name: "",
   data: null,
-  mine: new Set(),
+  keys: { owner: null, people: {} },   // capability links held by this browser
+  chooseValue: null,
+  showPersonLink: false,
   es: null,
   timer: null,
-  rangeDays: 7,
 };
 
-// Stable per browser, not per tab: you are the same person when you come back.
-function voterId() {
-  let id = localStorage.getItem("bw_date_voter");
-  if (!id) {
-    id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
-    localStorage.setItem("bw_date_voter", id);
-  }
-  return id;
+// ---------- helpers ----------
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
-const creatorKey = (id) => "bw_date_creator_" + id;
-const marksKey = (id) => "bw_date_marks_" + id;
+// Same rule as the server: "Sana", " sana " and "SANA" are one person.
+const nameKey = (n) => String(n ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+const pad = (n) => String(n).padStart(2, "0");
+const localIso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+function isoDay(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return localIso(d);
+}
+const asDate = (iso) => new Date(iso + "T12:00:00");
+const blockLabel = (id) => BLOCKS.find((b) => b.id === id)?.label || "";
+const fmtShort = (iso) => asDate(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+const fmtLong = (iso, block) =>
+  asDate(iso).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + " · " + blockLabel(block);
 
-function loadMarks() {
-  try { return new Set(JSON.parse(localStorage.getItem(marksKey(state.pickId)) || "[]")); }
-  catch { return new Set(); }
+async function api(path, body) {
+  const init = body === undefined ? undefined : {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+  const res = await fetch(API + path, init);
+  let data = {};
+  try { data = await res.json(); } catch {}
+  return { ok: res.ok, status: res.status, data };
 }
-function saveMarks() {
-  try { localStorage.setItem(marksKey(state.pickId), JSON.stringify([...state.mine])); } catch {}
+
+const keysStore = (id) => "bw_date_keys_" + id;
+const freshStore = (id) => "bw_date_fresh_" + id;
+function loadKeys(id) {
+  try {
+    const k = JSON.parse(localStorage.getItem(keysStore(id)) || "{}");
+    return { owner: k.owner || null, people: k.people || {} };
+  } catch { return { owner: null, people: {} }; }
+}
+function saveKeys() {
+  try { localStorage.setItem(keysStore(state.pickId), JSON.stringify(state.keys)); } catch {}
+}
+const myKey = () => state.keys.people[nameKey(state.name)] || null;
+const isOwner = () => !!state.keys.owner;
+
+async function copyText(text, btn, input) {
+  const label = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = "Copied";
+  } catch {
+    if (input) { input.focus(); input.select(); btn.textContent = "Selected — copy it"; }
+    else window.prompt("Copy this link", text);
+  }
+  setTimeout(() => { btn.textContent = label; }, 1600);
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-copy]");
+  if (!btn) return;
+  const input = document.getElementById(btn.dataset.copy);
+  copyText(input.value, btn, input);
+});
+
+// ---------- proposal editor (create form + creator "add dates") ----------
+function proposalEditor(root, onChange) {
+  const days = new Map();                       // iso -> Set(block ids)
+  const dayInput = $("[data-role=day]", root);
+  const list = $("[data-role=list]", root);
+  dayInput.min = isoDay(0);
+  dayInput.max = isoDay(MAX_AHEAD_DAYS);
+
+  function add(iso) {
+    if (!iso || days.has(iso) || iso < dayInput.min || iso > dayInput.max) return;
+    if (days.size >= MAX_DAYS) return;
+    days.set(iso, new Set(BLOCKS.map((b) => b.id)));
+  }
+  function render() {
+    list.innerHTML = [...days.keys()].sort().map((iso) => {
+      const on = days.get(iso);
+      const day = fmtShort(iso);
+      const parts = BLOCKS.map((b) =>
+        `<button type="button" class="part" data-block="${b.id}" data-testid="part" aria-pressed="${on.has(b.id)}">${b.label}</button>`
+      ).join("");
+      return `<li class="prop${on.size ? "" : " empty"}" data-testid="proposal" data-date="${iso}">
+        <span class="pd">${esc(day)}</span>
+        <span class="parts" role="group" aria-label="Parts of ${esc(day)} on the table">${parts}</span>
+        <button type="button" class="x" data-remove aria-label="Remove ${esc(day)}" data-testid="remove-day">×</button>
+      </li>`;
+    }).join("");
+    onChange();
+  }
+  list.addEventListener("click", (e) => {
+    const row = e.target.closest("[data-date]");
+    if (!row) return;
+    const iso = row.dataset.date;
+    if (e.target.closest("[data-remove]")) days.delete(iso);
+    const part = e.target.closest("[data-block]");
+    if (part) {
+      const set = days.get(iso);
+      set.has(part.dataset.block) ? set.delete(part.dataset.block) : set.add(part.dataset.block);
+    }
+    render();
+    if (part) list.querySelector(`[data-date="${iso}"] [data-block="${part.dataset.block}"]`)?.focus();
+  });
+  $("[data-role=add]", root).onclick = () => {
+    add(dayInput.value);
+    dayInput.value = "";
+    render();
+  };
+  const week = $("[data-role=week]", root);
+  if (week) week.onclick = () => {
+    for (let i = 0; i < 7; i++) add(isoDay(i));
+    render();
+  };
+  return {
+    // Days with every part switched off are simply not proposed.
+    payload: () => [...days.keys()].sort()
+      .map((iso) => ({ date: iso, blocks: BLOCKS.filter((b) => days.get(iso).has(b.id)).map((b) => b.id) }))
+      .filter((d) => d.blocks.length),
+    clear() { days.clear(); render(); },
+  };
 }
 
 // ---------- lobby ----------
-function isoDay(offset) {
-  const d = new Date();
-  d.setHours(12, 0, 0, 0);
-  d.setDate(d.getDate() + offset);
-  return d.toISOString().slice(0, 10);
-}
-function windowDays() {
-  const start = $("#start-date").value;
-  const from = start ? new Date(start + "T12:00:00") : new Date();
-  const out = [];
-  for (let i = 0; i < state.rangeDays; i++) {
-    const d = new Date(from.getTime());
-    d.setDate(from.getDate() + i);
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
-}
+const createDates = proposalEditor($("#createDates"), syncCreate);
 function syncCreate() {
-  const hasName = $("#name-input").value.trim().length > 0;
-  const hasTitle = $("#create-title").value.trim().length > 0;
-  $("#createBtn").disabled = !(hasName && hasTitle);
+  $("#createBtn").disabled = !($("#create-title").value.trim() && createDates.payload().length);
 }
-$("#name-input").addEventListener("input", () => { state.name = $("#name-input").value; syncCreate(); });
 $("#create-title").addEventListener("input", syncCreate);
-document.querySelectorAll("[data-testid=range-chips] .chip").forEach((chip) => {
-  chip.onclick = () => {
-    document.querySelectorAll("[data-testid=range-chips] .chip").forEach((c) => c.classList.remove("sel"));
-    chip.classList.add("sel");
-    state.rangeDays = Number(chip.dataset.days);
-  };
-});
 
-$("#createBtn").onclick = async () => {
+$("#createForm").onsubmit = async (e) => {
+  e.preventDefault();
   $("#createError").textContent = "";
-  const name = $("#name-input").value.trim();
-  state.name = name;
-  localStorage.setItem("bw_date_name", name);
+  const btn = $("#createBtn");
+  btn.disabled = true;
   try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: $("#create-title").value.trim(), days: windowDays(), creatorId: state.voterId }),
-    });
-    const body = await res.json();
-    if (!res.ok) { $("#createError").textContent = body.error || "Could not create"; return; }
-    localStorage.setItem(creatorKey(body.id), "1");
-    location.href = "/dates/" + body.id;
-  } catch { $("#createError").textContent = "Network hiccup — try again"; }
+    const r = await api("", { title: $("#create-title").value.trim(), days: createDates.payload() });
+    if (!r.ok) { $("#createError").textContent = r.data.error || "Could not create that pick"; syncCreate(); return; }
+    localStorage.setItem(keysStore(r.data.id), JSON.stringify({ owner: r.data.ownerToken, people: {} }));
+    sessionStorage.setItem(freshStore(r.data.id), "1");
+    location.href = "/dates/" + r.data.id;
+  } catch {
+    $("#createError").textContent = "Network hiccup — try again";
+    syncCreate();
+  }
 };
 
-$("#joinBtn").onclick = async () => {
+$("#joinForm").onsubmit = async (e) => {
+  e.preventDefault();
   const code = $("#join-code").value.trim().toLowerCase();
   $("#joinError").textContent = "";
   if (!/^[a-z0-9]{6}$/.test(code)) { $("#joinError").textContent = "Codes are 6 characters"; return; }
-  const name = $("#name-input").value.trim();
-  if (!name) { $("#joinError").textContent = "Add your name first"; return; }
-  localStorage.setItem("bw_date_name", name);
   try {
     const res = await fetch(`${API}/${code}`);
     if (res.status === 404) { $("#joinError").textContent = "No pick with that code"; return; }
@@ -301,159 +488,295 @@ $("#joinBtn").onclick = async () => {
 };
 
 // ---------- board ----------
-function fmtDay(iso) {
-  const d = new Date(iso + "T12:00:00");
-  return { dow: d.toLocaleDateString(undefined, { weekday: "short" }), num: d.getDate(), mon: d.toLocaleDateString(undefined, { month: "short" }) };
+const moreDates = proposalEditor($("#moreDates"), () => {
+  $("#addDatesBtn").disabled = !moreDates.payload().length;
+});
+
+function showError(msg) { $("#boardError").textContent = msg; }
+function findCell(key) {
+  const [date, block] = key.split("|");
+  return state.data.days.find((d) => d.date === date)?.blocks.find((b) => b.id === block);
 }
-function fmtLong(iso, blockId) {
-  const d = new Date(iso + "T12:00:00");
-  const label = BLOCKS.find((b) => b.id === blockId)?.label || "";
-  return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + " · " + label;
+const lockedText = (name) => `${name}’s answers are locked. Only their edit link can change them.`;
+
+function renderGrid(d, me) {
+  const grid = $("#grid");
+  const focused = grid.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+  const total = d.totalPeople;
+  const rows = BLOCKS.filter((b) => d.days.some((day) => day.blocks.some((x) => x.id === b.id)));
+  grid.style.gridTemplateColumns = `auto repeat(${d.days.length}, minmax(48px, 1fr))`;
+  let html = `<div class="corner"></div>` + d.days.map((day) => {
+    const dt = asDate(day.date);
+    return `<div class="day">${esc(dt.toLocaleDateString(undefined, { weekday: "short" }))}<b>${dt.getDate()}</b>${esc(dt.toLocaleDateString(undefined, { month: "short" }))}</div>`;
+  }).join("");
+  for (const b of rows) {
+    html += `<div class="blk">${b.label}</div>` + d.days.map((day) => {
+      const cell = day.blocks.find((x) => x.id === b.id);
+      if (!cell) return `<div class="cell off" aria-hidden="true"></div>`;
+      const key = day.date + "|" + b.id;
+      const isMine = !!me && cell.who.some((w) => nameKey(w.name) === me);
+      const tint = d.chosen === key ? "chosen"
+        : total > 1 && cell.count === total ? "all"
+        : cell.count * 2 > total ? "c2"
+        : cell.count ? "c1" : "";
+      const names = cell.who.map((w) => w.name);
+      const initials = names.slice(0, 3).map((n) => n.slice(0, 1).toUpperCase()).join("") + (names.length > 3 ? "+" : "");
+      const label = `${fmtShort(day.date)} ${b.label}: ${cell.count} of ${total} free${names.length ? " — " + names.join(", ") : ""}`;
+      return `<button type="button" class="cell ${tint}${isMine ? " mine" : ""}" ${d.closed ? "disabled" : ""}
+        data-testid="cell" data-key="${key}" aria-pressed="${isMine}" aria-label="${esc(label)}" title="${esc(names.join(", ") || "Nobody yet")}">
+        <span class="n">${cell.count || ""}</span><span class="ini">${esc(initials)}</span></button>`;
+    }).join("");
+  }
+  grid.innerHTML = html;
+  // SSE re-renders must not throw a keyboard user out of the grid.
+  if (focused) grid.querySelector(`[data-key="${focused}"]`)?.focus();
+}
+
+function renderVerdict(d) {
+  const total = d.totalPeople;
+  $("#verdict").classList.toggle("set", !!(d.closed && d.chosen));
+  if (d.closed && d.chosen) {
+    const [date, block] = d.chosen.split("|");
+    const cell = findCell(d.chosen);
+    $("#verdictKicker").textContent = "The date is set";
+    $("#bestLabel").textContent = fmtLong(date, block);
+    $("#bestMeta").textContent = `${cell ? cell.count : 0} of ${total} free. Diaries, please.`;
+  } else if (d.best) {
+    $("#verdictKicker").textContent = "Best overlap";
+    $("#bestLabel").textContent = fmtLong(d.best.date, d.best.block);
+    $("#bestMeta").textContent = d.best.count === total && total > 1
+      ? `Everyone is free, ${total} of ${total}.`
+      : `Most people free, ${d.best.count} of ${total}.`;
+  } else {
+    $("#verdictKicker").textContent = "Best overlap";
+    $("#bestLabel").textContent = "Nobody has marked yet";
+    $("#bestMeta").textContent = "Add your name, then tap the parts that work.";
+  }
+}
+
+function renderMine(d, meP) {
+  const held = !!myKey();
+  const canLock = !d.closed && meP && !meP.locked && meP.count > 0;
+  const lockedMine = !d.closed && meP?.locked && held;
+  $("#lockBtn").classList.toggle("hidden", !canLock);
+  $("#unlockBtn").classList.toggle("hidden", !lockedMine);
+  $("#showPersonLink").classList.toggle("hidden", !(meP && held));
+  $("#mineHint").textContent = lockedMine
+    ? "Your answers are locked. Only your edit link can change them."
+    : canLock ? "Lock in to stop anyone else typing over your answers." : "";
+
+  const notice = $("#lockNotice");
+  const blocked = !d.closed && meP?.locked && !held;
+  notice.classList.toggle("hidden", !blocked);
+  if (blocked) notice.textContent = lockedText(meP.name);
+
+  const showCard = state.showPersonLink && meP && held;
+  $("#personCard").classList.toggle("hidden", !showCard);
+  if (showCard) {
+    $("#person-url").value = `${location.origin}/dates/${d.id}/${myKey()}`;
+    $("#personCardText").textContent = meP.locked
+      ? `${meP.name}’s answers are locked. This link is the only way to change them — from any device.`
+      : `${meP.name}’s answers are open again. This link still works if you lock them later.`;
+  }
+}
+
+function renderPeople(d, me) {
+  $("#people").classList.toggle("hidden", !d.people.length);
+  $("#peopleList").innerHTML = d.people.map((p, i) => {
+    const k = nameKey(p.name);
+    const unlock = isOwner() && p.locked && !state.keys.people[k] && !d.closed
+      ? `<button type="button" class="link" data-unlock="${esc(p.name)}" data-testid="owner-unlock" aria-label="Unlock ${esc(p.name)}’s answers">Unlock</button>` : "";
+    return `<li><button type="button" class="pchip" data-person="${esc(p.name)}" data-testid="person" aria-current="${k === me}"
+        aria-label="Mark as ${esc(p.name)}${p.locked ? ", locked" : ""}, ${p.count} marked">
+        <span class="av" style="background:${AV_COLORS[i % AV_COLORS.length]}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>
+        ${esc(p.name)}${p.locked ? ' <span aria-hidden="true">🔒</span>' : ""} <small>${p.count}</small></button>${unlock}</li>`;
+  }).join("");
+}
+
+function renderCreator(d) {
+  const owner = isOwner();
+  $("#creatorPanel").classList.toggle("hidden", !owner);
+  if (!owner) return;
+  $("#owner-url-2").value = `${location.origin}/dates/${d.id}/admin/${state.keys.owner}`;
+  $("#chooseBox").classList.toggle("hidden", d.closed);
+  $("#reopenBtn").classList.toggle("hidden", !d.closed);
+  $("#addMore").classList.toggle("hidden", d.closed);
+  const options = d.days.flatMap((day) => day.blocks.map((b) => ({ key: day.date + "|" + b.id, date: day.date, block: b.id, count: b.count })));
+  const bestKey = d.best ? d.best.date + "|" + d.best.block : options[0]?.key;
+  const value = options.some((o) => o.key === state.chooseValue) ? state.chooseValue : bestKey;
+  const select = $("#choose-slot");
+  select.innerHTML = options.map((o) =>
+    `<option value="${o.key}">${esc(fmtShort(o.date))} · ${blockLabel(o.block)} (${o.count} of ${d.totalPeople})</option>`
+  ).join("");
+  select.value = value;
 }
 
 function render() {
   const d = state.data;
   if (!d) return;
+  const me = nameKey(state.name);
+  const meP = me ? d.people.find((p) => nameKey(p.name) === me) : null;
+  document.title = `${d.title} — Date Picker`;
   $("#title").textContent = d.title;
   $("#codeLabel").textContent = d.id.toUpperCase();
-  $("#share-url").value = location.origin + "/dates/" + d.id;
-
-  $("#participants").innerHTML = d.participants
-    .slice(0, 6)
-    .map((p, i) => `<span class="av" style="background:${AV_COLORS[i % AV_COLORS.length]}" title="${esc(p.name)}">${esc((p.name || "?").slice(0, 1).toUpperCase())}</span>`)
-    .join("");
-
-  const total = d.totalVoters || 0;
-  const cols = "minmax(52px,1fr) repeat(" + d.days.length + ", minmax(44px,1fr))";
-  const grid = $("#grid");
-  grid.style.gridTemplateColumns = cols;
-  let html = "<div></div>" + d.days.map((day) => {
-    const f = fmtDay(day.date);
-    return `<div class="day">${esc(f.dow)}<b>${f.num}</b></div>`;
-  }).join("");
-
-  for (const b of BLOCKS) {
-    html += `<div class="blk">${b.label}</div>` + d.days.map((day) => {
-      const cell = day.blocks.find((x) => x.id === b.id);
-      const key = day.date + "|" + b.id;
-      // Authoritative "mine" comes from the server; the local set only covers the
-      // optimistic gap between a tap and the state arriving back.
-      const isMine = cell.who.some((w) => w.id === state.voterId) || state.mine.has(key);
-      const isBest = d.best && d.best.date === day.date && d.best.block === b.id;
-      const allIn = total > 0 && cell.count === total;
-      const cls = isBest && allIn ? "best" : cell.count === 3 ? "c3" : cell.count === 2 ? "c2" : cell.count === 1 ? "c1" : "";
-      const dots = d.participants.slice(0, 6).map((p) => {
-        const on = cell.who.some((w) => w.id === p.id);
-        return `<span class="dot${on ? " on" : ""}"></span>`;
-      }).join("");
-      const names = cell.who.map((w) => w.name).join(", ");
-      return `<button type="button" class="cell ${cls}${isMine ? " mine" : ""}" ${d.closed ? "disabled" : ""}
-        data-testid="cell" data-key="${key}" aria-pressed="${isMine}" title="${esc(names || "nobody yet")}"
-        aria-label="${esc(fmtDay(day.date).dow)} ${fmtDay(day.date).num} ${b.label}, ${cell.count} free${isMine ? ", you marked" : ""}">
-        <span class="dots">${dots}</span><span class="n">${cell.count || ""}</span></button>`;
-    }).join("");
-  }
-  grid.innerHTML = html;
-  grid.querySelectorAll(".cell").forEach((c) => { c.onclick = () => toggle(c.dataset.key); });
-
-  // verdict
-  const verdict = $("#verdict");
-  if (d.closed && d.chosen) {
-    const [cd, cb] = d.chosen.split("|");
-    verdict.classList.add("locked");
-    verdict.querySelector(".k").textContent = "Locked in";
-    $("#bestLabel").textContent = fmtLong(cd, cb);
-    $("#bestMeta").textContent = "The date is set. Reopen voting to change it.";
-    $("#creatorRow").classList.add("hidden");
-    $("#unlockBtn").classList.toggle("hidden", !d.creator);
-  } else {
-    verdict.classList.remove("locked");
-    verdict.querySelector(".k").textContent = "Best overlap";
-    if (d.best) {
-      $("#bestLabel").textContent = fmtLong(d.best.date, d.best.block);
-      const of = total ? ` ${d.best.count} of ${total} free` : "";
-      $("#bestMeta").textContent = d.best.count === total && total > 1
-        ? `Everyone is free${of}.`
-        : `Most people free${of}.`;
-    } else {
-      $("#bestLabel").textContent = "Nobody has marked yet";
-      $("#bestMeta").textContent = "Tap a block that works for you.";
-    }
-    $("#unlockBtn").classList.add("hidden");
-  }
-
-  const isCreator = d.creator;
-  $("#creatorRow").classList.toggle("hidden", !isCreator || d.closed);
-  $("#lockBtn").disabled = !d.best || d.closed;
+  const total = d.totalPeople;
   $("#tagline").textContent = d.closed
     ? "Voting is closed."
-    : total === 0 ? "Tap the blocks that work for you. The overlap finds itself." : `${total} ${total === 1 ? "person has" : "people have"} marked.`;
+    : total ? `${total} ${total === 1 ? "person has" : "people have"} weighed in.`
+    : "Add your name and tap the parts that work. The overlap finds itself.";
+  renderGrid(d, me);
+  renderVerdict(d);
+  renderMine(d, meP);
+  renderPeople(d, me);
+  renderCreator(d);
 }
-function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// Optimistic: the grid answers the tap, the next state frame confirms it.
+function applyLocal(key, name, on) {
+  const d = state.data;
+  const k = nameKey(name);
+  const cell = findCell(key);
+  let p = d.people.find((x) => nameKey(x.name) === k);
+  if (on) {
+    if (!p) { p = { name, locked: false, count: 0 }; d.people.push(p); d.totalPeople++; }
+    cell.who.push({ name: p.name, locked: p.locked });
+    p.count++;
+  } else {
+    cell.who = cell.who.filter((w) => nameKey(w.name) !== k);
+    if (p) p.count = Math.max(0, p.count - 1);
+  }
+  cell.count = cell.who.length;
 }
 
 async function toggle(key) {
-  if (state.data?.closed) return;
+  const d = state.data;
+  if (!d || d.closed) return;
+  const name = state.name.trim();
+  if (!name) {
+    showError("Add your name first, then tap the parts that work.");
+    $("#name-input").focus();
+    return;
+  }
+  const p = d.people.find((x) => nameKey(x.name) === nameKey(name));
+  if (p?.locked && !myKey()) { render(); return; }
   const [date, block] = key.split("|");
-  const on = !state.mine.has(key);
-  // optimistic: the grid must respond on the tap, not after the round trip
-  on ? state.mine.add(key) : state.mine.delete(key);
-  saveMarks();
+  const on = !findCell(key).who.some((w) => nameKey(w.name) === nameKey(name));
+  applyLocal(key, name, on);
   render();
   try {
-    const res = await fetch(`${API}/${state.pickId}/mark`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voterId: state.voterId, name: state.name, date, block, on }),
-    });
-    if (res.status === 409) { $("#boardError").textContent = "This date has been locked."; refresh(); return; }
-    if (!res.ok) {
-      on ? state.mine.delete(key) : state.mine.add(key);
-      saveMarks(); render();
-      $("#boardError").textContent = "Could not save that mark.";
-    } else {
-      $("#boardError").textContent = "";
-    }
+    const body = { name, date, block, on };
+    if (myKey()) body.token = myKey();
+    const r = await api(`/${state.pickId}/mark`, body);
+    if (r.ok) { showError(""); return; }
+    if (r.status === 423) showError(lockedText(r.data.name || name));
+    else if (r.status === 409) showError(/already set/.test(r.data.error) ? "The date is set — voting is closed." : (r.data.error || "Could not save that."));
+    else showError(r.data.error || "Could not save that — try again.");
   } catch {
-    on ? state.mine.delete(key) : state.mine.add(key);
-    saveMarks(); render();
-    $("#boardError").textContent = "Network hiccup — try again.";
+    showError("Network hiccup — try again.");
   }
+  refresh();
 }
 
+$("#grid").addEventListener("click", (e) => {
+  const cell = e.target.closest("button.cell");
+  if (cell) toggle(cell.dataset.key);
+});
+
+function setName(name) {
+  state.name = name;
+  $("#name-input").value = name;
+  try { localStorage.setItem(NAME_STORE, name.trim()); } catch {}
+  state.showPersonLink = false;
+  showError("");
+  render();
+}
+$("#name-input").addEventListener("input", (e) => setName(e.target.value));
+$("#peopleList").addEventListener("click", (e) => {
+  const unlock = e.target.closest("[data-unlock]");
+  if (unlock) { ownerUnlock(unlock.dataset.unlock); return; }
+  const chip = e.target.closest("[data-person]");
+  if (chip) setName(chip.dataset.person);
+});
+
 $("#lockBtn").onclick = async () => {
-  const b = state.data?.best;
-  if (!b) return;
-  const res = await fetch(`${API}/${state.pickId}/lock`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ voterId: state.voterId, date: b.date, block: b.block }),
-  });
-  if (res.ok) refresh();
-  else $("#boardError").textContent = "Only the creator can lock the date.";
+  const name = state.name.trim();
+  try {
+    const r = await api(`/${state.pickId}/lock`, { name });
+    if (!r.ok) { showError(r.status === 409 ? lockedText(name) : (r.data.error || "Could not lock that in.")); refresh(); return; }
+    state.keys.people[nameKey(r.data.name)] = r.data.token;
+    saveKeys();
+    state.showPersonLink = true;
+    showError("");
+    await refresh();
+    $("#person-url").focus();
+  } catch { showError("Network hiccup — try again."); }
 };
-$("#unlockBtn").onclick = async () => {
-  const res = await fetch(`${API}/${state.pickId}/unlock`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ voterId: state.voterId }),
-  });
-  if (res.ok) refresh();
+
+async function unlock(body) {
+  try {
+    const r = await api(`/${state.pickId}/unlock`, body);
+    if (!r.ok) showError(r.data.error || "Could not unlock that.");
+    else showError("");
+  } catch { showError("Network hiccup — try again."); }
+  refresh();
+}
+$("#unlockBtn").onclick = () => unlock({ name: state.name.trim(), token: myKey() });
+function ownerUnlock(name) { unlock({ name, ownerToken: state.keys.owner }); }
+
+$("#showPersonLink").onclick = () => { state.showPersonLink = !state.showPersonLink; render(); };
+$("#personCardDone").onclick = () => { state.showPersonLink = false; render(); };
+$("#ownerCardDone").onclick = () => {
+  sessionStorage.removeItem(freshStore(state.pickId));
+  $("#ownerCard").classList.add("hidden");
 };
-$("#copyCode").onclick = async () => {
-  const url = $("#share-url").value;
-  try { await navigator.clipboard.writeText(url); $("#copyCode").textContent = "Copied"; }
-  catch { $("#share-url").select(); $("#copyCode").textContent = "Copy link"; }
-  setTimeout(() => { $("#copyCode").textContent = "Copy"; }, 1400);
+
+$("#choose-slot").onchange = (e) => { state.chooseValue = e.target.value; };
+$("#chooseBtn").onclick = async () => {
+  const [date, block] = $("#choose-slot").value.split("|");
+  try {
+    const r = await api(`/${state.pickId}/choose`, { ownerToken: state.keys.owner, date, block });
+    showError(r.ok ? "" : r.status === 403 ? "Only the creator link can set the date." : (r.data.error || "Could not set the date."));
+  } catch { showError("Network hiccup — try again."); }
+  refresh();
+};
+$("#reopenBtn").onclick = async () => {
+  try {
+    const r = await api(`/${state.pickId}/reopen`, { ownerToken: state.keys.owner });
+    showError(r.ok ? "" : (r.data.error || "Could not reopen voting."));
+  } catch { showError("Network hiccup — try again."); }
+  refresh();
+};
+$("#addDatesBtn").onclick = async () => {
+  try {
+    const r = await api(`/${state.pickId}/dates`, { ownerToken: state.keys.owner, days: moreDates.payload() });
+    if (!r.ok) { showError(r.data.error || "Could not add those dates."); return; }
+    moreDates.clear();
+    $("#addMore").open = false;
+    showError("");
+  } catch { showError("Network hiccup — try again."); }
+  refresh();
+};
+
+$("#shareBtn").onclick = async () => {
+  const url = `${location.origin}/dates/${state.pickId}`;
+  if (navigator.share && matchMedia("(pointer: coarse)").matches) {
+    try { await navigator.share({ title: state.data?.title || "Date Picker", text: "When are we all free?", url }); return; }
+    catch (e) { if (e.name === "AbortError") return; }
+  }
+  copyText(url, $("#shareBtn"));
 };
 
 async function refresh() {
   try {
     const res = await fetch(`${API}/${state.pickId}`);
+    if (res.status === 404) {
+      clearInterval(state.timer);
+      state.es?.close();
+      showError("This pick has expired or never existed. Start a new one from /dates.");
+      return;
+    }
     if (!res.ok) return;
-    const data = await res.json();
-    data.creator = !!state.isCreator;
-    state.data = data;
+    state.data = await res.json();
     render();
   } catch {}
 }
@@ -462,40 +785,55 @@ function watch() {
   const es = new EventSource(`${API}/${state.pickId}/events`);
   es.onmessage = (e) => {
     try {
-      const data = JSON.parse(e.data);
-      data.creator = !!state.isCreator;
-      state.data = data;
+      state.data = JSON.parse(e.data);
       render();
-      $("#live").innerHTML = "<b>●</b> Live";
+      $("#live").innerHTML = '<b aria-hidden="true">●</b> Live';
     } catch {}
   };
-  es.onerror = () => { $("#live").innerHTML = "<b>●</b> Reconnecting…"; };
+  es.onerror = () => { $("#live").innerHTML = '<b aria-hidden="true">●</b> Reconnecting…'; };
   state.es = es;
   // SSE reconnects itself; poll anyway so a dead proxy cannot freeze the grid.
   state.timer = setInterval(refresh, 5000);
 }
 
-async function boot(id) {
+async function boot(id, link) {
   state.pickId = id;
-  state.name = localStorage.getItem("bw_date_name") || "";
-  state.isCreator = localStorage.getItem(creatorKey(id)) === "1";
-  state.mine = loadMarks();
+  state.keys = loadKeys(id);
+  state.name = localStorage.getItem(NAME_STORE) || "";
   $("#lobby").classList.add("hidden");
   $("#board").classList.remove("hidden");
+  if (link) {
+    try {
+      const r = await api(`/${id}/who?token=${encodeURIComponent(link)}`);
+      if (r.ok && r.data.role === "admin") {
+        state.keys.owner = link;
+        saveKeys();
+      } else if (r.ok && r.data.role === "person") {
+        state.keys.people[nameKey(r.data.name)] = link;
+        saveKeys();
+        state.name = r.data.name;
+        localStorage.setItem(NAME_STORE, r.data.name);
+      } else if (r.status !== 404) {
+        showError("That link does not open anything on this pick.");
+      }
+    } catch { showError("Network hiccup — reload to try the link again."); }
+    // The link is now remembered here; keep it out of the address bar so what
+    // people copy from it is always the safe room link.
+    history.replaceState(null, "", `/dates/${id}`);
+  }
+  $("#name-input").value = state.name;
+  if (isOwner() && sessionStorage.getItem(freshStore(id))) {
+    $("#owner-url").value = `${location.origin}/dates/${id}/admin/${state.keys.owner}`;
+    $("#ownerCard").classList.remove("hidden");
+  }
   await refresh();
   watch();
 }
 
 (function start() {
-  const m = location.pathname.match(/^\/dates\/([a-z0-9]{6})\/?$/);
-  $("#start-date").min = isoDay(0);
-  $("#start-date").max = isoDay(90);
-  if (m) {
-    boot(m[1]);
-  } else {
-    $("#name-input").value = localStorage.getItem("bw_date_name") || "";
-    syncCreate();
-  }
+  const m = location.pathname.match(PATH_RE);
+  if (m) boot(m[1], m[2]);
+  else syncCreate();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/dates/sw.js").catch(() => {});
 })();
 </script>

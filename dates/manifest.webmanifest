@@ -1,7 +1,7 @@
 {
   "name": "Date Picker — Business Wife",
   "short_name": "Dates",
-  "description": "Tap the blocks that work. The overlap finds itself.",
+  "description": "Put the dates on the table. Everyone taps what works. She finds the overlap.",
   "start_url": "/dates/",
   "scope": "/dates/",
   "display": "standalone",
@@ -9,23 +9,8 @@
   "background_color": "#0f0c0e",
   "theme_color": "#0f0c0e",
   "icons": [
-    {
-      "src": "/dates/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/dates/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/dates/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "/dates/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/dates/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/dates/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
