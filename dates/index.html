@@ -135,10 +135,13 @@
   }
 
   .grid.dim { opacity: .4; transition: opacity .15s; }
-  .none-line { margin: 10px 0 0; font-size: .76rem; color: var(--muted); }
-  .none-line button { background: none; border: 0; padding: 6px 0; min-height: 32px; font-size: inherit; font-weight: 500; color: var(--faint); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
-  .none-line button:hover { color: var(--text); }
+  .gridhead { display: flex; align-items: center; justify-content: flex-start; gap: 8px 12px; flex-wrap: wrap; margin: 0 0 10px; }
+  .gridhead span { font-size: .78rem; color: var(--muted); }
+  .pill { border-radius: 999px; background: transparent; font-weight: 600; }
+  .pill:hover { border-color: var(--muted); }
+  .pill[aria-pressed=true] { border-color: var(--accent); background: var(--accent-soft); }
   .answers .sl button { background: none; border: 0; padding: 0; min-height: 0; font: inherit; color: var(--accent-hover); text-decoration: underline; text-underline-offset: 2px; }
+  .keep-line { margin: 14px 0 0; text-align: center; font-size: .68rem; color: var(--faint); }
   .result {
     margin: 14px 0 0; font-size: .82rem; color: var(--muted); line-height: 1.45;
     padding-left: 10px; border-left: 2px solid var(--border-strong);
@@ -225,8 +228,12 @@
     </div>
     <p class="notice hidden" id="lockNotice" data-testid="lock-notice" role="status"></p>
 
+    <div class="gridhead" data-testid="grid-head">
+      <span id="gridHint" data-testid="grid-hint" aria-live="polite">Tap the parts that work for you.</span>
+      <button type="button" class="pill sm" id="noneBtn" data-testid="none-btn">None of these work for me</button>
+      <button type="button" class="pill sm hidden" id="noneUndo" data-testid="none-undo">Undo</button>
+    </div>
     <div class="gridwrap"><div class="grid" id="grid" data-testid="grid" role="group" aria-label="Availability"></div></div>
-    <p class="none-line hidden" id="noneLine" data-testid="none-line"></p>
 
     <p class="result" id="result" data-testid="verdict" aria-live="polite"></p>
 
@@ -305,6 +312,7 @@
         </fieldset>
       </details>
     </section>
+    <p class="keep-line" id="keepLine" data-testid="keep-line"></p>
   </main>
 
   <p class="err" role="alert" data-testid="board-error" id="boardError"></p>
@@ -333,6 +341,7 @@ const state = {
   keys: { owner: null, people: {} },   // capability links held by this browser
   chooseValue: null,
   showPersonLink: false,
+  pendingNone: false,                  // "none of these work" tapped before a name was in
   view: "vote",
   es: null,
   timer: null,
@@ -610,12 +619,16 @@ function renderMine(d, meP) {
 
   const notice = $("#lockNotice");
   const blocked = !d.closed && meP?.locked && !held;
-  // One quiet line under the grid: the offer, or the state with its undo.
-  const line = $("#noneLine");
-  line.classList.toggle("hidden", d.closed || !state.name.trim() || blocked);
-  line.innerHTML = meP?.none
-    ? `You can’t make any of these · <button type="button" data-none="off" data-testid="none-undo">Undo</button>`
-    : `<button type="button" data-none="on" data-testid="none-btn">None of these work for me</button>`;
+  // The grid's instruction line doubles as the "none of these work" answer:
+  // always on offer while voting is open, and the chosen state with its undo.
+  const out = !!meP?.none;
+  $("#noneBtn").classList.toggle("hidden", d.closed || blocked || out);
+  $("#noneUndo").classList.toggle("hidden", d.closed || blocked || !out);
+  $("#noneBtn").setAttribute("aria-pressed", String(state.pendingNone));
+  $("#gridHint").textContent = d.closed ? "Voting is closed."
+    : out ? "You can’t make any of these ·"
+    : state.pendingNone ? "Add your name and it’s sent."
+    : "Tap the parts that work for you.";
   notice.classList.toggle("hidden", !blocked);
   if (blocked) notice.textContent = lockedText(meP.name);
 
@@ -632,7 +645,7 @@ function renderMine(d, meP) {
 function renderVote(d) {
   const me = nameKey(state.name);
   const meP = me ? d.people.find((p) => nameKey(p.name) === me) : null;
-  $("#tagline").textContent = d.closed ? "Voting is closed." : "Add your name, then tap the parts that work for you.";
+  $("#tagline").textContent = d.closed ? "The date is set." : "Add your name, then answer below.";
   $("#toAdmin").classList.toggle("hidden", !isOwner());
   $("#toAdmin").href = viewPath("admin");
   renderGrid(d, me);
@@ -695,6 +708,9 @@ function renderAdmin(d) {
   }).join("");
 
   $("#addMore").classList.toggle("hidden", d.closed);
+  const until = new Date(d.expiresAt).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "long" });
+  $("#keepLine").textContent = `Kept until ${until} — ` +
+    (d.chosen ? "two weeks after the date." : "60 days after the last change.");
 }
 
 function render() {
@@ -734,6 +750,7 @@ async function toggle(key) {
     $("#name-input").focus();
     return;
   }
+  state.pendingNone = false;
   const p = d.people.find((x) => nameKey(x.name) === nameKey(name));
   if (p?.locked && !myKey()) { render(); return; }
   const [date, block] = key.split("|");
@@ -799,18 +816,34 @@ $("#answers").addEventListener("click", (e) => {
   }
 });
 
-$("#noneLine").addEventListener("click", async (e) => {
-  const btn = e.target.closest("[data-none]");
-  if (!btn) return;
+async function sendNone(on, keyboard) {
   const name = state.name.trim();
+  state.pendingNone = false;
   try {
-    const body = { name, on: btn.dataset.none === "on" };
+    const body = { name, on };
     if (myKey()) body.token = myKey();
     const r = await api(`/${state.pickId}/none`, body);
     showError(r.ok ? "" : r.status === 423 ? lockedText(r.data.name || name) : (r.data.error || "Could not save that."));
   } catch { showError("Network hiccup — try again."); }
   await refresh();
-  $("#noneLine button")?.focus();
+  // Keep keyboard users on the control that just swapped in.
+  const next = on ? $("#noneUndo") : $("#noneBtn");
+  if (keyboard && !next.classList.contains("hidden")) next.focus();
+}
+// Without a name yet, the choice waits: focus the name and send it once the
+// name is committed (Enter or leaving the field), not on every keystroke.
+$("#noneBtn").onclick = (e) => {
+  if (state.name.trim()) { sendNone(true, e.detail === 0); return; }
+  state.pendingNone = true;
+  render();
+  $("#name-input").focus();
+};
+$("#noneUndo").onclick = (e) => sendNone(false, e.detail === 0);
+$("#name-input").addEventListener("change", () => {
+  if (state.pendingNone && state.name.trim()) sendNone(true);
+});
+$("#name-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") e.target.blur();
 });
 
 $("#showPersonLink").onclick = () => { state.showPersonLink = !state.showPersonLink; render(); };

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-// Business Wife hub — planning poker + pomodoro + poll
-// Zero-dependency Node: rooms + polls + static UI + in-memory state + SSE.
+// Business Wife hub — planning poker + pomodoro + poll + date picker
+// Zero-dependency Node: rooms + polls + date picks + static UI + SSE.
+// Polls and date picks are saved to a JSON file so they survive restarts and
+// redeploys; poker rooms are presence-based and stay in memory.
 
 const http = require('http');
 const fs = require('fs');
@@ -28,6 +30,24 @@ function cleanSubtitle(value) {
   return String(value).replace(/\s+/g, ' ').trim().slice(0, SUBTITLE_MAX);
 }
 
+const DAY_MS = 86_400_000;
+// Lifetimes. A pick or poll lives 60 days after its last change; once a pick has
+// a set date it lives until 14 days after that date (never less than 14 days
+// after its last change).
+const KEEP_IDLE_MS = 60 * DAY_MS;
+const KEEP_AFTER_DATE_MS = 14 * DAY_MS;
+const MAX_STORED = 5_000;                  // per kind; a cap so the file cannot balloon
+
+const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'state.json');
+const SAVE_DEBOUNCE_MS = 1_000;
+
+// Capability links and voter ids are kept only as hashes: the server just has
+// to recognise them, never to show them again.
+function hashKey(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
 const rooms = new Map(); // id -> room
 const polls = new Map(); // id -> poll
 const dates = new Map(); // id -> date pick
@@ -38,8 +58,6 @@ const POLL_MIN_OPTIONS = 2;
 const POLL_MAX_OPTIONS = 8;
 const POLL_VOTER_MAX = 64;
 const POLL_SWEEP_MS = 60_000;
-const POLL_TTL_MS = 6 * 3_600_000;
-const POLL_EMPTY_TTL_MS = 30 * 60_000;
 
 const DATE_TITLE_MAX = 80;
 const DATE_MAX_DAYS = 14;
@@ -47,8 +65,6 @@ const DATE_MAX_AHEAD_DAYS = 90;
 const DATE_PEOPLE_MAX = 64;
 const DATE_MAX_SLOTS = 42;
 const DATE_SWEEP_MS = 60_000;
-const DATE_TTL_MS = 6 * 3_600_000;
-const DATE_EMPTY_TTL_MS = 30 * 60_000;
 const DATE_NAME_MAX = 24;
 const DATE_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 // Coarse by design: a phone grid cannot hold day x block x precise hour.
@@ -102,10 +118,11 @@ function makePoll(question, options) {
     id: null,
     question,
     options: options.map((label, i) => ({ id: 'o' + (i + 1), label })),
-    votes: new Map(), // voterId -> optionId
-    creatorId: null,
+    votes: new Map(), // hashKey(voterId) -> optionId
+    creatorHash: null,
     closed: false,
     createdAt: now(),
+    updatedAt: now(),
     sse: new Set(),
   };
 }
@@ -125,6 +142,8 @@ function pollState(poll) {
 }
 
 function broadcastPoll(poll) {
+  poll.updatedAt = now();
+  scheduleSave();
   const data = `data: ${JSON.stringify(pollState(poll))}\n\n`;
   for (const res of poll.sse) {
     try { res.write(data); } catch { poll.sse.delete(res); }
@@ -151,13 +170,11 @@ function parsePollCreate(body) {
   return { question, options };
 }
 
-// Poll sweeper — retire stale polls so memory doesn't creep
+// Poll sweeper — retire polls nobody has touched in a while.
 setInterval(() => {
   const t = now();
   for (const [id, poll] of polls) {
-    const idle = t - poll.createdAt;
-    const empty = !poll.votes.size && !poll.sse.size;
-    if (idle > POLL_TTL_MS || (empty && idle > POLL_EMPTY_TTL_MS)) polls.delete(id);
+    if (t > pollExpiresAt(poll)) { polls.delete(id); scheduleSave(); }
   }
 }, POLL_SWEEP_MS).unref();
 
@@ -205,19 +222,36 @@ function makeDatePick(title, slots) {
     id: null,
     title,
     slots,                                  // [{date, block}] proposed by the creator
-    people: new Map(),                      // nameKey -> { name, slots:Set, none, locked, token }
-    // The creator's capability URL. Portable by design: a device-local id meant
-    // you lost creator powers by switching phones.
-    ownerToken: null,
+    people: new Map(),                      // nameKey -> { name, slots:Set, none, locked, keyHash }
+    // Hash of the creator's capability URL. Portable by design: a device-local
+    // id meant you lost creator powers by switching phones.
+    ownerHash: null,
     closed: false,                          // final date set by the creator
     chosen: null,
     createdAt: now(),
+    updatedAt: now(),
     sse: new Set(),
   };
 }
 
 function isAdmin(pick, token) {
-  return !!pick.ownerToken && token === pick.ownerToken;
+  return !!pick.ownerHash && typeof token === 'string' && hashKey(token) === pick.ownerHash;
+}
+
+// Does `token` open this person's edit link?
+function holdsKey(p, token) {
+  return !!p.keyHash && typeof token === 'string' && hashKey(token) === p.keyHash;
+}
+
+function pickExpiresAt(pick) {
+  const idle = pick.updatedAt + KEEP_IDLE_MS;
+  if (!pick.chosen) return idle;
+  const day = new Date(pick.chosen.split('|')[0] + 'T00:00:00Z').getTime();
+  return Math.max(day + KEEP_AFTER_DATE_MS, pick.updatedAt + KEEP_AFTER_DATE_MS);
+}
+
+function pollExpiresAt(poll) {
+  return poll.updatedAt + KEEP_IDLE_MS;
 }
 
 function person(pick, name) {
@@ -225,7 +259,7 @@ function person(pick, name) {
   if (!key) return null;
   if (!pick.people.has(key)) {
     if (pick.people.size >= DATE_PEOPLE_MAX) return null;
-    pick.people.set(key, { name: cleanPersonName(name), slots: new Set(), none: false, locked: false, token: null });
+    pick.people.set(key, { name: cleanPersonName(name), slots: new Set(), none: false, locked: false, keyHash: null });
   }
   return pick.people.get(key);
 }
@@ -234,7 +268,7 @@ function person(pick, name) {
 // not held hostage by an empty row. A name that ever had an edit link stays, so
 // the link keeps resolving.
 function dropIfEmpty(pick, p) {
-  if (!p.slots.size && !p.none && !p.token) pick.people.delete(nameKey(p.name));
+  if (!p.slots.size && !p.none && !p.keyHash) pick.people.delete(nameKey(p.name));
 }
 
 // Overlap wins among proposed slots only: most people free, then earliest day,
@@ -279,10 +313,13 @@ function dateState(pick) {
     })),
     people: people.map((p) => ({ name: p.name, locked: p.locked, count: p.slots.size, none: p.none })),
     best: best ? { date: best.date, block: best.block, count: best.count } : null,
+    expiresAt: new Date(pickExpiresAt(pick)).toISOString(),
   };
 }
 
 function broadcastDate(pick) {
+  pick.updatedAt = now();
+  scheduleSave();
   const data = `data: ${JSON.stringify(dateState(pick))}\n\n`;
   for (const res of pick.sse) {
     try { res.write(data); } catch { pick.sse.delete(res); }
@@ -328,11 +365,123 @@ function parseDateCreate(body) {
 setInterval(() => {
   const t = now();
   for (const [id, pick] of dates) {
-    const idle = t - pick.createdAt;
-    const empty = !pick.people.size && !pick.sse.size;
-    if (idle > DATE_TTL_MS || (empty && idle > DATE_EMPTY_TTL_MS)) dates.delete(id);
+    if (t > pickExpiresAt(pick)) { dates.delete(id); scheduleSave(); }
   }
 }, DATE_SWEEP_MS).unref();
+
+// ---------- Persistence ----------
+// One JSON file, rewritten whole (temp file + rename, so a crash mid-write never
+// leaves half a file) at most once a second after a change. It lives outside
+// every served directory and holds only hashes of links and voter ids.
+let saveTimer = null;
+
+function scheduleSave() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = null; saveNow(); }, SAVE_DEBOUNCE_MS);
+}
+
+function saveNow() {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  const data = {
+    version: 1,
+    savedAt: now(),
+    dates: [...dates.values()].map((pick) => ({
+      id: pick.id,
+      title: pick.title,
+      slots: pick.slots,
+      people: [...pick.people.values()].map((p) => ({
+        name: p.name, slots: [...p.slots], none: p.none, locked: p.locked, keyHash: p.keyHash,
+      })),
+      ownerHash: pick.ownerHash,
+      closed: pick.closed,
+      chosen: pick.chosen,
+      createdAt: pick.createdAt,
+      updatedAt: pick.updatedAt,
+    })),
+    polls: [...polls.values()].map((poll) => ({
+      id: poll.id,
+      question: poll.question,
+      options: poll.options,
+      votes: [...poll.votes],
+      creatorHash: poll.creatorHash,
+      closed: poll.closed,
+      createdAt: poll.createdAt,
+      updatedAt: poll.updatedAt,
+    })),
+  };
+  const tmp = `${DATA_FILE}.${process.pid}.tmp`;
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+    const fd = fs.openSync(tmp, 'w', 0o600);
+    try {
+      fs.writeSync(fd, JSON.stringify(data));
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmp, DATA_FILE);
+  } catch (err) {
+    console.error('could not save state:', err.message);
+    try { fs.unlinkSync(tmp); } catch {}
+  }
+}
+
+function loadState() {
+  let raw;
+  try {
+    raw = fs.readFileSync(DATA_FILE, 'utf8');
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.error('could not read state:', err.message);
+    return;
+  }
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    // Keep the unreadable file for inspection rather than overwriting it.
+    const aside = `${DATA_FILE}.corrupt-${now()}`;
+    console.error(`state file unreadable (${err.message}); moved to ${aside}`);
+    try { fs.renameSync(DATA_FILE, aside); } catch {}
+    return;
+  }
+  const t = now();
+  const ok = (v) => typeof v === 'string' && ROOM_RE.test(v);
+  for (const d of Array.isArray(data.dates) ? data.dates : []) {
+    if (!d || !ok(d.id) || !Array.isArray(d.slots)) continue;
+    const pick = makeDatePick(String(d.title || ''), d.slots.filter((x) => x && DATE_DAY_RE.test(x.date) && blockRank(x.block) >= 0));
+    pick.id = d.id;
+    pick.ownerHash = typeof d.ownerHash === 'string' ? d.ownerHash : null;
+    pick.closed = !!d.closed;
+    pick.chosen = typeof d.chosen === 'string' ? d.chosen : null;
+    pick.createdAt = Number(d.createdAt) || t;
+    pick.updatedAt = Number(d.updatedAt) || pick.createdAt;
+    for (const p of Array.isArray(d.people) ? d.people : []) {
+      const name = cleanPersonName(p && p.name);
+      if (!name) continue;
+      pick.people.set(nameKey(name), {
+        name,
+        slots: new Set(Array.isArray(p.slots) ? p.slots.map(String) : []),
+        none: !!p.none,
+        locked: !!p.locked,
+        keyHash: typeof p.keyHash === 'string' ? p.keyHash : null,
+      });
+    }
+    if (t <= pickExpiresAt(pick)) dates.set(pick.id, pick);
+  }
+  for (const d of Array.isArray(data.polls) ? data.polls : []) {
+    if (!d || !ok(d.id) || !Array.isArray(d.options)) continue;
+    const poll = makePoll(String(d.question || ''), []);
+    poll.id = d.id;
+    poll.options = d.options.filter((o) => o && typeof o.id === 'string').map((o) => ({ id: o.id, label: String(o.label || '') }));
+    poll.votes = new Map(Array.isArray(d.votes) ? d.votes.filter((v) => Array.isArray(v) && v.length === 2).map((v) => [String(v[0]), String(v[1])]) : []);
+    poll.creatorHash = typeof d.creatorHash === 'string' ? d.creatorHash : null;
+    poll.closed = !!d.closed;
+    poll.createdAt = Number(d.createdAt) || t;
+    poll.updatedAt = Number(d.updatedAt) || poll.createdAt;
+    if (t <= pollExpiresAt(poll)) polls.set(poll.id, poll);
+  }
+  console.log(`loaded ${dates.size} date picks and ${polls.size} polls from ${DATA_FILE}`);
+}
 
 function isNumericVote(v) {
   return v != null && /^\d+$/.test(String(v));
@@ -454,6 +603,11 @@ setInterval(() => {
   for (const poll of polls.values()) {
     for (const res of poll.sse) {
       try { res.write(': ping\n\n'); } catch { poll.sse.delete(res); }
+    }
+  }
+  for (const pick of dates.values()) {
+    for (const res of pick.sse) {
+      try { res.write(': ping\n\n'); } catch { pick.sse.delete(res); }
     }
   }
 }, 25000);
@@ -687,8 +841,10 @@ const server = http.createServer(async (req, res) => {
       const id = newPollId();
       const poll = makePoll(parsed.question, parsed.options);
       poll.id = id;
-      if (validVoterId(body && body.creatorId)) poll.creatorId = body.creatorId;
+      if (polls.size >= MAX_STORED) return json(res, 503, { error: 'too many polls right now' });
+      if (validVoterId(body && body.creatorId)) poll.creatorHash = hashKey(body.creatorId);
       polls.set(id, poll);
+      scheduleSave();
       return json(res, 200, { id });
     }
 
@@ -721,15 +877,15 @@ const server = http.createServer(async (req, res) => {
         if (!validVoterId(voterId)) return json(res, 400, { error: 'bad voter' });
         if (poll.closed) return json(res, 409, { error: 'poll closed' });
         if (!poll.options.some(o => o.id === optionId)) return json(res, 400, { error: 'bad option' });
-        poll.votes.set(voterId, optionId);
-        if (!poll.creatorId) poll.creatorId = voterId;
+        poll.votes.set(hashKey(voterId), optionId);
+        if (!poll.creatorHash) poll.creatorHash = hashKey(voterId);
         broadcastPoll(poll);
         return json(res, 200, { ok: true });
       }
 
       if (req.method === 'POST' && sub === '/close') {
         const { voterId } = await readBody(req);
-        if (!poll.creatorId || voterId !== poll.creatorId) return json(res, 403, { error: 'creator only' });
+        if (!poll.creatorHash || !validVoterId(voterId) || hashKey(voterId) !== poll.creatorHash) return json(res, 403, { error: 'creator only' });
         poll.closed = true;
         broadcastPoll(poll);
         return json(res, 200, { ok: true, closed: true });
@@ -748,10 +904,13 @@ const server = http.createServer(async (req, res) => {
       const id = newDateId();
       const pick = makeDatePick(parsed.title, parsed.slots);
       pick.id = id;
-      pick.ownerToken = crypto.randomUUID();
+      if (dates.size >= MAX_STORED) return json(res, 503, { error: 'too many date picks right now' });
+      const ownerToken = crypto.randomUUID();
+      pick.ownerHash = hashKey(ownerToken);
       dates.set(id, pick);
-      // Returned once. It is never included in broadcast state after this.
-      return json(res, 200, { id, ownerToken: pick.ownerToken });
+      scheduleSave();
+      // Returned once, here only. The server keeps just its hash.
+      return json(res, 200, { id, ownerToken });
     }
 
     const dateM = pathname.match(/^\/dates\/api\/picks\/([a-z0-9]{6})(\/.*)?$/);
@@ -769,7 +928,7 @@ const server = http.createServer(async (req, res) => {
         if (!token) return json(res, 400, { error: 'token required' });
         if (isAdmin(pick, token)) return json(res, 200, { role: 'admin' });
         for (const p of pick.people.values()) {
-          if (p.token === token) return json(res, 200, { role: 'person', name: p.name, locked: p.locked });
+          if (holdsKey(p, token)) return json(res, 200, { role: 'person', name: p.name, locked: p.locked });
         }
         return json(res, 403, { error: 'not a valid edit link' });
       }
@@ -803,7 +962,7 @@ const server = http.createServer(async (req, res) => {
         if (!on && !existing) return json(res, 200, { ok: true, count: 0 });
         const p = existing || person(pick, clean);
         if (!p) return json(res, 409, { error: 'too many people on this pick' });
-        if (p.locked && p.token !== token) {
+        if (p.locked && !holdsKey(p, token)) {
           return json(res, 423, { error: 'locked', name: p.name });
         }
         if (on) {
@@ -830,7 +989,7 @@ const server = http.createServer(async (req, res) => {
         if (!on && !existing) return json(res, 200, { ok: true, none: false });
         const p = existing || person(pick, clean);
         if (!p) return json(res, 409, { error: 'too many people on this pick' });
-        if (p.locked && p.token !== token) {
+        if (p.locked && !holdsKey(p, token)) {
           return json(res, 423, { error: 'locked', name: p.name });
         }
         p.none = !!on;
@@ -850,9 +1009,10 @@ const server = http.createServer(async (req, res) => {
         if (!p.slots.size && !p.none) return json(res, 400, { error: 'mark at least one date first' });
         if (p.locked) return json(res, 409, { error: 'already locked in' });
         p.locked = true;
-        p.token = crypto.randomUUID();
+        const editKey = crypto.randomUUID();
+        p.keyHash = hashKey(editKey);
         broadcastDate(pick);
-        return json(res, 200, { ok: true, name: p.name, token: p.token });
+        return json(res, 200, { ok: true, name: p.name, token: editKey });
       }
 
       // Reopen a name. The token stays valid, so the same link keeps working.
@@ -863,7 +1023,7 @@ const server = http.createServer(async (req, res) => {
         const p = pick.people.get(nameKey(name));
         if (!p) return json(res, 404, { error: 'nobody by that name' });
         const byOwner = isAdmin(pick, ownerToken);
-        if (!byOwner && (!token || p.token !== token)) return json(res, 403, { error: 'wrong edit link' });
+        if (!byOwner && !holdsKey(p, token)) return json(res, 403, { error: 'wrong edit link' });
         p.locked = false;
         broadcastDate(pick);
         return json(res, 200, { ok: true, name: p.name });
@@ -1103,4 +1263,13 @@ const server = http.createServer(async (req, res) => {
   res.end('not found');
 });
 
+loadState();
 server.listen(PORT, () => console.log(`business wife hub on :${PORT}`));
+
+// Docker stops the container with SIGTERM: write any pending change first.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    saveNow();
+    process.exit(0);
+  });
+}

@@ -112,6 +112,7 @@ test.describe('Date Picker — create', () => {
     expect(ownerUrl).toMatch(new RegExp(`/dates/${code}/admin/[0-9a-f-]{36}$`));
     await expect(page).toHaveURL(new RegExp(`/dates/${code}/admin$`));
     await expect(page.getByTestId('share-url')).toHaveValue(new RegExp(`/dates/${code}$`));
+    await expect(page.getByTestId('keep-line')).toContainText(/Kept until .+ 60 days after the last change/);
     await page.getByTestId('owner-link-done').click();
     await expect(page.getByTestId('owner-link-card')).toBeHidden();
     await page.reload();
@@ -350,20 +351,37 @@ test.describe('Date Picker — creator', () => {
 });
 
 test.describe('Date Picker — none of these work', () => {
-  test('a quiet line offers it once a name is in, and it can be undone', async ({ page }) => {
+  test('it is on offer from the start and can be undone', async ({ page }) => {
     await createPick(page);
     await toVote(page);
-    await expect(page.getByTestId('none-line')).toBeHidden();
     await page.getByTestId('name-input').fill('Marc');
     await expect(page.getByTestId('none-btn')).toHaveText('None of these work for me');
     await page.getByTestId('none-btn').click();
-    await expect(page.getByTestId('none-line')).toContainText('You can’t make any of these');
+    await expect(page.getByTestId('grid-head')).toContainText('You can’t make any of these');
+    await expect(page.getByTestId('none-btn')).toBeHidden();
     await expect(page.getByTestId('grid')).toHaveClass(/dim/);
     await expect(page.getByTestId('verdict')).toContainText('Marc can’t make any.');
     await page.getByTestId('none-undo').click();
     await expect(page.getByTestId('none-btn')).toBeVisible();
     await expect(page.getByTestId('grid')).not.toHaveClass(/dim/);
     await expect(page.getByTestId('verdict')).toContainText('Nobody has marked yet');
+  });
+
+  test('tapped before a name, it waits for the name and then applies', async ({ page, browser }) => {
+    const { code } = await createPick(page);
+    const guest = await openAs(browser, `${DATES}/${code}`);
+    await expect(guest.page.getByTestId('none-btn')).toBeVisible();
+    await guest.page.getByTestId('none-btn').click();
+    await expect(guest.page.getByTestId('name-input')).toBeFocused();
+    await expect(guest.page.getByTestId('grid-hint')).toHaveText('Add your name and it’s sent.');
+    await guest.page.getByTestId('name-input').fill('Joost');
+    // Nothing is sent per keystroke.
+    await expect(page.getByTestId('answer')).toHaveCount(0);
+    await guest.page.getByTestId('name-input').press('Enter');
+    await expect(guest.page.getByTestId('none-undo')).toBeVisible();
+    await expect(page.getByTestId('answer').filter({ hasText: 'Joost' })).toContainText('None of these work');
+    await expect(page.getByTestId('answer')).toHaveCount(1);
+    await guest.ctx.close();
   });
 
   test('tapping a part replaces "none" with a real answer', async ({ page }) => {

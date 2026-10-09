@@ -1,5 +1,5 @@
 /* Date Picker shell cache — install: Chrome → Install app / Add to Home screen */
-const CACHE = "bw-dates-v4";
+const CACHE = "bw-dates-v5";
 const PRECACHE = [
   "/dates/",
   "/dates/index.html",

@@ -5,6 +5,11 @@ services:
     ports:
       - "6969:6969"
     restart: unless-stopped
+    environment:
+      - DATA_DIR=/data
+    # Polls and date picks are saved here so they survive restarts and redeploys.
+    volumes:
+      - bw-data:/data
     networks:
       - default
       - dokploy-network
@@ -28,6 +33,9 @@ services:
       - traefik.http.routers.planning-poker-websecure.service=planning-poker
       - traefik.http.services.planning-poker.loadbalancer.server.port=6969
       - traefik.http.services.planning-poker.loadbalancer.responseforwarding.flushinterval=1ms
+
+volumes:
+  bw-data:
 
 networks:
   dokploy-network:
