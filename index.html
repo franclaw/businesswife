@@ -553,7 +553,10 @@
     background: var(--surface); border: 1px solid var(--border); pointer-events: none;
   }
   .player .chip.you { color: var(--gold); border-color: #5a4a22; }
-  .player .chip.host { color: var(--gold); border-color: var(--gold); background: var(--gold-soft); }
+  .player .chip.host {
+    position: relative; z-index: 21;
+    color: var(--gold); border-color: var(--gold); background: var(--gold-soft);
+  }
   .player .chip.obs {
     color: #d4c4a8; border-color: #5a5040; background: rgba(201,162,39,0.08);
     letter-spacing: 0.1em;
