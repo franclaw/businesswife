@@ -20,9 +20,10 @@
     --border-strong: #3d3036;
     --text: #f2ebe6;
     --muted: #9a8a90;
-    --faint: #6b5c62;
+    --faint: #8d7f85;
     --accent: #c43d6e;
     --accent-hover: #d54f7f;
+    --accent-text: #e0679a;
     --accent-soft: rgba(196, 61, 110, 0.14);
     --gold: #c9a227;
     --gold-soft: rgba(201, 162, 39, 0.12);
@@ -31,6 +32,7 @@
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); }
   html, body { height: 100%; }
   body {
     background: var(--bg);
@@ -55,7 +57,7 @@
     text-transform: uppercase;
     margin-bottom: 10px;
   }
-  a.brand:hover { color: var(--accent); }
+  a.brand:hover { color: var(--accent-text); }
   .kicker {
     font-size: 0.78rem;
     font-weight: 600;
@@ -121,7 +123,7 @@
   .row { display: flex; gap: 10px; align-items: center; }
   .stack { display: flex; flex-direction: column; gap: 14px; }
   .hint { color: var(--faint); font-size: 0.78rem; margin-top: 10px; }
-  .err { color: var(--accent); font-size: 0.86rem; min-height: 1.2em; margin-top: 8px; }
+  .err { color: var(--accent-text); font-size: 0.86rem; min-height: 1.2em; margin-top: 8px; }
   .divider {
     display: flex; align-items: center; gap: 12px;
     color: var(--faint); font-size: 0.74rem;
@@ -129,8 +131,26 @@
     margin: 22px 0;
   }
   .divider::before, .divider::after { content: ""; height: 1px; background: var(--border); flex: 1; }
-  .opt-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .opt-row { display: flex; gap: 8px; margin-bottom: 8px; position: relative; }
   .opt-row button { min-width: 40px; padding: 0 12px; }
+  /* Linked text tooltip for the icon-only remove button (hover + keyboard focus). */
+  .opt-row .tip {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% - 2px);
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .12s;
+  }
+  .opt-row button:hover + .tip,
+  .opt-row button:focus-visible + .tip { opacity: 1; }
   .code {
     font-family: var(--mono);
     letter-spacing: 0.18em;
@@ -172,7 +192,7 @@
     content: "✓ your vote";
     position: absolute; right: 14px; bottom: 3px;
     font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--accent);
+    color: var(--accent-text);
   }
   .tally { color: var(--muted); font-size: 0.86rem; margin-top: 16px; }
   .tally strong { color: var(--text); }
@@ -202,8 +222,13 @@
   footer {
     margin-top: auto; padding-top: 36px;
     color: var(--faint); font-size: 0.74rem; text-align: center; line-height: 1.6;
+    background: var(--bg);
   }
   [hidden] { display: none !important; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
 </style>
 </head>
 <body>
@@ -298,6 +323,7 @@ function voteKey(id) { return "bw_poll_vote_" + id; }
 
 // ---------- lobby ----------
 let optionRows = [];
+let optionSeq = 0;
 
 function optionRow(value) {
   const row = document.createElement("div");
@@ -306,21 +332,32 @@ function optionRow(value) {
   input.type = "text";
   input.maxLength = 80;
   input.placeholder = "Option";
+  input.setAttribute("aria-label", "Poll option");
   input.dataset.testid = "option-input";
   input.value = value || "";
   const del = document.createElement("button");
   del.type = "button";
   del.className = "ghost";
-  del.textContent = "×";
+  const glyph = document.createElement("span");
+  glyph.setAttribute("aria-hidden", "true");
+  glyph.textContent = "×";
+  del.append(glyph);
+  del.setAttribute("aria-label", "Remove option");
   del.dataset.testid = "remove-option-btn";
   del.style.cssText = "min-width:0;padding:0 12px;font-size:1.1rem";
+  const tip = document.createElement("span");
+  tip.className = "tip";
+  tip.setAttribute("role", "tooltip");
+  tip.id = "tip-remove-" + (++optionSeq);
+  tip.textContent = "Remove option";
+  del.setAttribute("aria-describedby", tip.id);
   del.onclick = () => {
     optionRows = optionRows.filter((r) => r !== row);
     row.remove();
     if (optionRows.length < MIN_OPTIONS) addOptionRow();
     syncAddBtn();
   };
-  row.append(input, del);
+  row.append(input, del, tip);
   optionRows.push(row);
   $("#option-rows").append(row);
   syncAddBtn();

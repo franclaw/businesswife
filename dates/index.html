@@ -15,8 +15,8 @@
   :root {
     --bg: #0f0c0e; --surface: #171214; --surface-2: #1e171a;
     --border: #2e2428; --border-strong: #3d3036;
-    --text: #f2ebe6; --muted: #9a8a90; --faint: #6b5c62;
-    --accent: #c43d6e; --accent-hover: #d54f7f; --accent-soft: rgba(196, 61, 110, 0.14);
+    --text: #f2ebe6; --muted: #9a8a90; --faint: #8d7f85;
+    --accent: #c43d6e; --accent-hover: #d54f7f; --accent-text: #e0679a; --accent-soft: rgba(196, 61, 110, 0.14);
     --gold: #c9a227; --gold-soft: rgba(201, 162, 39, 0.12);
     --danger: #e0557a;
     --radius: 10px;
@@ -24,6 +24,7 @@
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
+  html { background: var(--bg); }
   body {
     margin: 0; background: var(--bg); color: var(--text); font-family: var(--font);
     padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
@@ -44,6 +45,7 @@
     min-height: 44px; color-scheme: dark;
   }
   input:focus, select:focus { outline: none; border-color: var(--accent); }
+  input::placeholder { color: var(--faint); }
   .field { margin-bottom: 14px; }
   button {
     font-family: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;

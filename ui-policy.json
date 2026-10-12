@@ -1,0 +1,26 @@
+{
+  "fonts": ["system-ui", "-apple-system", "BlinkMacSystemFont", "SF Pro Text", "SF Pro Display", "ui-monospace"],
+  "fontSizes": [9.6, 9.92, 10.88, 11.52, 11.84, 12, 12.16, 12.48, 12.8, 13.12, 13.44, 13.6, 13.76, 14.08, 14.4, 14.72, 15.2, 16, 16.8, 17, 17.6, 19.2, 20, 20.28, 21.6, 29.6, 30.4, 37.6, 40, 70.2, 89.6],
+  "typeRules": [],
+  "minControlSize": 15,
+  "controlSizeRules": [],
+  "minControlGap": 8,
+  "minControlInset": 8,
+  "controlContainers": ["[data-ui-container]"],
+  "minLayoutGap": 8,
+  "bannedCopy": ["unlock your potential", "seamlessly", "game-changing"],
+  "viewports": [{ "width": 390, "height": 844 }, { "width": 1440, "height": 900 }],
+  "colorSchemes": ["dark"],
+  "exceptions": [
+    {
+      "selector": "body > footer",
+      "rules": ["text-contrast"],
+      "reason": "Footer text is #8d7f85 on #0f0c0e (5.1:1, reviewed). axe cannot resolve the background stack when the footer crosses the viewport bottom on narrow screens."
+    },
+    {
+      "selector": ".opt-row button[data-testid=\"remove-option-btn\"]",
+      "rules": ["label-consistency"],
+      "reason": "Icon-only control: the visible glyph is the symbol \u00d7, which axe cannot compare to text. The accessible name comes from aria-label \"Remove option\", plus a linked role=tooltip."
+    }
+  ]
+}

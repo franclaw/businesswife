@@ -5,9 +5,11 @@
     "start": "node server.js",
     "test": "playwright test",
     "test:e2e": "playwright test",
-    "test:e2e:live": "BASE_URL=https://businesswife.nl playwright test"
+    "test:e2e:live": "BASE_URL=https://businesswife.nl playwright test",
+    "lint:ui": "node scripts/lint-ui.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0"
+    "@playwright/test": "^1.55.0",
+    "lintapple": "^0.1.20"
   }
 }
