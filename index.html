@@ -1901,6 +1901,14 @@ function render(s) {
     $("revealBtn").textContent = "Reveal all";
   }
   if (me) {
+    const savedVote = localStorage.getItem("sbw_myvote");
+    const savedVoteRound = localStorage.getItem("sbw_myvote_round");
+    const savedVoteRoom = localStorage.getItem("sbw_myvote_room");
+    if (savedVote && (savedVoteRound !== String(s.round) || savedVoteRoom !== roomId)) {
+      localStorage.removeItem("sbw_myvote");
+      localStorage.removeItem("sbw_myvote_round");
+      localStorage.removeItem("sbw_myvote_room");
+    }
     document.querySelectorAll(".poker-card").forEach(b =>
       b.classList.toggle("sel", b.dataset.v === (localStorage.getItem("sbw_myvote") || "")));
   }
@@ -1919,7 +1927,11 @@ function connect() {
 const origFetch = window.fetch;
 window.fetch = (url, opts) => {
   if (typeof url === "string" && url.endsWith("/vote") && opts && opts.body) {
-    try { localStorage.setItem("sbw_myvote", JSON.parse(opts.body).value); } catch {}
+    try {
+      localStorage.setItem("sbw_myvote", JSON.parse(opts.body).value);
+      localStorage.setItem("sbw_myvote_round", String(lastState?.round ?? ""));
+      localStorage.setItem("sbw_myvote_room", roomId || "");
+    } catch {}
   }
   return origFetch(url, opts);
 };
