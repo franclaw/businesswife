@@ -495,25 +495,16 @@ function voteSummary(players) {
     .map(v => v.vote)
     .filter(isNumericVote)
     .map(Number);
-  let average = null;
-  if (numeric.length) {
-    average = Math.round((numeric.reduce((a, b) => a + b, 0) / numeric.length) * 10) / 10;
-  }
-  const counts = {};
-  for (const v of votes) counts[v.vote] = (counts[v.vote] || 0) + 1;
-  let mode = null;
-  let modeCount = 0;
-  for (const [val, c] of Object.entries(counts)) {
-    if (c > modeCount) { mode = val; modeCount = c; }
-  }
+  const sorted = [...numeric].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  const median = sorted.length
+    ? (sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2)
+    : null;
   const special = votes.filter(v => !isNumericVote(v.vote)).map(v => v.vote);
   return {
-    average,
-    mode,
-    modeCount,
+    median,
     count: votes.length,
     numericCount: numeric.length,
-    spread: counts,
     special,
     votes,
   };

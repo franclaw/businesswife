@@ -589,17 +589,17 @@
   }
   .player .seat-menu button:hover { color: var(--danger); background: var(--accent-soft); }
 
-  /* Summary — mode hero, only after reveal */
+  /* Summary — median hero, only after reveal */
   .summary {
     margin-top: 14px; padding: 16px 16px 14px;
     background: var(--bg); border: 1px solid var(--border);
     border-radius: 10px; text-align: center;
   }
-  .summary .mode-hero {
+  .summary .median-hero {
     font-size: clamp(2rem, 6vw, 2.75rem); font-weight: 700;
     font-variant-numeric: tabular-nums; color: var(--gold); line-height: 1.1;
   }
-  .summary .mode-lbl {
+  .summary .median-lbl {
     display: block; font-size: 0.68rem; color: var(--faint);
     letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px;
   }
@@ -612,12 +612,6 @@
   }
   .summary .spread {
     margin-top: 10px; font-size: 0.8rem; color: var(--muted);
-  }
-  .summary .spread span {
-    display: inline-block; margin: 2px 4px;
-    padding: 2px 8px; border-radius: 999px;
-    background: var(--surface-2); border: 1px solid var(--border);
-    color: var(--text); font-variant-numeric: tabular-nums;
   }
 
   /* History tucked */
@@ -1727,23 +1721,17 @@ $("question").addEventListener("blur", () => { saveQuestion(); });
 // --- Live state ---
 function formatSummary(sum) {
   if (!sum) return "";
-  const mode = sum.mode != null ? escapeHtml(String(sum.mode)) : "—";
-  const avg = sum.average != null ? sum.average : "—";
+  const median = sum.median != null ? escapeHtml(String(sum.median)) : "—";
   const count = sum.count || 0;
-  const spreadBits = Object.entries(sum.spread || {})
-    .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
-    .map(([v, c]) => `<span>${escapeHtml(String(v))} × ${c}</span>`)
-    .join("");
-  const specialNote = (sum.special && sum.special.length)
-    ? ` · non-numeric: ${sum.special.map(x => escapeHtml(String(x))).join(", ")}`
+  const specialNote = sum.special && sum.special.length
+    ? sum.special.map(x => escapeHtml(String(x))).join(", ")
     : "";
-  return `<span class="mode-lbl">Mode</span>
-    <div class="mode-hero" data-testid="summary-mode">${mode}</div>
+  return `<span class="median-lbl">Median</span>
+    <div class="median-hero" data-testid="summary-median">${median}</div>
     <div class="substats">
-      <span>Avg <span class="val">${avg}</span></span>
       <span>Votes <span class="val">${count}</span></span>
     </div>
-    <div class="spread">${spreadBits || "No votes yet"}${specialNote}</div>`;
+    ${specialNote ? `<div class="spread">Non-numeric: ${specialNote}</div>` : ""}`;
 }
 
 function renderHistory(history) {
@@ -1759,12 +1747,11 @@ function renderHistory(history) {
   list.innerHTML = items.map(h => {
     const q = h.question ? escapeHtml(h.question) : '<em style="color:var(--faint)">No question</em>';
     const s = h.summary || {};
-    const avg = s.average != null ? s.average : "—";
-    const mode = s.mode != null ? escapeHtml(String(s.mode)) : "—";
-    const votes = (s.votes || []).map(v => escapeHtml(String(v.vote))).join(", ") || "—";
+    const median = s.median != null ? escapeHtml(String(s.median)) : "—";
+    const count = s.count || 0;
     return `<div class="history-item" data-testid="history-item">
       <div class="hq">Round ${h.round}: ${q}</div>
-      <div class="hm">avg ${avg} · mode ${mode} · ${votes}</div>
+      <div class="hm">median ${median} · ${count} votes</div>
     </div>`;
   }).join("");
 }
