@@ -1217,6 +1217,15 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true, summary: voteSummary(room.players) });
       }
 
+      if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/revote$/)) {
+        if (!room) return json(res, 404, { error: 'room not found' });
+        if (room.phase !== 'revealed') return json(res, 409, { error: 'cards are not revealed' });
+        room.phase = 'voting';
+        for (const p of Object.values(room.players)) { p.vote = null; p.revealed = false; }
+        broadcast(room);
+        return json(res, 200, { ok: true });
+      }
+
       if (req.method === 'POST' && apiPath.match(/^\/api\/rooms\/[a-z0-9]{6}\/next$/)) {
         if (!room) return json(res, 404, { error: 'room not found' });
         archiveRound(room);

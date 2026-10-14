@@ -252,6 +252,38 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page.locator('#question')).toHaveValue('Keep on reveal');
   });
 
+  test('re-vote clears everyone’s votes without changing the round or title', async ({ browser }) => {
+    const host = await browser.newPage();
+    const roomUrl = await createRoom(host);
+    await pickWife(host, 'Coco');
+
+    const guest = await browser.newPage();
+    await guest.goto(roomUrl);
+    await pickWife(guest, 'Betty');
+
+    await host.locator('#question').fill('Keep this title');
+    await host.locator('#question').blur();
+    await host.locator('[data-testid="card"][data-v="8"]').click();
+    await guest.locator('[data-testid="card"][data-v="13"]').click();
+    await host.getByTestId('reveal-btn').click();
+
+    await expect(host.getByTestId('revote-btn')).toBeVisible();
+    await expect(guest.getByTestId('revote-btn')).toBeVisible();
+    await host.getByTestId('revote-btn').click();
+
+    await expect(host.locator('#phaseBadge')).toHaveText('voting');
+    await expect(host.locator('#round')).toHaveText('1');
+    await expect(host.locator('#question')).toHaveValue('Keep this title');
+    await expect(host.locator('.player.me .vote')).toHaveText('—');
+    await expect(guest.locator('.player.me .vote')).toHaveText('—');
+    await expect(host.locator('[data-testid="card"][data-v="8"]')).not.toHaveClass(/sel/);
+    await expect(guest.locator('[data-testid="card"][data-v="13"]')).not.toHaveClass(/sel/);
+    await expect(host.getByTestId('revote-btn')).toBeHidden();
+
+    await leave(host);
+    await leave(guest);
+  });
+
   test('next round clears question and shows Starting feedback', async ({ page }) => {
     await createRoom(page);
     await pickWife(page, 'Coco');
@@ -370,11 +402,12 @@ test.describe('Planning Poker — features 1–9', () => {
     await page.locator('[data-testid="card"][data-v="8"]').click();
     await page.getByTestId('reveal-btn').click();
     await expect(page.getByTestId('vote-summary')).toBeVisible();
-    await expect(page.getByTestId('summary-mode')).toHaveText('8');
-    await expect(page.getByTestId('vote-summary')).toContainText(/Avg/i);
+    await expect(page.getByTestId('summary-median')).toHaveText('8');
+    await expect(page.getByTestId('vote-summary')).not.toContainText(/Avg|mode/i);
     await page.getByTestId('next-btn').click();
     await expect(page.getByTestId('history-list').locator('[data-testid="history-item"]')).toHaveCount(1);
     await expect(page.getByTestId('history-list')).toContainText('Ship the deck');
+    await expect(page.getByTestId('history-list')).toContainText('median 8 · 1 votes');
     await leave(page);
   });
 
