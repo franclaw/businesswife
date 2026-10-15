@@ -11,7 +11,7 @@ async function pickIdentity(page) {
   const overlay = page.getByTestId('identity-overlay');
   // A second tab in the same context already shares the saved identity.
   if (await overlay.isVisible()) {
-    await page.getByTestId('identity-option').first().click();
+    await page.getByTestId('identity-picker').getByTestId('pick').first().click();
     await expect(overlay).toBeHidden();
   }
 }
@@ -143,14 +143,14 @@ test.describe('Poll — identity', () => {
   test('add your own saves a custom wife', async ({ page }) => {
     await createPoll(page, 'Custom check', ['A', 'B']);
     await page.getByTestId('you-chip').click();
-    await page.getByTestId('identity-custom').click();
-    await page.getByTestId('identity-name').fill('Francine');
+    await page.getByTestId('custom-wife').click();
+    await page.getByTestId('custom-name').fill('Francine');
     await page.getByTestId('identity-add-btn').click();
     await expect(page.getByTestId('identity-overlay')).toBeHidden();
     await expect(page.getByTestId('you-chip')).toContainText('Francine');
     // she is offered again next visit
     await page.getByTestId('you-chip').click();
-    await expect(page.getByTestId('identity-option').first()).toContainText('Francine');
+    await expect(page.getByTestId('saved-pick').first()).toContainText('Francine');
   });
 });
 
@@ -195,5 +195,57 @@ test.describe('Poll — closing', () => {
       data: { voterId: voter, optionId: 'nope' },
     });
     expect(bad.status()).toBe(400);
+  });
+});
+
+test.describe('Poll — ownership and limits', () => {
+  const API = '/poll/api/polls';
+  const voter = () => 'v' + Math.random().toString(36).slice(2, 12);
+
+  async function make(request) {
+    const res = await request.post(API, { data: { question: 'Owned?', options: ['A', 'B'] } });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.ownerToken).toBeTruthy();
+    return body;
+  }
+
+  test('only the owner token closes a poll; voting first does not make you owner', async ({ request }) => {
+    const { id, ownerToken } = await make(request);
+    const v = voter();
+    expect((await request.post(`${API}/${id}/vote`, { data: { voterId: v, optionId: 'o1' } })).ok()).toBeTruthy();
+    expect((await request.post(`${API}/${id}/close`, { data: { voterId: v } })).status()).toBe(403);
+    expect((await request.post(`${API}/${id}/close`, { data: { ownerToken: v } })).status()).toBe(403);
+    expect((await request.post(`${API}/${id}/close`, { data: {} })).status()).toBe(403);
+    expect((await request.post(`${API}/${id}/close`, { data: { ownerToken } })).ok()).toBeTruthy();
+    expect((await (await request.get(`${API}/${id}`)).json()).closed).toBe(true);
+  });
+
+  test('state never shows the owner token', async ({ request }) => {
+    const { id, ownerToken } = await make(request);
+    expect(await (await request.get(`${API}/${id}`)).text()).not.toContain(ownerToken);
+  });
+
+  test('a poll takes at most 64 voters; existing voters may still change', async ({ request }) => {
+    const { id } = await make(request);
+    const first = voter();
+    await request.post(`${API}/${id}/vote`, { data: { voterId: first, optionId: 'o1' } });
+    for (let i = 1; i < 64; i++) {
+      expect((await request.post(`${API}/${id}/vote`, { data: { voterId: voter(), optionId: 'o1' } })).ok()).toBeTruthy();
+    }
+    expect((await request.post(`${API}/${id}/vote`, { data: { voterId: voter(), optionId: 'o2' } })).status()).toBe(409);
+    expect((await request.post(`${API}/${id}/vote`, { data: { voterId: first, optionId: 'o2' } })).ok()).toBeTruthy();
+    expect((await (await request.get(`${API}/${id}`)).json()).totalVotes).toBe(64);
+  });
+
+  test('vote pictures: portraits and small uploads only', async ({ request }) => {
+    const { id } = await make(request);
+    const vote = (icon) => request.post(`${API}/${id}/vote`, { data: { voterId: voter(), optionId: 'o1', name: 'Pic', icon } });
+    expect((await vote('/img/hr.png')).ok()).toBeTruthy();
+    expect((await vote('💼')).ok()).toBeTruthy();
+    expect((await vote('data:image/png;base64,' + 'A'.repeat(1000))).ok()).toBeTruthy();
+    expect((await vote('https://tracker.example/pixel.png')).status()).toBe(400);
+    expect((await vote('data:image/png;base64,' + 'A'.repeat(30000))).status()).toBe(400);
+    expect((await vote('/img/../../etc/passwd')).status()).toBe(400);
   });
 });

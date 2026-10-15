@@ -72,7 +72,7 @@ test.describe('Planning Poker — rooms', () => {
     await createRoom(page);
     await expect(page.locator('[data-testid="pick"]')).toHaveCount(16);
     await expect.poll(async () =>
-      page.locator('#nameGrid img.pic').evaluateAll((imgs) =>
+      page.locator('[data-testid="name-grid"] img.pic').evaluateAll((imgs) =>
         imgs.filter((img) => img.complete && img.naturalWidth > 0).length
       )
     ).toBe(16);
@@ -160,10 +160,10 @@ test.describe('Planning Poker — rooms', () => {
     const rejected = await obs.evaluate(async () => {
       const m = location.pathname.match(/\/planning-poker\/r\/([a-z0-9]{6})/);
       const roomId = m[1];
-      const id = localStorage.getItem('sbw_id_' + roomId);
+      const { secret } = JSON.parse(localStorage.getItem('sbw_seat_' + roomId));
       const r = await fetch(location.origin + '/planning-poker/api/rooms/' + roomId + '/vote', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, value: '5' }),
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Seat-Secret': secret },
+        body: JSON.stringify({ value: '5' }),
       });
       return r.status;
     });
@@ -195,7 +195,7 @@ test.describe('Planning Poker — rooms', () => {
   test('custom wife can set a subtitle shown on the seat', async ({ page }) => {
     await createRoom(page);
     await expect(page.getByTestId('custom-wife')).toBeVisible();
-    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-wife').click();
     await page.getByTestId('custom-name').fill('Nova');
     await page.getByTestId('custom-subtitle').fill('Closes deals before lunch');
     await page.locator('[data-testid="avatar-pick"]').first().click();
@@ -208,7 +208,7 @@ test.describe('Planning Poker — rooms', () => {
 
   test('subtitle survives a reload via seat reclaim', async ({ page }) => {
     await createRoom(page);
-    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-wife').click();
     await page.getByTestId('custom-name').fill('Preston');
     await page.getByTestId('custom-subtitle').fill('Reads the room, then the fine print');
     await page.locator('[data-testid="avatar-pick"]').first().click();
@@ -305,7 +305,7 @@ test.describe('Planning Poker — rooms', () => {
   test('custom wife joins with name and stock portrait', async ({ page }) => {
     await createRoom(page);
     await expect(page.getByTestId('custom-wife')).toBeVisible();
-    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-wife').click();
     await page.getByTestId('custom-name').fill('Nova');
     await page.locator('[data-testid="avatar-pick"]').first().click();
     await expect(page.getByTestId('join-btn')).toBeEnabled();
@@ -322,6 +322,7 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page.getByTestId('join-btn')).toBeEnabled();
     // Custom panel stays collapsed for gallery picks
     await expect(page.getByTestId('custom-wife')).not.toHaveAttribute('open');
+    await expect(page.getByTestId('custom-panel')).toBeHidden();
 
     // Selecting another card updates name
     await page.locator('[data-testid="pick"][data-first="Betty"]').click();
@@ -329,7 +330,7 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page.locator('[data-testid="pick"][data-first="Betty"].sel')).toHaveCount(1);
 
     // Open Add your own to edit name after pick — detaches roster selection
-    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-wife').click();
     await expect(page.locator('[data-testid="avatar-pick"].sel')).toHaveCount(1);
     await expect(page.getByTestId('custom-preview').locator('img')).toHaveAttribute('src', /secretary/);
     await page.getByTestId('custom-name').fill('Nova');
@@ -475,7 +476,7 @@ test.describe('Planning Poker — saved custom wives (this device)', () => {
 
   async function joinCustomWife(page, name) {
     await createRoom(page);
-    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-wife').click();
     await page.getByTestId('custom-name').fill(name);
     await page.locator('[data-testid="avatar-pick"]').first().click();
     await expect(page.getByTestId('join-btn')).toBeEnabled();
@@ -524,7 +525,7 @@ test.describe('Planning Poker — saved custom wives (this device)', () => {
 
   test('a saved wife keeps her subtitle', async ({ page }) => {
     await createRoom(page);
-    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-wife').click();
     await page.getByTestId('custom-name').fill('Nova');
     await page.getByTestId('custom-subtitle').fill('Closes deals before lunch');
     await page.locator('[data-testid="avatar-pick"]').first().click();
@@ -547,7 +548,7 @@ test.describe('Planning Poker — saved custom wives (this device)', () => {
 
   test('a saved wife without a subtitle stays without one', async ({ page }) => {
     await createRoom(page);
-    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-wife').click();
     await page.getByTestId('custom-name').fill('Bare');
     await page.locator('[data-testid="avatar-pick"]').first().click();
     await page.getByTestId('join-btn').click();
@@ -600,7 +601,7 @@ test.describe('Planning Poker — saved custom wives (this device)', () => {
     await expect(page.getByTestId('join-screen')).toBeVisible();
     await expect(page.getByTestId('saved-wrap')).toBeHidden();
     // And the normal flow still works afterwards.
-    await page.getByTestId('custom-wife').locator('summary').click();
+    await page.getByTestId('custom-wife').click();
     await page.getByTestId('custom-name').fill('Nova');
     await page.locator('[data-testid="avatar-pick"]').first().click();
     await expect(page.getByTestId('join-btn')).toBeEnabled();
@@ -632,5 +633,102 @@ test.describe('Poker PWA', () => {
     expect(body.display).toBe('standalone');
     const sw = await request.get('/planning-poker/sw.js');
     expect(sw.ok()).toBeTruthy();
+  });
+});
+
+test.describe('Planning Poker — seat secrets and attribution', () => {
+  const API = '/planning-poker/api/rooms';
+
+  async function room(request) {
+    const { id } = await (await request.post(API)).json();
+    return id;
+  }
+  async function seat(request, id, name, icon = '/img/hr.png') {
+    const res = await request.post(`${API}/${id}/join`, { data: { name, icon } });
+    expect(res.ok()).toBeTruthy();
+    return res.json();
+  }
+  const as = (secret) => ({ headers: { 'X-Seat-Secret': secret } });
+
+  test('anonymous and bare-id calls are refused', async ({ request }) => {
+    const id = await room(request);
+    const host = await seat(request, id, 'Host');
+    for (const path of ['reveal', 'revote', 'next', 'question', 'vote', 'heartbeat', 'leave']) {
+      const res = await request.post(`${API}/${id}/${path}`, { data: { id: host.id, value: '5', question: 'x' } });
+      expect(res.status(), path).toBe(401);
+      expect((await res.json()).rejoin).toBe(true);
+    }
+    expect((await request.delete(`${API}/${id}/leave/${host.id}`)).status()).toBe(401);
+    expect((await request.post(`${API}/${id}/join`, { data: { reclaimId: host.id } })).status()).toBe(404);
+  });
+
+  test('a secret from another room or a made-up one is refused', async ({ request }) => {
+    const a = await room(request);
+    const b = await room(request);
+    const other = await seat(request, b, 'Elsewhere');
+    expect((await request.post(`${API}/${a}/reveal`, as(other.secret))).status()).toBe(401);
+    expect((await request.post(`${API}/${a}/reveal`, as('not-a-seat'))).status()).toBe(401);
+  });
+
+  test('any seated player may reveal, and the room says who', async ({ request }) => {
+    const id = await room(request);
+    await seat(request, id, 'Host');
+    const guest = await seat(request, id, 'Guest');
+    expect((await request.post(`${API}/${id}/vote`, { ...as(guest.secret), data: { value: '3' } })).ok()).toBeTruthy();
+    expect((await request.post(`${API}/${id}/reveal`, as(guest.secret))).ok()).toBeTruthy();
+    const state = await (await request.get(`${API}/${id}/state`)).json();
+    expect(state.phase).toBe('revealed');
+    expect(state.lastAction).toMatchObject({ type: 'reveal', playerId: guest.id, playerName: 'Guest' });
+  });
+
+  test('room state never carries a secret', async ({ request }) => {
+    const id = await room(request);
+    const host = await seat(request, id, 'Host');
+    const guest = await seat(request, id, 'Guest');
+    const text = await (await request.get(`${API}/${id}/state`)).text();
+    expect(text).not.toContain(host.secret);
+    expect(text).not.toContain(guest.secret);
+    expect(text).not.toMatch(/secret/i);
+  });
+
+  test('kick and lock stay with the host', async ({ request }) => {
+    const id = await room(request);
+    const host = await seat(request, id, 'Host');
+    const guest = await seat(request, id, 'Guest');
+    expect((await request.post(`${API}/${id}/kick`, { ...as(guest.secret), data: { targetId: host.id } })).status()).toBe(403);
+    expect((await request.post(`${API}/${id}/lock`, { ...as(guest.secret), data: { locked: true } })).status()).toBe(403);
+    expect((await request.post(`${API}/${id}/kick`, { ...as(host.secret), data: { targetId: guest.id } })).ok()).toBeTruthy();
+  });
+
+  test('external picture URLs are refused', async ({ request }) => {
+    const id = await room(request);
+    const res = await request.post(`${API}/${id}/join`, { data: { name: 'Hotlink', icon: 'https://example.com/a.png' } });
+    expect(res.status()).toBe(400);
+  });
+
+  test('the table shows who revealed, then the line fades', async ({ browser }) => {
+    const host = await browser.newPage();
+    const roomUrl = await createRoom(host);
+    await pickWife(host, 'Coco');
+    const guest = await browser.newPage();
+    await guest.goto(roomUrl);
+    await pickWife(guest, 'Betty');
+
+    await guest.getByTestId('reveal-btn').click();
+    await expect(host.getByTestId('actor-line')).toHaveText('Betty revealed the cards');
+    await expect(host.getByTestId('actor-line')).toHaveClass(/on/);
+    await expect(guest.getByTestId('actor-line')).toHaveText('You revealed the cards');
+    await expect(host.locator('.player.actor')).toContainText('Betty');
+    await expect(host.getByTestId('actor-line')).not.toHaveClass(/on/, { timeout: 7000 });
+
+    // A late joiner sees the board, not a stale "who did that".
+    const late = await browser.newPage();
+    await late.goto(roomUrl);
+    await expect(late.getByTestId('actor-line')).not.toHaveClass(/on/);
+
+    await host.getByTestId('next-btn').click();
+    await expect(guest.getByTestId('actor-line')).toHaveText('Coco started round 2');
+    await leave(host);
+    await leave(guest);
   });
 });

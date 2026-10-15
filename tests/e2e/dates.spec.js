@@ -560,3 +560,19 @@ test.describe('Date Picker PWA', () => {
     }
   });
 });
+
+test.describe('Date picker — small rules', () => {
+  const iso = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  test('no locking once a date is set; unlock needs a real name', async ({ request }) => {
+    const { id, ownerToken } = await (await request.post('/dates/api/picks', { data: { title: 'Rules', days: [{ date: iso(3), blocks: ['evening'] }] } })).json();
+    await request.post(`/dates/api/picks/${id}/mark`, { data: { name: 'Ann', date: iso(3), block: 'evening', on: true } });
+    expect((await request.post(`/dates/api/picks/${id}/unlock`, { data: { name: '   ', ownerToken } })).status()).toBe(400);
+    expect((await request.post(`/dates/api/picks/${id}/unlock`, { data: { name: { x: 1 }, ownerToken } })).status()).toBe(400);
+    expect((await request.post(`/dates/api/picks/${id}/choose`, { data: { ownerToken, date: iso(3), block: 'evening' } })).ok()).toBeTruthy();
+    expect((await request.post(`/dates/api/picks/${id}/lock`, { data: { name: 'Ann' } })).status()).toBe(409);
+  });
+  test('impossible calendar dates are refused', async ({ request }) => {
+    const res = await request.post('/dates/api/picks', { data: { title: 'Bad', days: [{ date: '2026-02-31', blocks: ['evening'] }] } });
+    expect(res.status()).toBe(400);
+  });
+});

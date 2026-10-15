@@ -11,6 +11,11 @@
 <link rel="manifest" href="/poll/manifest.webmanifest">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/poll/icons/icon-192.png">
+<link rel="stylesheet" href="/components/bw-card.css">
+<link rel="stylesheet" href="/components/bw-wife-picker.css">
+<script src="/components/bw-roster.js"></script>
+<script src="/components/bw-card.js"></script>
+<script src="/components/bw-wife-picker.js"></script>
 <style>
   :root {
     --bg: #0f0c0e;
@@ -244,52 +249,14 @@
   }
   .id-sheet {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 22px 20px; max-width: 420px; width: 100%; text-align: center;
+    padding: 22px 18px; max-width: 560px; width: 100%; text-align: center;
+    max-height: calc(100vh - 40px); overflow: auto;
   }
   .id-sheet h3 { font-size: 1.05rem; margin-bottom: 4px; }
   .id-sheet .sub { color: var(--muted); font-size: 0.84rem; margin-bottom: 16px; }
-  .id-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .id-grid button {
-    background: none; border: 0; padding: 0; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-  }
-  .id-grid img {
-    width: 100%; aspect-ratio: 64/90; object-fit: cover; object-position: top;
-    border-radius: 7px; border: 1px solid var(--border-strong);
-  }
-  .id-grid .emoji {
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; aspect-ratio: 64/90; font-size: 1.6rem;
-    border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface-2);
-  }
-  .id-grid button:hover img, .id-grid button:focus-visible img,
-  .id-grid button:hover .emoji, .id-grid button:focus-visible .emoji { border-color: var(--accent); }
-  .id-grid span.label { font-size: 0.66rem; color: var(--muted); }
-  .id-grid button.sel img, .id-grid button.sel .emoji { border: 2px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .id-custom {
-    margin-top: 14px; text-align: left;
-    border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
-  }
-  .id-custom > summary {
-    cursor: pointer; list-style: none; padding: 12px 14px;
-    font-size: 0.82rem; font-weight: 600; color: var(--muted);
-    letter-spacing: 0.06em; text-transform: uppercase;
-  }
-  .id-custom > summary::-webkit-details-marker { display: none; }
-  .id-custom > summary::before { content: "+ "; color: var(--gold); }
-  .id-custom[open] > summary::before { content: "− "; }
-  .id-custom .custom-body { padding: 0 14px 14px; }
-  .id-custom .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-  .id-custom label { font-size: 0.78rem; color: var(--muted); }
-  .id-custom input[type="text"], .id-custom input[type="url"] {
-    width: 100%; padding: 12px 14px; border-radius: 8px;
-    border: 1px solid var(--border-strong); background: var(--bg);
-    color: var(--text); font-family: inherit; font-size: 1rem;
-  }
-  .id-custom .pic-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .id-custom .file-btn { position: relative; overflow: hidden; min-width: 0; padding: 10px 14px; font-size: 0.84rem; }
-  .id-custom .file-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .id-custom .hint { font-size: 0.74rem; color: var(--faint); margin-top: 8px; }
+  /* The gallery is <bw-wife-picker>: /components/bw-wife-picker.css. */
+  .id-sheet .id-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .id-sheet .id-actions button { flex: 1; }
   .voters { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
   .voters img { width: 22px; height: 30px; object-fit: cover; object-position: top; border-radius: 4px; border: 1px solid var(--border-strong); }
   .voters .emoji { font-size: 0.9rem; }
@@ -368,32 +335,10 @@
     <div class="id-sheet">
       <h3>Who are you in this room?</h3>
       <p class="sub">Pick a business wife — she shows up next to your vote.</p>
-      <div class="id-grid" id="id-grid" data-testid="identity-grid"></div>
-      <details class="id-custom" id="id-custom" data-testid="identity-custom">
-        <summary>Add your own</summary>
-        <div class="custom-body">
-          <div class="field">
-            <label for="id-name">Display name</label>
-            <input id="id-name" data-testid="identity-name" type="text" maxlength="24" placeholder="Your Business Wife name" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="id-subtitle">Subtitle <span style="color:var(--faint)">(optional)</span></label>
-            <input id="id-subtitle" data-testid="identity-subtitle" type="text" maxlength="40" placeholder="Closes deals before lunch" autocomplete="off">
-          </div>
-          <div class="field">
-            <label>Picture <span style="color:var(--faint)">(optional)</span></label>
-            <div class="pic-row">
-              <button type="button" class="ghost file-btn" data-testid="identity-upload-btn">Upload image
-                <input id="id-file" data-testid="identity-file" type="file" accept="image/png,image/jpeg,image/webp">
-              </button>
-              <input id="id-url" data-testid="identity-url" type="url" placeholder="Or image URL" autocomplete="off" style="flex:1;min-width:120px">
-            </div>
-            <p class="hint">No picture? She gets a briefcase. 💼</p>
-          </div>
-          <div class="err" id="id-err" data-testid="identity-error"></div>
-          <button type="button" class="primary" id="id-add-btn" data-testid="identity-add-btn">Add her</button>
-        </div>
-      </details>
+      <bw-wife-picker id="picker" data-testid="identity-picker" storage-key="bw_poll_custom_wives" roster-name="first" taken-label="Taken"></bw-wife-picker>
+      <div class="id-actions" id="id-actions" hidden>
+        <button type="button" class="primary" id="id-add-btn" data-testid="identity-add-btn" disabled>Use her</button>
+      </div>
     </div>
   </div>
 
@@ -406,7 +351,7 @@ const MIN_OPTIONS = 2;
 const state = {
   pollId: null,
   voterId: voterId(),
-  creator: false,
+  ownerToken: null,
   myVote: null,
   data: null,
   es: null,
@@ -422,60 +367,51 @@ function voterId() {
   return id;
 }
 
-function creatorKey(id) { return "bw_poll_creator_" + id; }
+// The owner token comes back once, at creation, and is the only way to close
+// the poll. Kept on this device; older builds marked the creator per tab and
+// proved it with the tab's voter id, which still works for their polls.
+function ownerKey(id) { return "bw_poll_owner_" + id; }
+function ownerTokenFor(id) {
+  try {
+    const t = localStorage.getItem(ownerKey(id));
+    if (t) return t;
+  } catch {}
+  return sessionStorage.getItem("bw_poll_creator_" + id) === "1" ? state.voterId : null;
+}
 function voteKey(id) { return "bw_poll_vote_" + id; }
 
 // ---------- identity ----------
-const ROSTER = [
-  { first: "Vivienne", img: "/img/executive.png" },
-  { first: "Coco", img: "/img/closer.png" },
-  { first: "Victoria", img: "/img/boardroom.png" },
-  { first: "Margot", img: "/img/quarterly.png" },
-  { first: "Scarlett", img: "/img/assistant.png" },
-  { first: "Danielle", img: "/img/hr.png" },
-  { first: "Aurélie", img: "/img/merger.png" },
-  { first: "Bibi", img: "/img/cfo.png" },
-  { first: "Charlotte", img: "/img/legal.png" },
-  { first: "Roxane", img: "/img/negotiator.png" },
-  { first: "Betty", img: "/img/secretary.png" },
-  { first: "Jaqueline", img: "/img/broker.png" },
-  { first: "Joséphine", img: "/img/signature.png" },
-  { first: "Catherine", img: "/img/interim-ceo.png" },
-  { first: "Gaby", img: "/img/growth.png" },
-  { first: "Tamara", img: "/img/expense.png" },
-];
+// Who you are in this room: a Business Wife from the shared picker. Stored on
+// this device and sent with each vote so she shows up next to it.
 const IDENTITY_KEY = "bw_poll_identity";
-const CUSTOM_WIVES_KEY = "bw_poll_custom_wives";
-let pendingCustomIcon = null;
+const picker = $("#picker");
 
 function escapeHtml(x) {
   return String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-function thumbPath(imgPath) {
-  if (!imgPath || !imgPath.startsWith("/img/")) return imgPath;
-  return imgPath.replace("/img/", "/img/thumb/").replace(/\.png$/, ".jpg");
+// Only pictures the server accepts: built-in portraits, small uploads, emoji.
+function usableIcon(icon) {
+  if (!icon) return false;
+  if (/^\/img\/[a-z0-9-]+\.png$/.test(icon)) return true;
+  if (/^data:image\//.test(icon)) return icon.length <= 20000;
+  return !/[:/]/.test(icon) && [...icon].length <= 8;
 }
 function getIdentity() {
-  try { const raw = localStorage.getItem(IDENTITY_KEY); return raw ? JSON.parse(raw) : null; }
-  catch { return null; }
+  try {
+    const id = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "null");
+    if (!id || !id.name) return null;
+    if (!usableIcon(id.icon)) id.icon = "💼";   // older builds hot-linked URLs
+    return id;
+  } catch { return null; }
 }
 function setIdentity(id) {
   try { localStorage.setItem(IDENTITY_KEY, JSON.stringify(id)); } catch {}
   renderChip();
 }
-function getCustomWives() {
-  try { return JSON.parse(localStorage.getItem(CUSTOM_WIVES_KEY)) || []; }
-  catch { return []; }
-}
-function saveCustomWife(w) {
-  const list = getCustomWives().filter(x => x.name.toLowerCase() !== w.name.toLowerCase());
-  list.unshift(w);
-  try { localStorage.setItem(CUSTOM_WIVES_KEY, JSON.stringify(list.slice(0, 8))); } catch {}
-}
 function avatarHtml(icon) {
   if (!icon) return '<span class="emoji">💼</span>';
-  if (icon.startsWith("/img/") || icon.startsWith("data:") || icon.startsWith("http")) {
-    return '<img src="' + escapeHtml(thumbPath(icon)) + '" alt="">';
+  if (icon.startsWith("/img/") || icon.startsWith("data:")) {
+    return '<img src="' + escapeHtml(window.bwThumb(icon)) + '" alt="">';
   }
   return '<span class="emoji">' + escapeHtml(icon) + '</span>';
 }
@@ -488,45 +424,28 @@ function renderChip() {
   chip.title = "Change your identity";
 }
 function showIdentityPicker() {
-  const ov = $("#id-overlay");
-  ov.hidden = false;
-  const grid = $("#id-grid");
-  grid.innerHTML = "";
+  $("#id-overlay").hidden = false;
   const current = getIdentity();
-  const entries = [
-    ...getCustomWives().map(w => ({ name: w.name, icon: w.icon })),
-    ...ROSTER.map(r => ({ name: r.first, icon: r.img })),
-  ];
-  for (const e of entries) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.dataset.testid = "identity-option";
-    b.innerHTML = avatarHtml(e.icon) + '<span class="label">' + escapeHtml(e.name) + "</span>";
-    if (current && current.name === e.name) b.classList.add("sel");
-    b.onclick = () => {
-      setIdentity({ name: e.name, icon: e.icon });
-      ov.hidden = true;
-      if (state.myVote && state.pollId) vote(state.myVote);
-    };
-    grid.appendChild(b);
-  }
-  $("#id-err").textContent = "";
-  $("#id-name").value = "";
-  $("#id-subtitle").value = "";
-  $("#id-url").value = "";
-  pendingCustomIcon = null;
+  if (current) picker.selectName(current.name);
+  syncIdentityBtn();
 }
-function addCustomWife() {
-  const name = $("#id-name").value.trim();
-  const err = $("#id-err");
-  if (!name) { err.textContent = "She needs a name."; return; }
-  const icon = pendingCustomIcon || $("#id-url").value.trim() || "💼";
-  const wife = { name, icon, subtitle: $("#id-subtitle").value.trim() };
-  saveCustomWife(wife);
-  setIdentity(wife);
+function useIdentity(v) {
+  if (!v || !v.name) return;
+  if (v.kind !== "roster") picker.remember(v);
+  setIdentity({ name: v.name, icon: v.icon, subtitle: v.subtitle || "" });
   $("#id-overlay").hidden = true;
   if (state.myVote && state.pollId) vote(state.myVote);
 }
+// A ready-made card is one tap; your own wife needs a name first, then "Use her".
+function syncIdentityBtn() {
+  const v = picker.value;
+  const custom = !!(v && v.kind === "custom") || !picker.querySelector('[data-testid="custom-panel"]').hidden;
+  $("#id-actions").hidden = !custom;
+  $("#id-add-btn").disabled = !(v && v.kind === "custom" && picker.valid);
+}
+picker.addEventListener("pick", (e) => useIdentity(e.detail));
+picker.addEventListener("change", syncIdentityBtn);
+picker.addEventListener("click", () => setTimeout(syncIdentityBtn));
 
 // ---------- lobby ----------
 let optionRows = [];
@@ -598,14 +517,14 @@ async function createPoll() {
     const res = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, options, creatorId: state.voterId }),
+      body: JSON.stringify({ question, options }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || "could not create poll");
-    sessionStorage.setItem(creatorKey(body.id), "1");
+    try { localStorage.setItem(ownerKey(body.id), body.ownerToken); } catch {}
     location.hash = "/" + body.id;
     history.pushState(null, "", "/poll/" + body.id);
-    openPoll(body.id, true);
+    openPoll(body.id);
   } catch (e) {
     err.textContent = e.message;
   } finally {
@@ -624,7 +543,7 @@ async function joinPoll() {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "poll not found");
     history.pushState(null, "", "/poll/" + id);
-    openPoll(id, false);
+    openPoll(id);
   } catch (e) {
     err.textContent = e.message;
   } finally {
@@ -639,15 +558,15 @@ function showLobby() {
   closeStreams();
 }
 
-function openPoll(id, isCreator) {
+function openPoll(id) {
   state.pollId = id;
-  state.creator = isCreator || sessionStorage.getItem(creatorKey(id)) === "1";
+  state.ownerToken = ownerTokenFor(id);
   state.myVote = sessionStorage.getItem(voteKey(id)) || null;
   $("#lobby-screen").hidden = true;
   $("#poll-screen").hidden = false;
   $("[data-testid='poll-code']").textContent = id;
   $("#share-url").value = location.origin + "/poll/" + id;
-  $("#close-btn").hidden = !state.creator;
+  $("#close-btn").hidden = !state.ownerToken;
   renderChip();
   render(state.data);
   fetchState();
@@ -675,9 +594,16 @@ async function fetchState() {
       if (res.status === 404) { showLobby(); return; }
       throw new Error("state unavailable");
     }
-    state.data = await res.json();
-    render(state.data);
+    accept(await res.json());
   } catch { /* keep last paint, SSE/poll will retry */ }
+}
+
+// SSE and the fallback GET can arrive out of order; keep the newest.
+function accept(data) {
+  if (!data || data.id !== state.pollId) return;
+  if (state.data && state.data.id === data.id && (data.rev || 0) < (state.data.rev || 0)) return;
+  state.data = data;
+  render(data);
 }
 
 function subscribe() {
@@ -686,7 +612,7 @@ function subscribe() {
   state.es = es;
   es.onopen = () => setLive(true, "live");
   es.onmessage = (ev) => {
-    try { state.data = JSON.parse(ev.data); render(state.data); setLive(true, "live"); } catch {}
+    try { accept(JSON.parse(ev.data)); setLive(true, "live"); } catch {}
   };
   es.onerror = () => {
     setLive(false, "reconnecting");
@@ -700,7 +626,7 @@ function render(data) {
   const closed = !!data.closed;
   $("#question").textContent = data.question;
   $("#closed-banner").classList.toggle("on", closed);
-  $("#close-btn").hidden = !(state.creator && !closed);
+  $("#close-btn").hidden = !(state.ownerToken && !closed);
 
   const total = data.totalVotes || 0;
   const showResults = closed || state.myVote != null;
@@ -793,7 +719,7 @@ async function closePoll() {
     const res = await fetch(API + "/" + state.pollId + "/close", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voterId: state.voterId }),
+      body: JSON.stringify({ ownerToken: state.ownerToken }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "could not close");
@@ -809,7 +735,7 @@ function route() {
   const m = location.pathname.match(/^\/poll\/([a-z0-9]{6})\/?$/);
   if (m) {
     const id = m[1];
-    if (id !== state.pollId) openPoll(id, false);
+    if (id !== state.pollId) openPoll(id);
   } else {
     state.pollId = null;
     showLobby();
@@ -825,14 +751,7 @@ $("#join-btn").onclick = joinPoll;
 $("#join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") joinPoll(); });
 $("#close-btn").onclick = closePoll;
 $("#you-chip").onclick = showIdentityPicker;
-$("#id-add-btn").onclick = addCustomWife;
-$("#id-file").onchange = (e) => {
-  const f = e.target.files && e.target.files[0];
-  if (!f) return;
-  const reader = new FileReader();
-  reader.onload = () => { pendingCustomIcon = String(reader.result); };
-  reader.readAsDataURL(f);
-};
+$("#id-add-btn").onclick = () => useIdentity(picker.value);
 $("#new-btn").onclick = () => { history.pushState(null, "", "/poll/"); route(); };
 $("#copy-btn").onclick = async () => {
   const input = $("#share-url");
