@@ -7,6 +7,15 @@ function unique(prefix) {
   return prefix + '-' + Math.random().toString(36).slice(2, 7);
 }
 
+async function pickIdentity(page) {
+  const overlay = page.getByTestId('identity-overlay');
+  // A second tab in the same context already shares the saved identity.
+  if (await overlay.isVisible()) {
+    await page.getByTestId('identity-option').first().click();
+    await expect(overlay).toBeHidden();
+  }
+}
+
 async function createPoll(page, question, options) {
   await page.goto(POLL);
   await expect(page.getByTestId('lobby-screen')).toBeVisible();
@@ -22,6 +31,7 @@ async function createPoll(page, question, options) {
   await expect(page).toHaveURL(new RegExp(CODE_RE.source));
   await expect(page.getByTestId('poll-screen')).toBeVisible();
   await expect(page.getByTestId('share-url')).toHaveValue(CODE_RE);
+  await pickIdentity(page);
   return page.url();
 }
 
@@ -87,6 +97,7 @@ test.describe('Poll — voting', () => {
     const other = await context.newPage();
     await other.goto(url);
     await expect(other.getByTestId('poll-question')).toHaveText('Pick a date');
+    await pickIdentity(other);
     await other.getByTestId('option').filter({ hasText: 'April' }).first().click();
     await expect(other.getByTestId('option').filter({ hasText: 'April' }).first()).toHaveClass(/mine/);
 
@@ -113,11 +124,42 @@ test.describe('Poll — voting', () => {
   });
 });
 
+test.describe('Poll — identity', () => {
+  test('the picker gates the poll and the chip shows the choice', async ({ page }) => {
+    await createPoll(page, 'Lunch?', ['Croissant', 'Sandwich']);
+    await expect(page.getByTestId('you-chip')).toContainText('Vivienne');
+    await page.getByTestId('option').filter({ hasText: 'Croissant' }).first().click();
+    await expect(page.getByTestId('option-voters').first()).toBeVisible();
+    await expect(page.getByTestId('tally')).toContainText('Vivienne have voted');
+  });
+
+  test('identity is remembered on this device', async ({ page }) => {
+    const url = await createPoll(page, 'Reload check', ['A', 'B']);
+    await page.goto(url);
+    await expect(page.getByTestId('identity-overlay')).toBeHidden();
+    await expect(page.getByTestId('you-chip')).toContainText('Vivienne');
+  });
+
+  test('add your own saves a custom wife', async ({ page }) => {
+    await createPoll(page, 'Custom check', ['A', 'B']);
+    await page.getByTestId('you-chip').click();
+    await page.getByTestId('identity-custom').click();
+    await page.getByTestId('identity-name').fill('Francine');
+    await page.getByTestId('identity-add-btn').click();
+    await expect(page.getByTestId('identity-overlay')).toBeHidden();
+    await expect(page.getByTestId('you-chip')).toContainText('Francine');
+    // she is offered again next visit
+    await page.getByTestId('you-chip').click();
+    await expect(page.getByTestId('identity-option').first()).toContainText('Francine');
+  });
+});
+
 test.describe('Poll — closing', () => {
   test('creator closes the poll and voting locks', async ({ page, context }) => {
     const url = await createPoll(page, 'Final question', ['Left', 'Right']);
     const other = await context.newPage();
     await other.goto(url);
+    await pickIdentity(other);
     await other.getByTestId('option').filter({ hasText: 'Left' }).first().click();
 
     await page.getByTestId('close-btn').click();

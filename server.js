@@ -118,7 +118,7 @@ function makePoll(question, options) {
     id: null,
     question,
     options: options.map((label, i) => ({ id: 'o' + (i + 1), label })),
-    votes: new Map(), // hashKey(voterId) -> optionId
+    votes: new Map(), // hashKey(voterId) -> { optionId, name?, icon? }
     creatorHash: null,
     closed: false,
     createdAt: now(),
@@ -129,15 +129,25 @@ function makePoll(question, options) {
 
 function pollState(poll) {
   const counts = new Map(poll.options.map(o => [o.id, 0]));
-  for (const optionId of poll.votes.values()) {
+  const voters = new Map(poll.options.map(o => [o.id, []]));
+  const allVoters = [];
+  for (const v of poll.votes.values()) {
+    const optionId = typeof v === 'string' ? v : v.optionId;
     if (counts.has(optionId)) counts.set(optionId, counts.get(optionId) + 1);
+    const name = typeof v === 'string' ? null : (v.name || null);
+    if (name) {
+      const info = { name, icon: v.icon || null };
+      allVoters.push(info);
+      if (voters.has(optionId)) voters.get(optionId).push(info);
+    }
   }
   return {
     id: poll.id,
     question: poll.question,
     closed: poll.closed,
     totalVotes: poll.votes.size,
-    options: poll.options.map(o => ({ id: o.id, label: o.label, count: counts.get(o.id) || 0 })),
+    options: poll.options.map(o => ({ id: o.id, label: o.label, count: counts.get(o.id) || 0, voters: voters.get(o.id) || [] })),
+    voters: allVoters,
   };
 }
 
@@ -473,7 +483,11 @@ function loadState() {
     const poll = makePoll(String(d.question || ''), []);
     poll.id = d.id;
     poll.options = d.options.filter((o) => o && typeof o.id === 'string').map((o) => ({ id: o.id, label: String(o.label || '') }));
-    poll.votes = new Map(Array.isArray(d.votes) ? d.votes.filter((v) => Array.isArray(v) && v.length === 2).map((v) => [String(v[0]), String(v[1])]) : []);
+    poll.votes = new Map(Array.isArray(d.votes)
+      ? d.votes
+        .filter((v) => Array.isArray(v) && v.length === 2 && v[1] != null)
+        .map((v) => [String(v[0]), typeof v[1] === 'string' ? { optionId: v[1] } : v[1]])
+      : []);
     poll.creatorHash = typeof d.creatorHash === 'string' ? d.creatorHash : null;
     poll.closed = !!d.closed;
     poll.createdAt = Number(d.createdAt) || t;
@@ -864,11 +878,14 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (req.method === 'POST' && sub === '/vote') {
-        const { voterId, optionId } = await readBody(req);
+        const { voterId, optionId, name, icon } = await readBody(req);
         if (!validVoterId(voterId)) return json(res, 400, { error: 'bad voter' });
         if (poll.closed) return json(res, 409, { error: 'poll closed' });
         if (!poll.options.some(o => o.id === optionId)) return json(res, 400, { error: 'bad option' });
-        poll.votes.set(hashKey(voterId), optionId);
+        const vote = { optionId };
+        if (typeof name === 'string' && name.trim()) vote.name = String(name).trim().slice(0, 24);
+        if (typeof icon === 'string' && icon && validIcon(icon)) vote.icon = icon;
+        poll.votes.set(hashKey(voterId), vote);
         if (!poll.creatorHash) poll.creatorHash = hashKey(voterId);
         broadcastPoll(poll);
         return json(res, 200, { ok: true });

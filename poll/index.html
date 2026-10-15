@@ -184,7 +184,8 @@
     background: var(--accent-soft);
     transition: width .35s ease;
   }
-  .option .txt { position: relative; display: flex; justify-content: space-between; gap: 12px; }
+  .option .txt { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+  .option .opt-line { display: flex; justify-content: space-between; gap: 12px; }
   .option .pct { color: var(--muted); font-family: var(--mono); font-size: 0.86rem; }
   .option.mine { border-color: var(--accent); }
   .option.mine .txt { color: var(--text); }
@@ -225,6 +226,74 @@
     background: var(--bg);
   }
   [hidden] { display: none !important; }
+  /* identity picker */
+  .you-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.82rem; color: var(--muted); font-family: inherit;
+    background: none; border: 0; padding: 2px 4px; border-radius: 8px; cursor: pointer;
+  }
+  .you-chip:hover { color: var(--text); }
+  .you-chip img { width: 26px; height: 36px; object-fit: cover; object-position: top; border-radius: 5px; border: 1px solid var(--border-strong); }
+  .you-chip .emoji { font-size: 1.1rem; }
+  .you-chip b { color: var(--text); font-weight: 600; }
+  .id-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(15, 12, 14, 0.92);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; overflow: auto;
+  }
+  .id-sheet {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 20px; max-width: 420px; width: 100%; text-align: center;
+  }
+  .id-sheet h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .id-sheet .sub { color: var(--muted); font-size: 0.84rem; margin-bottom: 16px; }
+  .id-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .id-grid button {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .id-grid img {
+    width: 100%; aspect-ratio: 64/90; object-fit: cover; object-position: top;
+    border-radius: 7px; border: 1px solid var(--border-strong);
+  }
+  .id-grid .emoji {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; aspect-ratio: 64/90; font-size: 1.6rem;
+    border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface-2);
+  }
+  .id-grid button:hover img, .id-grid button:focus-visible img,
+  .id-grid button:hover .emoji, .id-grid button:focus-visible .emoji { border-color: var(--accent); }
+  .id-grid span.label { font-size: 0.66rem; color: var(--muted); }
+  .id-grid button.sel img, .id-grid button.sel .emoji { border: 2px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .id-custom {
+    margin-top: 14px; text-align: left;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
+  }
+  .id-custom > summary {
+    cursor: pointer; list-style: none; padding: 12px 14px;
+    font-size: 0.82rem; font-weight: 600; color: var(--muted);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .id-custom > summary::-webkit-details-marker { display: none; }
+  .id-custom > summary::before { content: "+ "; color: var(--gold); }
+  .id-custom[open] > summary::before { content: "− "; }
+  .id-custom .custom-body { padding: 0 14px 14px; }
+  .id-custom .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .id-custom label { font-size: 0.78rem; color: var(--muted); }
+  .id-custom input[type="text"], .id-custom input[type="url"] {
+    width: 100%; padding: 12px 14px; border-radius: 8px;
+    border: 1px solid var(--border-strong); background: var(--bg);
+    color: var(--text); font-family: inherit; font-size: 1rem;
+  }
+  .id-custom .pic-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .id-custom .file-btn { position: relative; overflow: hidden; min-width: 0; padding: 10px 14px; font-size: 0.84rem; }
+  .id-custom .file-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .id-custom .hint { font-size: 0.74rem; color: var(--faint); margin-top: 8px; }
+  .voters { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
+  .voters img { width: 22px; height: 30px; object-fit: cover; object-position: top; border-radius: 4px; border: 1px solid var(--border-strong); }
+  .voters .emoji { font-size: 0.9rem; }
+  .voters .plus { font-size: 0.68rem; color: var(--faint); align-self: center; }
   .sr-only {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -270,6 +339,7 @@
       <div class="panel">
         <div class="poll-meta">
           <span class="poll-code">Poll <span class="code" data-testid="poll-code"></span></span>
+          <button type="button" class="you-chip" id="you-chip" data-testid="you-chip" hidden></button>
           <span class="live" id="live" data-testid="live-indicator"><span class="dot"></span><span id="live-text">connecting</span></span>
         </div>
         <div class="banner" id="closed-banner" data-testid="closed-banner">Polling closed — final numbers.</div>
@@ -292,6 +362,40 @@
   </div>
 
   <footer>Business Wife<br>"She closes the deal before lunch."</footer>
+
+  <!-- Identity picker -->
+  <div class="id-overlay" id="id-overlay" data-testid="identity-overlay" hidden>
+    <div class="id-sheet">
+      <h3>Who are you in this room?</h3>
+      <p class="sub">Pick a business wife — she shows up next to your vote.</p>
+      <div class="id-grid" id="id-grid" data-testid="identity-grid"></div>
+      <details class="id-custom" id="id-custom" data-testid="identity-custom">
+        <summary>Add your own</summary>
+        <div class="custom-body">
+          <div class="field">
+            <label for="id-name">Display name</label>
+            <input id="id-name" data-testid="identity-name" type="text" maxlength="24" placeholder="Your Business Wife name" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="id-subtitle">Subtitle <span style="color:var(--faint)">(optional)</span></label>
+            <input id="id-subtitle" data-testid="identity-subtitle" type="text" maxlength="40" placeholder="Closes deals before lunch" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Picture <span style="color:var(--faint)">(optional)</span></label>
+            <div class="pic-row">
+              <button type="button" class="ghost file-btn" data-testid="identity-upload-btn">Upload image
+                <input id="id-file" data-testid="identity-file" type="file" accept="image/png,image/jpeg,image/webp">
+              </button>
+              <input id="id-url" data-testid="identity-url" type="url" placeholder="Or image URL" autocomplete="off" style="flex:1;min-width:120px">
+            </div>
+            <p class="hint">No picture? She gets a briefcase. 💼</p>
+          </div>
+          <div class="err" id="id-err" data-testid="identity-error"></div>
+          <button type="button" class="primary" id="id-add-btn" data-testid="identity-add-btn">Add her</button>
+        </div>
+      </details>
+    </div>
+  </div>
 
 <script>
 const $ = (sel) => document.querySelector(sel);
@@ -320,6 +424,109 @@ function voterId() {
 
 function creatorKey(id) { return "bw_poll_creator_" + id; }
 function voteKey(id) { return "bw_poll_vote_" + id; }
+
+// ---------- identity ----------
+const ROSTER = [
+  { first: "Vivienne", img: "/img/executive.png" },
+  { first: "Coco", img: "/img/closer.png" },
+  { first: "Victoria", img: "/img/boardroom.png" },
+  { first: "Margot", img: "/img/quarterly.png" },
+  { first: "Scarlett", img: "/img/assistant.png" },
+  { first: "Danielle", img: "/img/hr.png" },
+  { first: "Aurélie", img: "/img/merger.png" },
+  { first: "Bibi", img: "/img/cfo.png" },
+  { first: "Charlotte", img: "/img/legal.png" },
+  { first: "Roxane", img: "/img/negotiator.png" },
+  { first: "Betty", img: "/img/secretary.png" },
+  { first: "Jaqueline", img: "/img/broker.png" },
+  { first: "Joséphine", img: "/img/signature.png" },
+  { first: "Catherine", img: "/img/interim-ceo.png" },
+  { first: "Gaby", img: "/img/growth.png" },
+  { first: "Tamara", img: "/img/expense.png" },
+];
+const IDENTITY_KEY = "bw_poll_identity";
+const CUSTOM_WIVES_KEY = "bw_poll_custom_wives";
+let pendingCustomIcon = null;
+
+function escapeHtml(x) {
+  return String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function thumbPath(imgPath) {
+  if (!imgPath || !imgPath.startsWith("/img/")) return imgPath;
+  return imgPath.replace("/img/", "/img/thumb/").replace(/\.png$/, ".jpg");
+}
+function getIdentity() {
+  try { const raw = localStorage.getItem(IDENTITY_KEY); return raw ? JSON.parse(raw) : null; }
+  catch { return null; }
+}
+function setIdentity(id) {
+  try { localStorage.setItem(IDENTITY_KEY, JSON.stringify(id)); } catch {}
+  renderChip();
+}
+function getCustomWives() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_WIVES_KEY)) || []; }
+  catch { return []; }
+}
+function saveCustomWife(w) {
+  const list = getCustomWives().filter(x => x.name.toLowerCase() !== w.name.toLowerCase());
+  list.unshift(w);
+  try { localStorage.setItem(CUSTOM_WIVES_KEY, JSON.stringify(list.slice(0, 8))); } catch {}
+}
+function avatarHtml(icon) {
+  if (!icon) return '<span class="emoji">💼</span>';
+  if (icon.startsWith("/img/") || icon.startsWith("data:") || icon.startsWith("http")) {
+    return '<img src="' + escapeHtml(thumbPath(icon)) + '" alt="">';
+  }
+  return '<span class="emoji">' + escapeHtml(icon) + '</span>';
+}
+function renderChip() {
+  const chip = $("#you-chip");
+  const id = getIdentity();
+  if (!id) { chip.hidden = true; return; }
+  chip.hidden = false;
+  chip.innerHTML = avatarHtml(id.icon) + "<span>You: <b>" + escapeHtml(id.name) + "</b></span>";
+  chip.title = "Change your identity";
+}
+function showIdentityPicker() {
+  const ov = $("#id-overlay");
+  ov.hidden = false;
+  const grid = $("#id-grid");
+  grid.innerHTML = "";
+  const current = getIdentity();
+  const entries = [
+    ...getCustomWives().map(w => ({ name: w.name, icon: w.icon })),
+    ...ROSTER.map(r => ({ name: r.first, icon: r.img })),
+  ];
+  for (const e of entries) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.testid = "identity-option";
+    b.innerHTML = avatarHtml(e.icon) + '<span class="label">' + escapeHtml(e.name) + "</span>";
+    if (current && current.name === e.name) b.classList.add("sel");
+    b.onclick = () => {
+      setIdentity({ name: e.name, icon: e.icon });
+      ov.hidden = true;
+      if (state.myVote && state.pollId) vote(state.myVote);
+    };
+    grid.appendChild(b);
+  }
+  $("#id-err").textContent = "";
+  $("#id-name").value = "";
+  $("#id-subtitle").value = "";
+  $("#id-url").value = "";
+  pendingCustomIcon = null;
+}
+function addCustomWife() {
+  const name = $("#id-name").value.trim();
+  const err = $("#id-err");
+  if (!name) { err.textContent = "She needs a name."; return; }
+  const icon = pendingCustomIcon || $("#id-url").value.trim() || "💼";
+  const wife = { name, icon, subtitle: $("#id-subtitle").value.trim() };
+  saveCustomWife(wife);
+  setIdentity(wife);
+  $("#id-overlay").hidden = true;
+  if (state.myVote && state.pollId) vote(state.myVote);
+}
 
 // ---------- lobby ----------
 let optionRows = [];
@@ -441,9 +648,11 @@ function openPoll(id, isCreator) {
   $("[data-testid='poll-code']").textContent = id;
   $("#share-url").value = location.origin + "/poll/" + id;
   $("#close-btn").hidden = !state.creator;
+  renderChip();
   render(state.data);
   fetchState();
   subscribe();
+  if (!getIdentity()) showIdentityPicker();
 }
 
 function closeStreams() {
@@ -512,31 +721,59 @@ function render(data) {
     bar.style.width = (showResults ? pct : 0) + "%";
     const txt = document.createElement("span");
     txt.className = "txt";
+    const line = document.createElement("span");
+    line.className = "opt-line";
     const label = document.createElement("span");
     label.textContent = opt.label;
     const pctEl = document.createElement("span");
     pctEl.className = "pct";
     pctEl.dataset.testid = "option-count";
     pctEl.textContent = showResults ? opt.count + " · " + pct + "%" : "";
-    txt.append(label, pctEl);
+    line.append(label, pctEl);
+    txt.append(line);
+    if (showResults && Array.isArray(opt.voters) && opt.voters.length) {
+      const v = document.createElement("span");
+      v.className = "voters";
+      v.dataset.testid = "option-voters";
+      for (const voter of opt.voters.slice(0, 5)) {
+        const cell = document.createElement("span");
+        cell.title = voter.name;
+        cell.innerHTML = avatarHtml(voter.icon);
+        v.appendChild(cell);
+      }
+      if (opt.voters.length > 5) {
+        const plus = document.createElement("span");
+        plus.className = "plus";
+        plus.textContent = "+" + (opt.voters.length - 5) + " more";
+        v.appendChild(plus);
+      }
+      txt.append(v);
+    }
     btn.append(bar, txt);
     btn.onclick = () => vote(opt.id);
     box.append(btn);
   }
 
   const tally = $("#tally");
-  tally.innerHTML = "<strong>" + total + "</strong> vote" + (total === 1 ? "" : "s") +
+  let tallyHtml = "<strong>" + total + "</strong> vote" + (total === 1 ? "" : "s") +
     " · " + data.options.length + " options" +
     (showResults ? "" : " — vote to see the split");
+  if (showResults && Array.isArray(data.voters) && data.voters.length) {
+    const names = data.voters.slice(0, 3).map(v => escapeHtml(v.name));
+    const extra = data.voters.length > 3 ? " +" + (data.voters.length - 3) + " more" : "";
+    tallyHtml += " — " + names.join(", ") + extra + " have voted";
+  }
+  tally.innerHTML = tallyHtml;
 }
 
 async function vote(optionId) {
   if (!state.pollId) return;
+  const id = getIdentity();
   try {
     const res = await fetch(API + "/" + state.pollId + "/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voterId: state.voterId, optionId }),
+      body: JSON.stringify({ voterId: state.voterId, optionId, name: id && id.name, icon: id && id.icon }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "vote failed");
@@ -587,6 +824,15 @@ $("#create-btn").onclick = createPoll;
 $("#join-btn").onclick = joinPoll;
 $("#join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") joinPoll(); });
 $("#close-btn").onclick = closePoll;
+$("#you-chip").onclick = showIdentityPicker;
+$("#id-add-btn").onclick = addCustomWife;
+$("#id-file").onchange = (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => { pendingCustomIcon = String(reader.result); };
+  reader.readAsDataURL(f);
+};
 $("#new-btn").onclick = () => { history.pushState(null, "", "/poll/"); route(); };
 $("#copy-btn").onclick = async () => {
   const input = $("#share-url");
