@@ -249,8 +249,13 @@
   }
   .id-sheet {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 22px 18px; max-width: 560px; width: 100%; text-align: center;
-    max-height: calc(100vh - 40px); overflow: auto;
+    /* Same frame as the Planning Poker join card, so the shared picker gets
+       the same width, columns and card size in both apps. */
+    padding: 28px 24px 24px; max-width: 980px; width: 100%; text-align: center;
+    border-radius: 12px; max-height: calc(100vh - 40px); overflow: auto;
+  }
+  @media (max-width: 640px) {
+    .id-sheet { padding: 16px; }
   }
   .id-sheet h3 { font-size: 1.05rem; margin-bottom: 4px; }
   .id-sheet .sub { color: var(--muted); font-size: 0.84rem; margin-bottom: 16px; }
