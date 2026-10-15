@@ -1066,6 +1066,15 @@ const server = http.createServer(async (req, res) => {
     return sendFile(res, full, pathname.endsWith('.ico') ? 'image/x-icon' : 'image/png', 'public, max-age=86400');
   }
 
+  // Shared UI components (web components + their stylesheets).
+  if (req.method === 'GET' && pathname.startsWith('/components/')) {
+    const rel = path.normalize(pathname.slice(1));
+    if (!/^components\/[a-z0-9-]+\.(js|css)$/.test(rel)) { res.writeHead(403); return res.end(); }
+    const full = path.join(PUBLIC, rel);
+    const type = rel.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8';
+    return sendFile(res, full, type, 'public, max-age=3600');
+  }
+
   if (req.method === 'GET' && pathname.startsWith('/img/')) {
     const rel = path.normalize(pathname.slice(1));
     if (!/^img(\/thumb)?\/[a-z0-9-]+\.(png|jpe?g)$/.test(rel)) { res.writeHead(403); return res.end(); }

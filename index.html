@@ -10,6 +10,8 @@
 <title>Planning Poker — Business Wife Edition</title>
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/planning-poker/icons/icon-192.png">
+<link rel="stylesheet" href="/components/bw-card.css">
+<script src="/components/bw-card.js"></script>
 <style>
   :root {
     --bg: #0f0c0e;
@@ -343,54 +345,34 @@
     gap: 10px;
     text-align: left;
   }
-  .pick {
-    position: relative;
-    display: flex; flex-direction: column; align-items: stretch; gap: 0;
-    background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 0; cursor: pointer; color: var(--text);
-    font-family: inherit; font-size: 0.82rem; text-align: center;
-    overflow: hidden; transition: border-color .12s, background .12s, transform .08s;
-  }
-  .pick:hover { border-color: var(--border-strong); background: #241c20; transform: translateY(-2px); }
-  .pick.sel { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
-  .pick.taken { opacity: .4; filter: grayscale(.8); cursor: not-allowed; transform: none; }
-  /* Remove affordance on locally saved custom wives */
-  .pick .rm {
-    position: absolute; top: 4px; right: 4px; z-index: 2;
-    width: 22px; height: 22px; line-height: 20px; border-radius: 50%;
-    font-size: 0.85rem; color: var(--muted);
-    background: rgba(15, 12, 14, 0.78); border: 1px solid var(--border-strong);
-    cursor: pointer; opacity: 0; transition: opacity .12s, color .12s;
-  }
-  .pick:hover .rm, .pick:focus-within .rm { opacity: 1; }
-  .pick .rm:hover { color: var(--accent); border-color: var(--accent); }
-  @media (hover: none) { .pick .rm { opacity: .85; } }
+  /* Portrait cards are <bw-card>; their styling lives with the component in
+     /components/bw-card.css so every app shares one definition. */
   .saved-h { font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
   .saved-note { font-size: 0.72rem; color: var(--faint); margin-top: 8px; }
-  .pick.taken:hover { border-color: var(--border); background: var(--surface-2); }
-  .pick .pic {
-    width: 100%; height: 132px; object-fit: cover; object-position: top;
-    border-radius: 0; border: 0; flex: 0 0 auto; display: block;
-  }
-  .pick .ico { font-size: 2rem; padding: 36px 0 20px; display: block; }
-  .pick .who {
-    display: block; padding: 8px 8px 10px; font-weight: 600; line-height: 1.25;
-  }
-  .pick .who .ttl {
-    display: block; font-size: 0.68rem; color: var(--muted);
-    letter-spacing: 0.02em; font-weight: 400; margin-top: 2px;
-  }
   h2.taken-h { color: var(--faint); margin-top: 4px; text-align: left; }
   #takenWrap { margin-top: 18px; text-align: left; }
 
-  /* Custom wife — collapsed by default */
+  /* Custom wife — a card in the roster grid, collapsed by default. It used to
+     sit below the join button as an unrelated disclosure bar; as a card it reads
+     as one more way to get a seat at the table. */
   .custom-wife {
-    margin-top: 18px;
+    display: flex; flex-direction: column; justify-content: center;
+    margin: 0;
+    min-height: 132px;
     text-align: left;
-    border: 1px solid var(--border);
+    border: 1px dashed var(--border-strong);
     border-radius: 10px;
-    background: var(--surface-2);
+    background: transparent;
     padding: 0;
+  }
+  .custom-wife:hover { border-color: var(--gold); }
+  .custom-wife[open] {
+    grid-column: 1 / -1;
+    min-height: 0;
+    justify-content: flex-start;
+    border-style: solid;
+    border-color: var(--gold);
+    background: var(--surface-2);
   }
   .custom-wife > summary {
     cursor: pointer;
@@ -402,6 +384,12 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
+  .custom-wife:not([open]) > summary {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; height: 100%; padding: 18px 10px;
+    text-align: center; color: var(--text);
+  }
+  .custom-wife:not([open]) > summary::before { content: "+"; font-size: 1.5rem; line-height: 1; color: var(--gold); }
   .custom-wife > summary::-webkit-details-marker { display: none; }
   .custom-wife > summary::before { content: "+ "; color: var(--gold); }
   .custom-wife[open] > summary::before { content: "− "; }
@@ -662,7 +650,6 @@
     .cards { gap: 10px; padding: 4px 0 2px; }
     .btn, .join-btn { min-height: 44px; }
     #shareCard .room-code-big .code { letter-spacing: 0.16em; }
-    .pick .pic { height: 118px; }
     .grid-names { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
   }
   @media (max-width: 480px) {
@@ -1062,14 +1049,16 @@ let customAvatarPath = null; // built-in /img/*.png when no upload
 
 const pickBtns = {};
 ROSTER.forEach(r => {
-  const b = document.createElement("button");
-  b.className = "pick";
+  const b = document.createElement("bw-card");
   b.dataset.testid = "pick";
   b.dataset.name = r.name;
   b.dataset.first = r.first;
-  b.innerHTML = `${picOrIcon(r, "pic")}<span class="who">${r.first} <span class="ttl">${r.name}</span></span>`;
-  bindImgFallback(b);
-  b.onclick = () => {
+  b.setAttribute("name", r.first);
+  b.setAttribute("subtitle", r.name);
+  b.setAttribute("icon", r.icon);
+  b.setAttribute("img", thumbOf(r) || "");
+  b.setAttribute("title", r.first + " — " + r.name);
+  b.addEventListener("select", () => {
     if (b.classList.contains("taken")) return;
     document.querySelectorAll(".pick").forEach(x => x.classList.remove("sel"));
     b.classList.add("sel");
@@ -1086,10 +1075,13 @@ ROSTER.forEach(r => {
     });
     setCustomPreview(thumbOf(r), r.first + " — " + r.name);
     syncJoinBtn();
-  };
+  });
   pickBtns[r.name] = b;
   $("nameGrid").appendChild(b);
 });
+// "Add your own" belongs in the grid: it is another way to get a card, not a
+// separate form bolted on below the ones it produces.
+$("nameGrid").appendChild($("customWifeDetails"));
 
 // --- Saved custom wives (this device only) ---
 // A custom wife is rebuilt on every visit otherwise, which hurts most when the
@@ -1181,27 +1173,18 @@ function renderCustomWives() {
   Object.keys(savedBtns).forEach(k => { delete savedBtns[k]; });
   wrap.classList.toggle("hidden", !list.length);
   for (const w of list) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "pick";
+    const b = document.createElement("bw-card");
     b.dataset.testid = "saved-pick";
     b.dataset.name = w.name;
-    b.title = w.name;
-    const src = String(w.icon).startsWith("/img/") ? thumbPath(w.icon) : w.icon;
-    const sub = w.subtitle ? ` <span class="ttl">${escapeHtml(w.subtitle)}</span>` : "";
-    b.innerHTML = `<img class="pic" src="${escapeAttr(src)}" alt="" data-fb="\ud83d\ud644"><span class="who">${escapeHtml(w.name)}${sub}</span>`;
-    b.onclick = () => {
-      if (b.classList.contains("taken")) return;
-      selectCustomWife(w);
-    };
-    const x = document.createElement("span");
-    x.className = "rm";
-    x.dataset.testid = "saved-remove";
-    x.setAttribute("role", "button");
-    x.setAttribute("aria-label", "Remove " + w.name);
-    x.textContent = "\u00d7";
-    x.onclick = (e) => { e.stopPropagation(); forgetCustomWife(w.name); };
-    b.appendChild(x);
+    b.setAttribute("name", w.name);
+    if (w.subtitle) b.setAttribute("subtitle", w.subtitle);
+    b.setAttribute("img", String(w.icon).startsWith("/img/") ? thumbPath(w.icon) : w.icon);
+    b.setAttribute("icon", "\ud83d\ud644");
+    b.setAttribute("title", w.name);
+    b.setAttribute("removable", "");
+    b.setAttribute("remove-testid", "saved-remove");
+    b.addEventListener("select", () => selectCustomWife(w));
+    b.addEventListener("remove", () => forgetCustomWife(w.name));
     savedBtns[String(w.name).toLowerCase()] = b;
     grid.appendChild(b);
   }

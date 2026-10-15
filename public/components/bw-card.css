@@ -1,0 +1,124 @@
+/* <bw-card> — the shared portrait card.
+   These rules used to live inline in the Planning Poker app, where three
+   separate call sites hand-rolled the same `.pick` markup. They are unchanged
+   except for the new `--add` variant, so the card looks the same everywhere.
+   Colours come from the host app's own theme variables, which is what makes the
+   card portable across the hub's apps. */
+
+.pick,
+.bw-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.82rem;
+  text-align: center;
+  overflow: hidden;
+  transition: border-color .12s, background .12s, transform .08s;
+}
+
+.pick:hover,
+.bw-card:hover { border-color: var(--border-strong); background: #241c20; transform: translateY(-2px); }
+
+.pick:focus-visible,
+.bw-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pick.sel,
+.bw-card.sel {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.pick.taken,
+.bw-card.taken { opacity: .4; filter: grayscale(.8); cursor: not-allowed; transform: none; }
+.pick.taken:hover,
+.bw-card.taken:hover { border-color: var(--border); background: var(--surface-2); }
+
+.pick .pic,
+.bw-card .pic {
+  width: 100%;
+  height: 132px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 0;
+  border: 0;
+  flex: 0 0 auto;
+  display: block;
+}
+
+.pick .ico,
+.bw-card .ico { font-size: 2rem; padding: 36px 0 20px; display: block; }
+
+.pick .who,
+.bw-card .who { display: block; padding: 8px 8px 10px; font-weight: 600; line-height: 1.25; }
+
+.pick .who .ttl,
+.bw-card .who .ttl {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+/* Remove affordance on locally saved custom wives */
+.pick .rm,
+.bw-card .rm {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  line-height: 20px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: rgba(15, 12, 14, 0.78);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s, color .12s;
+}
+.pick:hover .rm, .pick:focus-within .rm,
+.bw-card:hover .rm, .bw-card:focus-within .rm { opacity: 1; }
+.pick .rm:hover,
+.bw-card .rm:hover { color: var(--accent); border-color: var(--accent); }
+@media (hover: none) {
+  .pick .rm,
+  .bw-card .rm { opacity: .85; }
+}
+
+/* "Add your own" — a card among the cards, so the join grid reads as one set
+   instead of a card grid followed by an unrelated disclosure bar. */
+.bw-card--add {
+  justify-content: center;
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  min-height: 132px;
+}
+.bw-card--add .ico { padding: 30px 0 14px; }
+.bw-card--add .who { padding: 0 8px 12px; }
+.bw-card--add:hover { border-color: var(--gold); color: var(--text); background: var(--surface-2); }
+.bw-card--add.is-open { border-style: solid; border-color: var(--gold); color: var(--text); }
+
+/* Matches the host app's own mobile breakpoint so the portrait height changes
+   in step with the grid it sits in. */
+@media (max-width: 640px) {
+  .pick .pic,
+  .bw-card .pic { height: 118px; }
+  .bw-card--add { min-height: 118px; }
+}
