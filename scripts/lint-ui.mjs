@@ -8,7 +8,7 @@ import { once } from 'node:events';
 
 const PORT = Number(process.env.PORT || 6971);
 const BASE = `http://127.0.0.1:${PORT}`;
-const ROUTES = ['/', '/planning-poker', '/pomodoro', '/poll', '/dates'];
+const ROUTES = ['/', '/planning-poker', '/pomodoro', '/poll', '/dates', '/feedback'];
 
 const server = spawn(process.execPath, ['server.js'], {
   env: { ...process.env, PORT: String(PORT), DATA_DIR: `/tmp/businesswife-lint-${PORT}` },

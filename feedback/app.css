@@ -1,0 +1,179 @@
+:root {
+  --bg:#0f0c0e;
+  --surface:#171214;
+  --surface-2:#1e171a;
+  --border:#493940;
+  --text:#f2ebe6;
+  --muted:#b6a5ac;
+  --accent:#a92e5b;
+  --accent-text:#ed88b1;
+  --gold:#d4b445;
+  color-scheme:dark;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg);
+  color:var(--text)}
+
+* {
+  box-sizing:border-box}
+body {
+  margin:0;
+  padding:24px 16px 40px;
+  background:var(--bg);
+  line-height:1.5}
+main {
+  max-width:640px;
+  margin:auto}
+h1 {
+  font-size:1.9rem;
+  margin:4px 0}
+h2 {
+  font-size:1.2rem;
+  margin:0 0 10px}
+h3 {
+  font-size:1rem;
+  margin:16px 0 8px}
+p {
+  margin:8px 0 16px}
+a {
+  color:var(--accent-text);
+  overflow-wrap:anywhere}
+.brand {
+  text-transform:uppercase;
+  letter-spacing:.14em;
+  font-size:.78rem;
+  color:var(--muted);
+  text-decoration:none}
+.kicker {
+  color:var(--gold);
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  margin:20px 0 0;
+  font-size:.8rem}
+.muted,.hint,footer {
+  color:var(--muted)}
+.hint {
+  font-size:.85rem}
+.panel {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:20px;
+  margin:18px 0}
+label {
+  display:block;
+  margin:14px 0 6px;
+  font-weight:600;
+  font-size:.9rem}
+input,textarea,select,button {
+  font:inherit;
+  color:inherit;
+  border-radius:8px;
+  border:1px solid var(--border)}
+input,textarea,select {
+  width:100%;
+  padding:12px;
+  background:var(--bg)}
+textarea {
+  resize:vertical}
+button {
+  min-height:46px;
+  padding:10px 14px;
+  background:var(--surface-2);
+  cursor:pointer;
+  font-weight:600}
+button:hover:not(:disabled) {
+  border-color:var(--accent-text)}
+button:disabled {
+  opacity:.5;
+  cursor:not-allowed}
+button.primary {
+  background:var(--accent);
+  color:#fff}
+form>button.primary {
+  display:block;
+  width:100%;
+  margin-top:20px}
+.row {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:12px 0}
+.row>* {
+  flex:1}
+.question {
+  border-bottom:1px solid var(--border);
+  padding:2px 0 10px}
+.question .row {
+  margin:8px 0}
+.question button {
+  font-size:.85rem;
+  padding:8px}
+.item {
+  border-top:1px solid var(--border);
+  padding:16px 0}
+.item p {
+  white-space:pre-wrap;
+  overflow-wrap:anywhere}
+.item.top {
+  border-left:3px solid var(--gold);
+  padding-left:12px}
+.item .row {
+  margin-bottom:0}
+.item .voted {
+  border-color:var(--accent-text);
+  background:#452134}
+.vote-total {
+  color:var(--gold);
+  font-weight:700}
+.merge-label {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:400}
+.merge-label input {
+  width:22px;
+  height:22px;
+  margin:0}
+details summary {
+  cursor:pointer;
+  min-height:32px}
+details li {
+  white-space:pre-wrap;
+  overflow-wrap:anywhere}
+#qr {
+  background:#fff;
+  padding:16px;
+  width:224px;
+  max-width:100%;
+  margin:20px auto}
+#qr img,#qr canvas {
+  max-width:100%;
+  height:auto}
+#error {
+  color:#ffadc9}
+#error:empty,#notice:empty {
+  display:none}
+#connection {
+  color:var(--gold)}
+#remaining {
+  font-weight:600;
+  color:var(--gold)}
+#notice {
+  border:1px solid var(--border);
+  padding:12px}
+footer {
+  font-size:.8rem;
+  text-align:center;
+  margin-top:28px}
+footer a {
+  display:inline-block;
+  padding:14px}
+#recent-list a {
+  display:block;
+  padding:12px 0}
+button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible {
+  outline:2px solid var(--accent-text);
+  outline-offset:3px}
+[hidden] {
+  display:none!important}
+

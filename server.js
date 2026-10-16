@@ -5,6 +5,7 @@
 //   lib/poker   planning poker rooms (in memory)
 //   lib/polls   polls (persisted)
 //   lib/dates   date picks (persisted)
+//   lib/feedback   feedback & voting sessions (persisted)
 //   lib/store   the JSON file polls and date picks are saved to
 //   lib/sse     server-sent event streams
 //   lib/http    bodies, JSON replies, static files
@@ -17,6 +18,7 @@ const { createPages } = require('./lib/pages');
 const { createPoker } = require('./lib/poker');
 const { createPolls } = require('./lib/polls');
 const { createDates } = require('./lib/dates');
+const { createFeedback } = require('./lib/feedback');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 6969;
 const ROOT = __dirname;
@@ -27,10 +29,11 @@ const pages = createPages(ROOT);
 const poker = createPoker();
 const polls = createPolls(store);
 const dates = createDates(store);
+const feedback = createFeedback(store);
 
-sse.keepAlive(() => [...poker.listeners(), ...polls.listeners(), ...dates.listeners()]);
+sse.keepAlive(() => [...poker.listeners(), ...polls.listeners(), ...dates.listeners(), ...feedback.listeners()]);
 
-const handlers = [pages, polls, dates, poker];
+const handlers = [pages, polls, dates, feedback, poker];
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');

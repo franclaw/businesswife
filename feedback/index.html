@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f0c0e">
+<meta name="description" content="Collect independent feedback, reveal it together, and vote on what matters.">
+<title>Feedback — Business Wife</title>
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/feedback/app.css">
+<script defer src="/components/feedback-qr.js"></script>
+<script defer src="/feedback/app.js"></script>
+</head>
+<body>
+<main>
+<a class="brand" href="/">Business Wife</a>
+<p class="kicker">Reflect</p>
+<h1 id="heading">Feedback</h1>
+<p id="description" class="muted">Independent thoughts. Shared priorities.</p>
+<p id="connection" role="status" hidden></p>
+<p id="error" role="alert"></p>
+<section id="create" class="panel">
+<h2>Create a session</h2>
+<form id="create-form">
+<label for="title">Session title</label><input id="title" required maxlength="120" autocomplete="off">
+<label for="desc">Description (optional)</label><textarea id="desc" maxlength="500" rows="2"></textarea>
+<h3>Questions</h3><p class="hint">Edit, reorder or remove the defaults.</p>
+<div id="questions"></div>
+<button type="button" id="add-question">Add question</button>
+<label for="votes">Votes per person</label><input id="votes" type="number" min="1" max="10" value="3" required>
+<button class="primary" type="submit">Create session</button>
+</form>
+</section>
+<section id="recent" class="panel" hidden><h2>Your sessions</h2><p class="hint">Facilitator links saved in this browser only. Keep your private link to manage a session from another device.</p><div id="recent-list"></div></section>
+<section id="room" hidden>
+<div class="panel"><h2 id="phase"></h2><p id="phase-hint" class="muted"></p><p id="remaining" role="status"></p>
+<div id="controls" hidden><div class="row"><button id="back" type="button"></button><button id="forward" type="button" class="primary"></button></div></div>
+</div>
+<details id="sharing" class="panel" hidden><summary>Share &amp; facilitator link</summary>
+<label for="participant-link">Participant link</label><input id="participant-link" readonly><button type="button" id="copy-link">Copy participant link</button>
+<div id="qr" role="img" aria-label="Participant link QR code"></div>
+<label for="facilitator-link">Private facilitator link — keep this safe</label><input id="facilitator-link" readonly><button type="button" id="copy-facilitator">Copy facilitator link</button>
+</details>
+<div id="results-tools" class="panel" hidden>
+<label for="sort">Item order</label><select id="sort"><option value="votes">Most votes first</option><option value="original">Original order</option></select>
+<div id="export-tools"><div class="row"><button type="button" id="copy-results">Copy Markdown</button><button type="button" id="export-results">Download Markdown</button></div>
+<label for="markdown">Results as Markdown</label><textarea id="markdown" rows="5" readonly></textarea></div>
+</div>
+<div id="categories"></div>
+</section>
+<p id="notice" role="status"></p>
+<footer>No accounts. No names. Just the room.<br><a href="/feedback">New session / your sessions</a></footer>
+</main>
+</body>
+</html>
