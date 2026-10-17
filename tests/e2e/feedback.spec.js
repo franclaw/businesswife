@@ -141,8 +141,8 @@ test('mobile eight-person session: create, collect, merge, vote, abstain, export
     await page.getByRole('button', { name: 'Close voting & show results', exact: true }).click();
     await expect(people[7].getByRole('heading', { name: 'Results', exact: true })).toBeVisible();
     await expect(people[7].locator('.vote-total').first()).toContainText('7 votes');
-    expect(await page.locator('#markdown').inputValue()).toContain('## Overall ranking');
-    expect(await page.locator('#markdown').inputValue()).toContain('Original: Edited feedback');
+    await expect(page.locator('#markdown')).toHaveValue(/## Overall ranking/);
+    await expect(page.locator('#markdown')).toHaveValue(/Original: Edited feedback/);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL });
     await page.getByRole('button', { name: 'Copy Markdown', exact: true }).click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('# Release retrospective');

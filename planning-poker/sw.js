@@ -1,6 +1,6 @@
 /* Planning Poker service worker — see /components/sw-core.js. */
 self.BW_SW = {
-  cache: "bw-poker-v3",
+  cache: "bw-poker-v4",
   scope: "/planning-poker/",
   shell: "/planning-poker/index.html",
   precache: [
@@ -11,6 +11,7 @@ self.BW_SW = {
     "/planning-poker/icons/icon-192.png",
     "/planning-poker/icons/icon-512.png",
     "/favicon.png",
+    "/img/portrait-frame-v1.png",
     "/apple-touch-icon.png",
   ],
 };

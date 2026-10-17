@@ -41,16 +41,46 @@
   const isEmoji = (s) => !!s && !/[:/]/.test(s) && [...s].length <= 8 && s.length <= 32;
   const usableIcon = (s) => isPortrait(s) || isSmallData(s) || isEmoji(s);
 
-  async function shrink(blob) {
+  // A single local overlay is reused by every upload; the composited JPEG is
+  // what we save/send, so the frame also follows the portrait into seats/votes.
+  let framePromise;
+  function portraitFrame() {
+    if (!framePromise) {
+      framePromise = fetch("/img/portrait-frame-v1.png")
+        .then((res) => {
+          if (!res.ok) throw new Error("Could not load the portrait frame. Please retry the upload.");
+          return res.blob();
+        })
+        .then((blob) => createImageBitmap(blob))
+        .catch((err) => { framePromise = null; throw err; });
+    }
+    return framePromise;
+  }
+
+  async function shrink(blob, framed = false) {
+    const frame = framed ? await portraitFrame() : null;
     const bmp = await createImageBitmap(blob);
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     try {
-      for (const px of [160, 128, 96, 72]) {
-        const scale = Math.min(1, px / Math.max(bmp.width, bmp.height));
-        canvas.width = Math.max(1, Math.round(bmp.width * scale));
-        canvas.height = Math.max(1, Math.round(bmp.height * scale));
-        ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      for (const px of (framed ? [384, 320, 256, 192, 160, 128] : [160, 128, 96, 72])) {
+        if (framed) {
+          canvas.width = Math.round(px * 2 / 3);
+          canvas.height = px;
+          ctx.fillStyle = "#251218";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          // Cover a portrait canvas without stretching square/landscape photos.
+          const scale = Math.max(canvas.width / bmp.width, canvas.height / bmp.height);
+          const width = bmp.width * scale, height = bmp.height * scale;
+          ctx.drawImage(bmp, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+          ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+        } else {
+          // Legacy oversized saved uploads are only shrunk, never double-framed.
+          const scale = Math.min(1, px / Math.max(bmp.width, bmp.height));
+          canvas.width = Math.max(1, Math.round(bmp.width * scale));
+          canvas.height = Math.max(1, Math.round(bmp.height * scale));
+          ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+        }
         for (const q of [0.82, 0.7, 0.55]) {
           const url = canvas.toDataURL("image/jpeg", q);
           if (url.length <= ICON_MAX) return url;
@@ -145,7 +175,11 @@
       this.$.subtitle.addEventListener("input", () => { if (this._mode === "custom") this._emit(); });
       this.$.file.addEventListener("change", async () => {
         const f = this.$.file.files && this.$.file.files[0];
-        if (f) await this._usePicture(f);
+        if (f) {
+          await this._usePicture(f);
+          // Selecting the same file must retry after a transient frame failure.
+          this.$.file.value = "";
+        }
       });
       this.$.urlBtn.onclick = () => this._useUrl();
       this.$.url.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this._useUrl(); } });
@@ -170,7 +204,7 @@
 
     get valid() {
       const v = this.value;
-      return !!(v && v.name && !this._taken.has(v.name.toLowerCase()));
+      return !!(!this._pictureBusy && v && v.name && !this._taken.has(v.name.toLowerCase()));
     }
 
     setTaken(names) {
@@ -283,13 +317,18 @@
 
     async _usePicture(blob) {
       this.$.err.textContent = "";
+      this._pictureBusy = true;
+      this._emit();
       try {
         if (!blob.type || !blob.type.startsWith("image/")) throw new Error("Pick an image file.");
-        this._picture = await shrink(blob);
+        this._picture = await shrink(blob, true);
         this.$.url.value = "";
         this._custom();
       } catch (e) {
         this.$.err.textContent = e.message || "Could not use that image.";
+      } finally {
+        this._pictureBusy = false;
+        this._emit();
       }
     }
 

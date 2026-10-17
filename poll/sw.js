@@ -1,6 +1,6 @@
 /* Poll service worker — see /components/sw-core.js. */
 self.BW_SW = {
-  cache: "bw-poll-v2",
+  cache: "bw-poll-v3",
   scope: "/poll/",
   shell: "/poll/index.html",
   precache: [
@@ -9,6 +9,7 @@ self.BW_SW = {
     "/poll/icons/icon-192.png",
     "/poll/icons/icon-512.png",
     "/favicon.png",
+    "/img/portrait-frame-v1.png",
   ],
 };
 importScripts("/components/sw-core.js");
