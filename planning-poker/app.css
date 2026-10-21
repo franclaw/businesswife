@@ -217,6 +217,11 @@ h2 {
   width: 64px; height: 96px; object-fit: contain; flex-shrink: 0;
   border-radius: 6px; border: 1px solid var(--border-strong); display: block; margin: 0 auto;
 }
+/* Raw upload with the CSS frame overlay (.bw-framed, styled in
+   bw-wife-picker.css): the wrapper is the flex item now, so the slot size and
+   centring move from the image to it. */
+.player .bw-framed { flex-shrink: 0; margin: 0 auto; border-radius: 6px; }
+.player .bw-framed .pic { margin: 0; }
 /* Two lines are reserved either way, so a one-word name clears the same
    room as a wrapped "Vivienne · The Executive". */
 .player .nm {

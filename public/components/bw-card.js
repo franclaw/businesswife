@@ -21,7 +21,7 @@
 
 class BwCard extends HTMLElement {
   static get observedAttributes() {
-    return ["name", "subtitle", "img", "icon", "variant", "removable", "title"];
+    return ["name", "subtitle", "img", "icon", "variant", "removable", "framed", "title"];
   }
 
   connectedCallback() {
@@ -61,8 +61,11 @@ class BwCard extends HTMLElement {
     this.setAttribute("tabindex", wasTaken ? "-1" : "0");
     if (label) this.setAttribute("aria-label", label);
 
+    const picHtml = `<img class="pic" src="${escapeAttr(src)}" alt="" data-fb="${escapeAttr(icon)}">`;
+    // `framed` marks a raw upload: the frame overlay lives in CSS (.bw-framed),
+    // not in the image. Stock portraits have their frame baked into the asset.
     const media = src
-      ? `<img class="pic" src="${escapeAttr(src)}" alt="" data-fb="${escapeAttr(icon)}">`
+      ? (this.hasAttribute("framed") ? `<span class="bw-framed">${picHtml}</span>` : picHtml)
       : `<span class="ico" aria-hidden="true">${escapeHtml(icon)}</span>`;
 
     const who = variant === "add"
@@ -81,7 +84,7 @@ class BwCard extends HTMLElement {
         const s = document.createElement("span");
         s.className = "ico";
         s.textContent = pic.dataset.fb || "❔";
-        pic.replaceWith(s);
+        (pic.closest(".bw-framed") || pic).replaceWith(s);
       };
     }
 

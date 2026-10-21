@@ -23,7 +23,9 @@ function playerAvatar(p, cls) {
   if (r) return picOrIcon(r, cls);
   if (isImageIcon(p.icon)) {
     const src = p.icon.startsWith("/img/") ? thumbPath(p.icon) : p.icon;
-    return `<img class="${cls}" src="${escapeAttr(src)}" alt="" data-fb="👤">`;
+    const img = `<img class="${cls}" src="${escapeAttr(src)}" alt="" data-fb="👤">`;
+    // p.raw: raw upload stored by the picker; the frame is a CSS overlay.
+    return p.raw ? `<span class="bw-framed">${img}</span>` : img;
   }
   return `<span class="ico">${escapeHtml(p.icon || "👤")}</span>`;
 }
@@ -35,7 +37,7 @@ function playerLabel(p) {
 function bindImgFallback(root) {
   root.querySelectorAll("img.pic").forEach(i => { i.onerror = () => {
     const s = document.createElement("span"); s.className = "ico"; s.textContent = i.dataset.fb || "👤";
-    i.replaceWith(s);
+    (i.closest(".bw-framed") || i).replaceWith(s);
   }; });
 }
 const CARDS = ["1","2","3","5","8","13","21","34","55","?","∞","☕"];
@@ -231,7 +233,7 @@ async function tryReclaim(id) {
   const res = await api("/join", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Seat-Secret": sess.secret },
-    body: JSON.stringify({ name: sess.name, icon: sess.icon, subtitle: sess.subtitle }),
+    body: JSON.stringify({ name: sess.name, icon: sess.icon, subtitle: sess.subtitle, raw: sess.raw || undefined }),
   }).catch(() => null);
   if (!res || !res.ok) { clearSession(id); return false; }
   const data = await res.json();
@@ -271,7 +273,7 @@ async function join(payload, role) {
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) return { error: body.error || "failed" };
-  sitDown({ playerId: body.id, secret: body.secret, role, name: payload.name, icon: payload.icon, subtitle: payload.subtitle || "" });
+  sitDown({ playerId: body.id, secret: body.secret, role, name: payload.name, icon: payload.icon, subtitle: payload.subtitle || "", raw: payload.raw || undefined });
   show("game");
   setShare();
   startHeartbeat();
@@ -292,6 +294,7 @@ $("joinBtn").onclick = async () => {
   $("joinBtn").disabled = true;
   const payload = { name: v.name, icon: v.icon };
   if (v.subtitle) payload.subtitle = v.subtitle;
+  if (v.raw) payload.raw = true;
   const { error } = await join(payload, "player");
   if (error) {
     $("joinErr").textContent = JOIN_ERRORS[error] || "Could not join. Try again.";

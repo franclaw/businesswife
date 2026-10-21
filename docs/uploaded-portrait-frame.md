@@ -1,22 +1,51 @@
 # Uploaded portrait frame
 
 New file uploads and CORS-readable image-URL imports use the shared wife picker
-in both Planning Poker and Poll. The client crops a photo to a 2:3 portrait
-without stretching, draws `/img/portrait-frame-v1.png` over it, and compresses the
-result as a JPEG data URL under the existing 19,000-character client budget.
+in both Planning Poker and Poll. The client crops the photo to a 2:3 portrait
+without stretching, compresses it as a JPEG data URL under the existing
+19,000-character client budget, and stores it **raw — the frame is not baked
+in**. The frame is painted in the frontend as a CSS overlay (`.bw-framed`,
+styled in `/components/bw-wife-picker.css`), so every surface that shows the
+upload — picker preview, saved card, poker seat, voter chip and voter cells —
+draws exactly the same frame at display resolution, without a second round of
+JPEG artefacts.
 
-The frame is part of the stored/sent image, not a temporary CSS decoration:
-it follows new uploads into preview, saved cards, seats, voter portraits and
-later visits. Stock portraits already contain their own border and are unchanged.
-Previously saved unframed uploads remain unchanged; re-upload one to frame it.
-Legacy oversized uploads are only shrunk during migration, never double-framed.
-If the frame cannot load, the picker reports an error and retains the previous
-portrait. Joining is disabled while a new upload is processed.
+Because the frame is a frontend overlay, restyling it later (a thinner border,
+a different season's frame) needs no re-uploads: every stored raw photo picks
+the new look on next paint.
 
-The overlay is precached by both installable apps and uses the existing shared
-`/img/` service-worker allowlist. Its 256×384 production PNG is about 123 KB; the
-high-resolution generation master is retained outside the repo. Compression
-limits are checked after compositing the frame, not before.
+## The `raw` flag
+
+The icon string alone cannot distinguish today's three portrait kinds, so an
+explicit flag rides along:
+
+- Stock roster portraits (`/img/*.png`) carry their frame in the asset itself
+  and are never overlaid.
+- Uploads saved by the current picker are raw; they set `raw: true` on the
+  picker value, `raw: 1` in saved-wife storage, and `raw: true` on the poker
+  join and poll vote payloads. The server keeps the boolean on the seat/vote
+  and echoes it in room/poll state so other devices overlay it too.
+- Entries saved by the previous build (frame composited into the JPEG) and
+  ancient oversized uploads have no flag and render exactly as before —
+  never double-framed.
+
+## Geometry (option A, 2026-10-21)
+
+`/img/portrait-frame-v1.png` is drawn 15% oversized and cropped by the photo
+box (`inset: -7.5%`), which trims its outer rim and slims the ornate border
+over the photo from ~13% to ~8% per side. The 2026-10-21 review picked this
+over a −28% crop ("option B") because B clips too much of the burgundy rim to
+still read as the stock frame; if B is ever wanted, generate a thin-border
+asset rather than cropping further.
+
+## Budget, offline and failure behaviour
+
+The frame asset is precached by both installable apps and served under the
+shared `/img/` service-worker allowlist, so the overlay also paints offline.
+If the frame asset itself fails to load, only the overlay is missing: the
+upload, its preview and the join flow all still work (unlike the old build,
+where a failed frame fetch rejected the whole upload). Compression limits are
+checked on the raw crop, not on a composite.
 
 ## Asset provenance
 
@@ -29,9 +58,9 @@ limits are checked after compositing the frame, not before.
 
 ## Verification
 
-`tests/e2e/portrait-frame.spec.js` checks frame pixels, portrait aspect ratio,
-payload budget, square/landscape uploads, persistence through saved-card reuse,
-actual poker seats and poll votes, plus a missing-frame failure with a retained
-stock portrait and successful retry, and offline framing using the precached
-overlay. Existing feedback export assertions now wait for that client's
-SSE-rendered field instead of racing a different client's results update.
+`tests/e2e/portrait-frame.spec.js` checks raw storage (flat-blue uploads stay
+blue at centre, top band and corners), the 2:3 crop and the payload budget,
+the overlay on preview/poker seat/saved card, legacy flagless entries staying
+unframed without a double frame, the poll vote round-trip including the
+server-side `raw` echo, flagless vs flagged server votes, and an offline
+upload whose overlay paints from the precache.

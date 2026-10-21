@@ -73,3 +73,17 @@
 @media (max-width: 640px) {
   .bwp-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
 }
+
+/* Frame overlay for uploaded portraits (option A, 2026-10-21). Uploads are
+   stored raw; the frame is drawn here — 15% oversized with the outer rim
+   cropped by the box — so only a slim ornate border covers the photo. Both
+   apps' service workers precache the asset, so the frame also paints
+   offline. `framed` on <bw-card> and the seat/voter renderers decide where
+   it appears; stock portraits and pre-overlay uploads carry their own baked
+   frame and are never wrapped. */
+.bw-framed { position: relative; display: inline-block; overflow: hidden; }
+.bw-framed::after {
+  content: ""; position: absolute; inset: -7.5%; pointer-events: none;
+  background: url("/img/portrait-frame-v1.png") 0 0 / 100% 100% no-repeat;
+}
+.bwp-preview .bw-framed { border-radius: 4px; }

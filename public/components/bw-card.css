@@ -122,3 +122,8 @@
   .bw-card .pic { height: 118px; }
   .bw-card--add { min-height: 118px; }
 }
+
+/* The frame overlay wrapper (<bw-card framed>): the wrapper takes the image's
+   slot, the image keeps its own sizing rules inside it. The actual overlay
+   lives in bw-wife-picker.css (.bw-framed). */
+.bw-card .bw-framed { display: block; width: 100%; }

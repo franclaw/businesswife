@@ -41,47 +41,32 @@
   const isEmoji = (s) => !!s && !/[:/]/.test(s) && [...s].length <= 8 && s.length <= 32;
   const usableIcon = (s) => isPortrait(s) || isSmallData(s) || isEmoji(s);
 
-  // A single local overlay is reused by every upload; the composited JPEG is
-  // what we save/send, so the frame also follows the portrait into seats/votes.
-  let framePromise;
-  function portraitFrame() {
-    if (!framePromise) {
-      framePromise = fetch("/img/portrait-frame-v1.png")
-        .then((res) => {
-          if (!res.ok) throw new Error("Could not load the portrait frame. Please retry the upload.");
-          return res.blob();
-        })
-        .then((blob) => createImageBitmap(blob))
-        .catch((err) => { framePromise = null; throw err; });
-    }
-    return framePromise;
-  }
-
+  // Uploads are stored raw (no baked frame) and the frame is painted over them
+  // in the frontend via .bw-framed (see bw-wife-picker.css). New uploads are
+  // marked `raw` in storage and on the wire so seats, votes and saved cards
+  // know to draw the overlay; entries saved by older builds have the frame
+  // baked into the JPEG and must not be overlaid again.
   async function shrink(blob, framed = false) {
-    const frame = framed ? await portraitFrame() : null;
     const bmp = await createImageBitmap(blob);
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     try {
-      for (const px of (framed ? [384, 320, 256, 192, 160, 128] : [160, 128, 96, 72])) {
+      for (const px of (framed ? [512, 448, 384, 320, 256, 192, 160, 128] : [160, 128, 96, 72])) {
         if (framed) {
           canvas.width = Math.round(px * 2 / 3);
           canvas.height = px;
-          ctx.fillStyle = "#251218";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          // Cover a portrait canvas without stretching square/landscape photos.
+          // Crop to a 2:3 portrait without stretching square/landscape photos.
           const scale = Math.max(canvas.width / bmp.width, canvas.height / bmp.height);
           const width = bmp.width * scale, height = bmp.height * scale;
           ctx.drawImage(bmp, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-          ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
         } else {
-          // Legacy oversized saved uploads are only shrunk, never double-framed.
+          // Legacy oversized saved uploads are only shrunk, never re-cropped.
           const scale = Math.min(1, px / Math.max(bmp.width, bmp.height));
           canvas.width = Math.max(1, Math.round(bmp.width * scale));
           canvas.height = Math.max(1, Math.round(bmp.height * scale));
           ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
         }
-        for (const q of [0.82, 0.7, 0.55]) {
+        for (const q of (framed ? [0.86, 0.76, 0.66, 0.56] : [0.82, 0.7, 0.55])) {
           const url = canvas.toDataURL("image/jpeg", q);
           if (url.length <= ICON_MAX) return url;
         }
@@ -100,6 +85,7 @@
       this._mode = null;          // "roster" | "saved" | "custom"
       this._roster = null;
       this._picture = null;       // custom picture: data URL or /img path
+      this._pictureRaw = false;   // true = uploaded picture, needs the frame overlay
       this.classList.add("bw-wife-picker");
       this.innerHTML = `
         <div class="bwp-saved" data-testid="saved-wrap" hidden>
@@ -167,7 +153,7 @@
         b.dataset.img = r.img;
         b.title = r.first;
         b.innerHTML = `<img src="${esc(thumb(r.img))}" alt="">`;
-        b.onclick = () => { this._picture = r.img; this._custom(); };
+        b.onclick = () => { this._picture = r.img; this._pictureRaw = false; this._custom(); };
         this.$.avatars.appendChild(b);
       }
 
@@ -197,7 +183,9 @@
         const name = this.$.name.value.replace(/\s+/g, " ").trim().slice(0, 24);
         if (!name) return null;
         const icon = usableIcon(this._picture) ? this._picture : FALLBACK_ICON;
-        return { kind: this._mode, name, icon, subtitle: this.$.subtitle.value.replace(/\s+/g, " ").trim().slice(0, 40) };
+        const value = { kind: this._mode, name, icon, subtitle: this.$.subtitle.value.replace(/\s+/g, " ").trim().slice(0, 40) };
+        if (this._pictureRaw && isSmallData(this._picture)) value.raw = true;
+        return value;
       }
       return null;
     }
@@ -238,6 +226,7 @@
       const key = v.name.toLowerCase();
       const entry = { name: v.name, icon: v.icon, savedAt: Date.now() };
       if (v.subtitle) entry.subtitle = v.subtitle;
+      if (v.raw) entry.raw = 1;    // storage stays small; legacy entries have no key
       const ok = this._saveList([entry, ...this._loadList().filter((w) => String(w.name).toLowerCase() !== key)]);
       this._renderSaved();
       return ok;
@@ -297,6 +286,7 @@
       this.$.name.value = r.first;
       this.$.subtitle.value = "";
       this._picture = r.img;
+      this._pictureRaw = false;
       this._setOpen(false);
       this._paintPreview();
       this._emit();
@@ -322,6 +312,7 @@
       try {
         if (!blob.type || !blob.type.startsWith("image/")) throw new Error("Pick an image file.");
         this._picture = await shrink(blob, true);
+        this._pictureRaw = true;   // frame is painted by .bw-framed, not baked in
         this.$.url.value = "";
         this._custom();
       } catch (e) {
@@ -348,8 +339,9 @@
 
     _paintPreview() {
       const src = this._picture;
+      const imgHtml = `<img src="${esc(isPortrait(src) ? thumb(src) : src)}" alt="">`;
       this.$.preview.innerHTML = usableIcon(src) && !isEmoji(src)
-        ? `<img src="${esc(isPortrait(src) ? thumb(src) : src)}" alt="">`
+        ? (this._pictureRaw && isSmallData(src) ? `<span class="bw-framed">${imgHtml}</span>` : imgHtml)
         : `<span class="bwp-ph">${FALLBACK_ICON}</span><span class="bwp-hint">Pick a portrait or upload one</span>`;
       this.$.avatars.querySelectorAll(".bwp-avatar").forEach((b) => b.classList.toggle("sel", b.dataset.img === src));
     }
@@ -394,6 +386,7 @@
       for (const w of list) {
         const icon = String(w.icon);
         const card = this._card({ name: w.name, subtitle: w.subtitle, img: isPortrait(icon) ? thumb(icon) : (isSmallData(icon) || /^data:/.test(icon) ? icon : ""), icon: isEmoji(icon) ? icon : FALLBACK_ICON, testid: "saved-pick" });
+        if (w.raw) card.setAttribute("framed", "");
         card.dataset.name = w.name;
         card.setAttribute("removable", "");
         card.setAttribute("remove-testid", "saved-remove");
@@ -406,6 +399,7 @@
           this.$.name.value = w.name;
           this.$.subtitle.value = w.subtitle || "";
           this._picture = icon;
+          this._pictureRaw = !!w.raw;
           this._setOpen(false);
           this._paintPreview();
           this._emit();
@@ -452,6 +446,7 @@
         this.$.name.value = "";
         this.$.subtitle.value = "";
         this._picture = null;
+        this._pictureRaw = false;
         this._paintPreview();
         this._emit();
       }

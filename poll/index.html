@@ -239,6 +239,7 @@
   }
   .you-chip:hover { color: var(--text); }
   .you-chip img { width: 26px; height: 36px; object-fit: cover; object-position: top; border-radius: 5px; border: 1px solid var(--border-strong); }
+  .you-chip .bw-framed { border-radius: 5px; }
   .you-chip .emoji { font-size: 1.1rem; }
   .you-chip b { color: var(--text); font-weight: 600; }
   .id-overlay {
@@ -264,6 +265,7 @@
   .id-sheet .id-actions button { flex: 1; }
   .voters { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
   .voters img { width: 22px; height: 30px; object-fit: cover; object-position: top; border-radius: 4px; border: 1px solid var(--border-strong); }
+  .voters .bw-framed { border-radius: 4px; }
   .voters .emoji { font-size: 0.9rem; }
   .voters .plus { font-size: 0.68rem; color: var(--faint); align-self: center; }
   .sr-only {
@@ -413,10 +415,13 @@ function setIdentity(id) {
   try { localStorage.setItem(IDENTITY_KEY, JSON.stringify(id)); } catch {}
   renderChip();
 }
-function avatarHtml(icon) {
+function avatarHtml(icon, raw) {
   if (!icon) return '<span class="emoji">💼</span>';
   if (icon.startsWith("/img/") || icon.startsWith("data:")) {
-    return '<img src="' + escapeHtml(window.bwThumb(icon)) + '" alt="">';
+    // raw: an uploaded picture stored without a baked frame — the frame is a
+    // CSS overlay (.bw-framed, styled via /components/bw-wife-picker.css).
+    const img = '<img src="' + escapeHtml(window.bwThumb(icon)) + '" alt="">';
+    return raw ? '<span class="bw-framed">' + img + '</span>' : img;
   }
   return '<span class="emoji">' + escapeHtml(icon) + '</span>';
 }
@@ -425,7 +430,7 @@ function renderChip() {
   const id = getIdentity();
   if (!id) { chip.hidden = true; return; }
   chip.hidden = false;
-  chip.innerHTML = avatarHtml(id.icon) + "<span>You: <b>" + escapeHtml(id.name) + "</b></span>";
+  chip.innerHTML = avatarHtml(id.icon, id.raw) + "<span>You: <b>" + escapeHtml(id.name) + "</b></span>";
   chip.title = "Change your identity";
 }
 function showIdentityPicker() {
@@ -437,7 +442,7 @@ function showIdentityPicker() {
 function useIdentity(v) {
   if (!v || !v.name) return;
   if (v.kind !== "roster") picker.remember(v);
-  setIdentity({ name: v.name, icon: v.icon, subtitle: v.subtitle || "" });
+  setIdentity({ name: v.name, icon: v.icon, subtitle: v.subtitle || "", raw: v.raw ? 1 : null });
   $("#id-overlay").hidden = true;
   if (state.myVote && state.pollId) vote(state.myVote);
 }
@@ -669,7 +674,7 @@ function render(data) {
       for (const voter of opt.voters.slice(0, 5)) {
         const cell = document.createElement("span");
         cell.title = voter.name;
-        cell.innerHTML = avatarHtml(voter.icon);
+        cell.innerHTML = avatarHtml(voter.icon, voter.raw);
         v.appendChild(cell);
       }
       if (opt.voters.length > 5) {
@@ -704,7 +709,7 @@ async function vote(optionId) {
     const res = await fetch(API + "/" + state.pollId + "/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voterId: state.voterId, optionId, name: id && id.name, icon: id && id.icon }),
+      body: JSON.stringify({ voterId: state.voterId, optionId, name: id && id.name, icon: id && id.icon, raw: id && id.icon && id.raw ? true : undefined }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "vote failed");
