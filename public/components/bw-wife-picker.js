@@ -343,6 +343,24 @@
       this.$.preview.innerHTML = usableIcon(src) && !isEmoji(src)
         ? (this._pictureRaw && isSmallData(src) ? `<span class="bw-framed">${imgHtml}</span>` : imgHtml)
         : `<span class="bwp-ph">${FALLBACK_ICON}</span><span class="bwp-hint">Pick a portrait or upload one</span>`;
+      // The upload itself joins the avatar list (first tile) so it stays
+      // visible and re-selectable after browsing the roster avatars.
+      const uploaded = this._pictureRaw && isSmallData(src);
+      let up = this.$.avatars.querySelector(".bwp-avatar--upload");
+      if (uploaded) {
+        if (!up) {
+          up = document.createElement("button");
+          up.type = "button";
+          up.className = "bwp-avatar bwp-avatar--upload";
+          up.dataset.testid = "avatar-upload";
+          up.title = "Your upload";
+          up.addEventListener("click", () => { this._picture = up._src; this._pictureRaw = true; this._custom(); });
+          this.$.avatars.prepend(up);
+        }
+        up._src = src;
+        up.dataset.img = src;   // the shared .sel toggle below selects it
+        up.innerHTML = `<img src="${esc(src)}" alt="">`;
+      } else if (up) up.remove();
       this.$.avatars.querySelectorAll(".bwp-avatar").forEach((b) => b.classList.toggle("sel", b.dataset.img === src));
     }
 
