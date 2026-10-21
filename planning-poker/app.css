@@ -206,14 +206,15 @@ h2 {
   padding: 12px 8px; text-align: center; position: relative;
   display: flex; flex-direction: column; align-items: center;
 }
-/* An emoji avatar (observer, custom emoji) fills the same 64x90 slot as a
+/* An emoji avatar (observer, custom emoji) fills the same 64x96 slot as a
    portrait, so every seat's name and vote box start on the same line. */
 .player .ico {
-  font-size: 2rem; width: 64px; height: 90px; margin: 0 auto;
+  font-size: 2rem; width: 64px; height: 96px; margin: 0 auto; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
 .player .pic {
-  width: 64px; height: 90px; object-fit: cover; object-position: top;
+  /* Keep the entire portrait/frame visible, including non-2:3 saved uploads. */
+  width: 64px; height: 96px; object-fit: contain; flex-shrink: 0;
   border-radius: 6px; border: 1px solid var(--border-strong); display: block; margin: 0 auto;
 }
 /* Two lines are reserved either way, so a one-word name clears the same
@@ -230,7 +231,6 @@ h2 {
   margin-top: 2px;
   color: var(--muted);
   word-break: break-word;
-}
 }
 .player .vote {
   margin: auto 0 0; width: 100%; font-size: 1.2rem; min-height: 40px;
