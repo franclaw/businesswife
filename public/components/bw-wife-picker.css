@@ -87,3 +87,7 @@
   background: url("/img/portrait-frame-v1.png") 0 0 / 100% 100% no-repeat;
 }
 .bwp-preview .bw-framed { border-radius: 4px; }
+/* Below roughly 60px of width the option-A crop would chop the ornament into
+   unreadable stubs, so small boxes get the full-scale frame — the same
+   silhouette the stock portraits' baked frames read as at that size. */
+.bwp-preview .bw-framed::after { inset: 0; }
