@@ -160,7 +160,7 @@ h2 {
   gap: 8px;
   flex-wrap: nowrap;
 }
-.lobby-row input, .share input, .obs-row input, .question {
+.lobby-row input, .share input, .obs-row input, .question, .boardroom-input {
   flex: 1;
   min-width: 0;
   padding: 13px 14px;
@@ -171,7 +171,7 @@ h2 {
   font-family: inherit;
   font-size: 1rem;
 }
-.lobby-row input:focus, .share input:focus, .obs-row input:focus, .question:focus {
+.lobby-row input:focus, .share input:focus, .obs-row input:focus, .question:focus, .boardroom-input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -639,4 +639,15 @@ html.in-lobby footer {
     flex: 1 1 100%;
     min-width: 0;
   }
+}
+
+/* Session title: separate from the story being estimated in the current round. */
+.lobby-create { display: grid; gap: 8px; text-align: left; }
+.boardroom-label { color: var(--muted); font-size: 0.82rem; }
+.boardroom-label span { color: var(--faint); }
+.boardroom-input { width: 100%; }
+.boardroom-input::placeholder { color: var(--faint); }
+.room-title {
+  color: var(--gold); font-size: 1.3rem; font-weight: 600;
+  margin: 14px auto 0; max-width: 48ch; overflow-wrap: anywhere;
 }

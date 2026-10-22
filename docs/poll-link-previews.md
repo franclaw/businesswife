@@ -20,3 +20,19 @@ Third-party apps may cache a preview independently of our headers. After deployi
 a newly shared link should pick up its question; an already cached preview may
 need to be refreshed by the receiving app. Automated tests prove crawler-visible
 HTML, not delivery or refresh behavior in external apps.
+
+## Planning Poker boardroom titles
+
+Poker uses the same metadata renderer for `/planning-poker/r/:id`.
+`POST /planning-poker/api/rooms` accepts optional `title` (up to 120 characters,
+whitespace normalized). Missing/blank titles default to `Boardroom <CODE>` so
+older clients can still create rooms without a body. Non-text titles are refused.
+The title is included in room lookup and public state and displayed for both
+joining guests and seated participants. Native sharing includes it as well.
+
+A boardroom title is not the current story: next round/re-vote does not change
+it. Like the rest of a poker room, it lives in memory and disappears when the
+room expires or the server restarts. Missing rooms retain generic metadata and
+the legacy `/r/:id` URL redirects to the canonical room URL. Only the room title
+is server-rendered for crawlers; player names, seat secrets and story details
+are not included in metadata.

@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/planning-poker/manifest.webmanifest">
 <title>Planning Poker — Business Wife Edition</title>
+<meta name="description" content="Create a boardroom, share the link, estimate stories together.">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/planning-poker/icons/icon-192.png">
 <link rel="stylesheet" href="/components/bw-card.css">
@@ -28,6 +29,7 @@
   <header class="brand">
     <a class="brand-kicker" href="/" style="color:inherit;text-decoration:none">Business Wife</a>
     <h1>Planning Poker <span class="tag">Edition</span></h1>
+    <p class="room-title hidden" id="roomTitle" data-testid="room-title"></p>
     <p class="sub sub-room">Create a boardroom, share the link, estimate stories together.</p>
   </header>
 
@@ -36,7 +38,11 @@
       <div class="fan" id="lobbyFan" data-testid="lobby-fan" aria-hidden="true"></div>
       <div class="lobby-panel">
         <div class="lobby-actions">
-          <button class="join-btn" id="createBtn" data-testid="create-btn">Create a boardroom</button>
+          <div class="lobby-create">
+            <label class="boardroom-label" for="boardroomTitle">Boardroom title <span>(optional)</span></label>
+            <input class="boardroom-input" id="boardroomTitle" data-testid="boardroom-title-input" placeholder="e.g. Sprint 24 planning" maxlength="120" autocomplete="off">
+            <button class="join-btn" id="createBtn" data-testid="create-btn">Create a boardroom</button>
+          </div>
           <div class="lobby-join">
             <label class="room-code-label" for="roomCode">Room code</label>
             <div class="lobby-row">

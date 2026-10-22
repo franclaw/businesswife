@@ -182,10 +182,26 @@ function updateTaken(names) {
 }
 
 $("createBtn").onclick = async () => {
-  const res = await fetch("/planning-poker/api/rooms", { method: "POST" });
-  const { id } = await res.json();
-  enterRoom(id);
+  const btn = $("createBtn");
+  btn.disabled = true;
+  $("lobbyErr").textContent = "";
+  try {
+    const res = await fetch("/planning-poker/api/rooms", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: $("boardroomTitle").value }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Could not create the boardroom.");
+    await enterRoom(body.id);
+  } catch (e) { $("lobbyErr").textContent = e.message; }
+  finally { btn.disabled = false; }
 };
+$("boardroomTitle").addEventListener("keydown", e => { if (e.key === "Enter") $("createBtn").click(); });
+function setRoomTitle(title) {
+  $("roomTitle").textContent = title || "";
+  $("roomTitle").classList.toggle("hidden", !title);
+  document.title = title ? title + " — Planning Poker · Business Wife" : "Planning Poker — Business Wife Edition";
+}
 $("joinRoomBtn").onclick = () => {
   const code = ($("roomCode").value || "").trim().toLowerCase();
   if (!/^[a-z0-9]{6}$/.test(code)) { $("lobbyErr").textContent = "Room codes are 6 characters."; return; }
@@ -202,7 +218,7 @@ $("shareBtn").onclick = async () => {
   const code = roomId || "";
   if (navigator.share) {
     try {
-      await navigator.share({ title: "Business Wife Planning Poker", text: "Join boardroom " + code.toUpperCase(), url });
+      await navigator.share({ title: $("roomTitle").textContent || "Business Wife Planning Poker", text: "Join " + ($("roomTitle").textContent || "boardroom " + code.toUpperCase()), url });
       return;
     } catch (e) {
       if (e && e.name === "AbortError") return;
@@ -249,11 +265,13 @@ async function enterRoom(id) {
     clearSession(id);
     history.replaceState({}, "", "/planning-poker");
     roomId = null;
+    setRoomTitle(null);
     myId = null;
     mySecret = null;
     show("lobby");
     return;
   }
+  setRoomTitle((await check.json()).title);
   roomId = id;
   history.replaceState({}, "", "/planning-poker/r/" + id);
   setShare();
@@ -505,6 +523,7 @@ function renderHistory(history) {
 }
 
 function render(s) {
+  setRoomTitle(s.title);
   const prevPhase = lastPhase;
   lastState = s;
   lastPhase = s.phase;
