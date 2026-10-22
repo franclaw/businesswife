@@ -9,7 +9,8 @@ function unique(prefix) {
 
 async function pickIdentity(page) {
   const overlay = page.getByTestId('identity-overlay');
-  // A second tab in the same context already shares the saved identity.
+  // A shared device identity may be taken by another participant in this poll.
+  await expect.poll(async () => await overlay.isVisible() || await page.getByTestId('option').first().isEnabled()).toBe(true);
   if (await overlay.isVisible()) {
     await page.getByTestId('identity-picker').getByTestId('pick').first().click();
     await expect(overlay).toBeHidden();
@@ -108,19 +109,29 @@ test.describe('Poll — voting', () => {
     await other.close();
   });
 
-  test('one vote per voter, but changeable while open', async ({ page }) => {
-    const url = await createPoll(page, 'Change my mind', ['Tabs', 'Spaces']);
-    await page.getByTestId('option').filter({ hasText: 'Tabs' }).first().click();
-    await expect(page.getByTestId('tally')).toContainText(/^1 vote\b/);
-    // switching sides does not add a second vote
-    await page.getByTestId('option').filter({ hasText: 'Spaces' }).first().click();
-    await expect(page.getByTestId('tally')).toContainText(/^1 vote\b/);
-    await expect(page.getByTestId('option').filter({ hasText: 'Spaces' }).first()).toHaveClass(/mine/);
-    await expect(page.getByTestId('option').filter({ hasText: 'Tabs' }).first()).not.toHaveClass(/mine/);
-    // and the choice survives a reload
+  test('seeing results locks the choice, including after reload and direct API changes', async ({ page, request }) => {
+    const url = await createPoll(page, 'Final answer', ['Tabs', 'Spaces']);
+    const tabs = page.getByTestId('option').filter({ hasText: 'Tabs' }).first();
+    const spaces = page.getByTestId('option').filter({ hasText: 'Spaces' }).first();
+    await tabs.click();
+    await expect(page.getByTestId('tally')).toContainText('your vote is final');
+    await expect(tabs).toHaveClass(/mine/);
+    await expect(spaces).toBeDisabled();
+    await expect(page.getByTestId('you-chip')).toBeDisabled();
+    const voterId = await page.evaluate(() => sessionStorage.getItem('bw_poll_voter'));
+    const id = url.match(CODE_RE)[1];
+    const change = await request.post(`/poll/api/polls/${id}/vote`, { data: { voterId, optionId: 'o2' } });
+    expect(change.status()).toBe(409);
     await page.goto(url);
-    await expect(page.getByTestId('option').filter({ hasText: 'Spaces' }).first()).toHaveClass(/mine/);
+    await expect(tabs).toHaveClass(/mine/);
+    await expect(spaces).toBeDisabled();
     await expect(page.getByTestId('tally')).toContainText(/^1 vote\b/);
+    // Even a stale client that lost its local choice cannot switch sides.
+    await page.evaluate((id) => sessionStorage.removeItem('bw_poll_vote_' + id), id);
+    await page.reload();
+    await expect(tabs).toHaveClass(/mine/);
+    await expect(spaces).toBeDisabled();
+    await expect(page.getByTestId('tally')).toContainText('your vote is final');
   });
 });
 
@@ -226,7 +237,7 @@ test.describe('Poll — ownership and limits', () => {
     expect(await (await request.get(`${API}/${id}`)).text()).not.toContain(ownerToken);
   });
 
-  test('a poll takes at most 64 voters; existing voters may still change', async ({ request }) => {
+  test('a poll takes at most 64 voters; existing ballots stay final', async ({ request }) => {
     const { id } = await make(request);
     const first = voter();
     await request.post(`${API}/${id}/vote`, { data: { voterId: first, optionId: 'o1' } });
@@ -234,13 +245,14 @@ test.describe('Poll — ownership and limits', () => {
       expect((await request.post(`${API}/${id}/vote`, { data: { voterId: voter(), optionId: 'o1' } })).ok()).toBeTruthy();
     }
     expect((await request.post(`${API}/${id}/vote`, { data: { voterId: voter(), optionId: 'o2' } })).status()).toBe(409);
-    expect((await request.post(`${API}/${id}/vote`, { data: { voterId: first, optionId: 'o2' } })).ok()).toBeTruthy();
+    expect((await request.post(`${API}/${id}/vote`, { data: { voterId: first, optionId: 'o2' } })).status()).toBe(409);
+    expect((await request.post(`${API}/${id}/vote`, { data: { voterId: first, optionId: 'o1' } })).ok()).toBeTruthy();
     expect((await (await request.get(`${API}/${id}`)).json()).totalVotes).toBe(64);
   });
 
   test('vote pictures: portraits and small uploads only', async ({ request }) => {
     const { id } = await make(request);
-    const vote = (icon) => request.post(`${API}/${id}/vote`, { data: { voterId: voter(), optionId: 'o1', name: 'Pic', icon } });
+    const vote = (icon) => request.post(`${API}/${id}/vote`, { data: { voterId: voter(), optionId: 'o1', name: voter(), icon } });
     expect((await vote('/img/hr.png')).ok()).toBeTruthy();
     expect((await vote('💼')).ok()).toBeTruthy();
     expect((await vote('data:image/png;base64,' + 'A'.repeat(1000))).ok()).toBeTruthy();
@@ -248,4 +260,62 @@ test.describe('Poll — ownership and limits', () => {
     expect((await vote('data:image/png;base64,' + 'A'.repeat(30000))).status()).toBe(400);
     expect((await vote('/img/../../etc/passwd')).status()).toBe(400);
   });
+});
+
+
+test('concurrent ballots accept only the first, and retries cannot rewrite its wife', async ({ request }) => {
+  const { id } = await (await request.post('/poll/api/polls', { data: { question: 'Race?', options: ['A', 'B'] } })).json();
+  const endpoint = `/poll/api/polls/${id}/vote`;
+  const votes = await Promise.all(['o1', 'o2'].map(optionId => request.post(endpoint, {
+    data: { voterId: 'racing-voter', optionId, name: 'Original wife', icon: '/img/hr.png' },
+  })));
+  expect(votes.map(r => r.status()).sort()).toEqual([200, 409]);
+  const before = await (await request.get(`/poll/api/polls/${id}`)).json();
+  const optionId = before.options.find(o => o.count === 1).id;
+  expect((await request.post(endpoint, { data: { voterId: 'racing-voter', optionId, name: 'Replacement' } })).status()).toBe(200);
+  expect(await (await request.get(`/poll/api/polls/${id}`)).json()).toEqual(before);
+});
+
+test('a selected wife is taken live before voting, and another device must choose somebody else', async ({ page, browser }) => {
+  const url = await createPoll(page, 'One wife per participant', ['A', 'B']);
+  const otherContext = await browser.newContext();
+  try {
+    const other = await otherContext.newPage();
+    await other.goto(url);
+    await expect(other.getByTestId('identity-overlay')).toBeVisible();
+    await expect(other.getByTestId('pick-taken')).toHaveCount(1);
+    await expect(other.getByTestId('pick-taken')).toContainText('Vivienne');
+    await other.getByTestId('pick-taken').click();
+    await expect(other.getByTestId('identity-overlay')).toBeVisible();
+    await other.getByTestId('pick').first().click();
+    await expect(other.getByTestId('identity-overlay')).toBeHidden();
+    await expect(other.getByTestId('you-chip')).not.toContainText('Vivienne');
+    await page.getByTestId('you-chip').click();
+    await expect(page.getByTestId('pick-taken')).toHaveCount(1);
+    await expect(page.getByTestId('pick-taken')).not.toContainText('Vivienne');
+    await page.getByTestId('pick').first().click();
+    await page.getByTestId('option').first().click();
+    await other.getByTestId('option').last().click();
+    await expect(page.getByTestId('tally')).toContainText(/^2 votes/);
+  } finally { await otherContext.close(); }
+});
+
+test('wife reservation races, direct votes, switching and per-poll scope are enforced by the server', async ({ request }) => {
+  const make = async () => (await (await request.post('/poll/api/polls', { data: { question: 'Unique?', options: ['A', 'B'] } })).json()).id;
+  const id = await make();
+  const claim = (poll, voterId, name) => request.post(`/poll/api/polls/${poll}/identity`, { data: { voterId, name, icon: '/img/hr.png' } });
+  const first = 'claim-first', second = 'claim-second';
+  const responses = await Promise.all([claim(id, first, 'Nova'), claim(id, second, 'NOVA')]);
+  expect(responses.map(r => r.status()).sort()).toEqual([200, 409]);
+  const winner = responses[0].ok() ? first : second;
+  const loser = winner === first ? second : first;
+  expect((await request.post(`/poll/api/polls/${id}/vote`, { data: { voterId: loser, optionId: 'o1', name: 'nova' } })).status()).toBe(409);
+  expect((await claim(id, winner, 'Another wife')).status()).toBe(200);
+  expect((await claim(id, loser, 'Nova')).status()).toBe(200); // released old reservation
+  expect((await claim(await make(), 'third-voter', 'Nova')).status()).toBe(200); // another poll
+  await request.post(`/poll/api/polls/${id}/vote`, { data: { voterId: loser, optionId: 'o1', name: 'Spoofed wife' } });
+  await claim(id, loser, 'Changed after voting');
+  const state = await (await request.get(`/poll/api/polls/${id}`)).json();
+  expect(state.voters[0].name.toLowerCase()).toBe('nova');
+  expect(state.identities.map(i => i.name.toLowerCase()).sort()).toEqual(['another wife', 'nova']);
 });

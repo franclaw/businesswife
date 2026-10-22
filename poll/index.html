@@ -182,7 +182,8 @@
     overflow: hidden;
   }
   .option:hover:not(:disabled) { border-color: var(--accent); }
-  .option:disabled { cursor: default; }
+  .option:disabled { cursor: default; opacity: 1; }
+  .you-chip:disabled { opacity: 1; cursor: default; }
   .option .bar {
     position: absolute; inset: 0 auto 0 0;
     width: 0%;
@@ -261,7 +262,7 @@
   @media (max-width: 640px) {
     .id-sheet { padding: 16px; }
   }
-  .id-sheet h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .id-sheet > h3 { font-size: 1.05rem; margin-bottom: 4px; }
   .id-sheet .sub { color: var(--muted); font-size: 0.84rem; margin-bottom: 16px; }
   /* The gallery is <bw-wife-picker>: /components/bw-wife-picker.css. */
   .id-sheet .id-actions { display: flex; gap: 10px; margin-top: 14px; }
@@ -346,7 +347,8 @@
     <div class="id-sheet">
       <h3>Who are you in this room?</h3>
       <p class="sub">Pick a business wife — she shows up next to your vote.</p>
-      <bw-wife-picker id="picker" data-testid="identity-picker" storage-key="bw_poll_custom_wives" roster-name="first" taken-label="Taken"></bw-wife-picker>
+      <bw-wife-picker id="picker" data-testid="identity-picker" roster-name="first" taken-label="Taken"></bw-wife-picker>
+      <p class="err" id="identity-error" data-testid="identity-error" role="alert"></p>
       <div class="id-actions" id="id-actions" hidden>
         <button type="button" class="primary" id="id-add-btn" data-testid="identity-add-btn" disabled>Use her</button>
       </div>
@@ -364,6 +366,9 @@ const state = {
   voterId: voterId(),
   ownerToken: null,
   myVote: null,
+  voting: false,
+  identityBusy: false,
+  claimedIdentity: null,
   data: null,
   es: null,
   pollTimer: null,
@@ -431,31 +436,62 @@ function avatarHtml(icon, raw) {
 }
 function renderChip() {
   const chip = $("#you-chip");
-  const id = getIdentity();
+  const id = state.claimedIdentity || getIdentity();
   if (!id) { chip.hidden = true; return; }
   chip.hidden = false;
   chip.innerHTML = avatarHtml(id.icon, id.raw) + "<span>You: <b>" + escapeHtml(id.name) + "</b></span>";
-  chip.title = "Change your identity";
+  chip.disabled = !!state.myVote || state.voting;
+  chip.title = state.myVote ? "Identity on your submitted vote" : "Change your identity";
 }
 function showIdentityPicker() {
+  if (state.myVote || state.voting) return;
+  picker.refresh();
   $("#id-overlay").hidden = false;
   const current = getIdentity();
   if (current) picker.selectName(current.name);
   syncIdentityBtn();
 }
-function useIdentity(v) {
-  if (!v || !v.name) return;
-  if (v.kind !== "roster") picker.remember(v);
-  setIdentity({ name: v.name, icon: v.icon, subtitle: v.subtitle || "", raw: v.raw ? 1 : null });
-  $("#id-overlay").hidden = true;
-  if (state.myVote && state.pollId) vote(state.myVote);
+async function useIdentity(v, restoring = false) {
+  if (!v || !v.name || state.identityBusy || state.voting || (state.myVote && !restoring)) return;
+  state.identityBusy = true;
+  $("#identity-error").textContent = "";
+  syncIdentityBtn();
+  try {
+    const res = await fetch(API + "/" + state.pollId + "/identity", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voterId: state.voterId, name: v.name, icon: v.icon, raw: !!v.raw, subtitle: v.subtitle }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Could not select her. Try again.");
+    if (v.kind && v.kind !== "roster") picker.remember(v);
+    if (body.optionId) {
+      state.myVote = body.optionId;
+      sessionStorage.setItem(voteKey(state.pollId), body.optionId);
+    }
+    state.claimedIdentity = body.identity;
+    setIdentity(body.identity);
+    syncTaken();
+    $("#id-overlay").hidden = true;
+  } catch (e) {
+    $("#id-overlay").hidden = false;
+    $("#identity-error").textContent = e.message;
+    fetchState();
+  } finally {
+    state.identityBusy = false;
+    syncIdentityBtn();
+    render(state.data);
+  }
+}
+function syncTaken() {
+  const mine = state.claimedIdentity?.name.toLowerCase();
+  picker.setTaken((state.data?.identities || []).map(i => i.name).filter(n => n.toLowerCase() !== mine));
 }
 // A ready-made card is one tap; your own wife needs a name first, then "Use her".
 function syncIdentityBtn() {
   const v = picker.value;
   const custom = !!(v && v.kind === "custom") || !picker.querySelector('[data-testid="custom-panel"]').hidden;
   $("#id-actions").hidden = !custom;
-  $("#id-add-btn").disabled = !(v && v.kind === "custom" && picker.valid);
+  $("#id-add-btn").disabled = !(v && v.kind === "custom" && picker.valid) || state.identityBusy;
 }
 picker.addEventListener("pick", (e) => useIdentity(e.detail));
 picker.addEventListener("change", syncIdentityBtn);
@@ -576,6 +612,8 @@ function openPoll(id) {
   state.pollId = id;
   state.ownerToken = ownerTokenFor(id);
   state.myVote = sessionStorage.getItem(voteKey(id)) || null;
+  state.claimedIdentity = null;
+  state.data = null;
   $("#lobby-screen").hidden = true;
   $("#poll-screen").hidden = false;
   $("[data-testid='poll-code']").textContent = id;
@@ -586,6 +624,7 @@ function openPoll(id) {
   fetchState();
   subscribe();
   if (!getIdentity()) showIdentityPicker();
+  else useIdentity(getIdentity(), true);
 }
 
 function closeStreams() {
@@ -617,6 +656,7 @@ function accept(data) {
   if (!data || data.id !== state.pollId) return;
   if (state.data && state.data.id === data.id && (data.rev || 0) < (state.data.rev || 0)) return;
   state.data = data;
+  syncTaken();
   render(data);
 }
 
@@ -652,7 +692,7 @@ function render(data) {
     btn.className = "option";
     btn.dataset.testid = "option";
     btn.dataset.optionId = opt.id;
-    btn.disabled = closed;
+    btn.disabled = closed || state.myVote != null || state.voting || !state.claimedIdentity;
     if (state.myVote === opt.id) btn.classList.add("mine");
     const pct = total ? Math.round((opt.count / total) * 100) : 0;
     const bar = document.createElement("span");
@@ -697,7 +737,7 @@ function render(data) {
   const tally = $("#tally");
   let tallyHtml = "<strong>" + total + "</strong> vote" + (total === 1 ? "" : "s") +
     " · " + data.options.length + " options" +
-    (showResults ? "" : " — vote to see the split");
+    (state.myVote ? " — your vote is final" : showResults ? "" : " — vote to see the split");
   if (showResults && Array.isArray(data.voters) && data.voters.length) {
     const names = data.voters.slice(0, 3).map(v => escapeHtml(v.name));
     const extra = data.voters.length > 3 ? " +" + (data.voters.length - 3) + " more" : "";
@@ -707,8 +747,12 @@ function render(data) {
 }
 
 async function vote(optionId) {
-  if (!state.pollId) return;
-  const id = getIdentity();
+  if (!state.pollId || state.myVote || state.voting || state.data?.closed) return;
+  const id = state.claimedIdentity;
+  if (!id) { showIdentityPicker(); return; }
+  state.voting = true;
+  render(state.data);
+  renderChip();
   try {
     const res = await fetch(API + "/" + state.pollId + "/vote", {
       method: "POST",
@@ -716,6 +760,13 @@ async function vote(optionId) {
       body: JSON.stringify({ voterId: state.voterId, optionId, name: id && id.name, icon: id && id.icon, raw: id && id.icon && id.raw ? true : undefined }),
     });
     const body = await res.json().catch(() => ({}));
+    // Recover the accepted ballot after a lost response or stale tab state.
+    if (res.status === 409 && body.optionId) {
+      state.myVote = body.optionId;
+      sessionStorage.setItem(voteKey(state.pollId), body.optionId);
+      fetchState();
+      return;
+    }
     if (!res.ok) throw new Error(body.error || "vote failed");
     state.myVote = optionId;
     sessionStorage.setItem(voteKey(state.pollId), optionId);
@@ -723,6 +774,11 @@ async function vote(optionId) {
     fetchState();
   } catch (e) {
     $("#tally").textContent = e.message;
+  } finally {
+    state.voting = false;
+    if (state.myVote) render(state.data);
+    else $("#options").querySelectorAll("button").forEach((b) => { b.disabled = !!state.data?.closed || !state.claimedIdentity; });
+    renderChip();
   }
 }
 

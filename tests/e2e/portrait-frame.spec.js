@@ -139,3 +139,81 @@ test('installed app renders a new upload with its overlay offline', async ({ pag
   const cached = await page.evaluate(() => caches.match('/img/portrait-frame-v1.png').then((r) => !!r));
   expect(cached).toBe(true);
 });
+
+
+test('an uploaded poker wife is selectable in polls with her subtitle and frame', async ({ page, request }) => {
+  await openPoker(page);
+  await page.getByTestId('custom-subtitle').fill('Shared across the hub');
+  await upload(page, page.getByTestId('custom-file'));
+  const src = await page.getByTestId('custom-preview').locator('img').getAttribute('src');
+  await page.getByTestId('join-btn').click();
+  await expect(page.getByTestId('game-screen')).toBeVisible();
+  const { id } = await (await request.post('/poll/api/polls', { data: { question: 'Same wife?', options: ['Yes', 'No'] } })).json();
+  await page.goto('/poll/' + id);
+  const saved = page.getByTestId('saved-pick');
+  await expect(saved).toContainText('Shared across the hub');
+  await expect(saved.locator('.bw-framed img')).toHaveAttribute('src', src);
+  await saved.click();
+  await page.getByTestId('option').first().click();
+  await expect(page.getByTestId('option-voters').locator('.bw-framed img')).toHaveAttribute('src', src);
+});
+
+test('a poll upload appears in an already-open poker tab without re-uploading', async ({ page, context, request }) => {
+  await page.goto('/planning-poker');
+  const other = await context.newPage();
+  const { id } = await (await request.post('/poll/api/polls', { data: { question: 'Shared back?', options: ['Yes', 'No'] } })).json();
+  await other.goto('/poll/' + id);
+  await other.getByTestId('custom-wife').click();
+  await other.getByTestId('custom-name').fill('Poll upload');
+  await upload(other, other.getByTestId('custom-file'));
+  const src = await other.getByTestId('custom-preview').locator('img').getAttribute('src');
+  await other.getByTestId('identity-add-btn').click();
+  await expect(other.getByTestId('identity-overlay')).toBeHidden();
+  await page.getByTestId('create-btn').click();
+  const saved = page.getByTestId('saved-pick');
+  await expect(saved).toContainText('Poll upload');
+  await expect(saved.locator('.bw-framed img')).toHaveAttribute('src', src);
+  await saved.click();
+  await page.getByTestId('join-btn').click();
+  await expect(page.locator('.player.me .bw-framed img')).toHaveAttribute('src', src);
+});
+
+test('old poll and poker libraries merge once; newer duplicates win and removal is shared', async ({ page, request }) => {
+  await page.goto('/poll');
+  await page.evaluate(() => {
+    localStorage.setItem('sbw_custom_wives', JSON.stringify([
+      { name: 'Nova', subtitle: 'older', icon: '/img/hr.png', savedAt: 1 },
+      { name: 'Poker only', icon: '💼', savedAt: 2 },
+    ]));
+    localStorage.setItem('bw_poll_custom_wives', JSON.stringify([
+      { name: 'NOVA', subtitle: 'newer', icon: '/img/closer.png', savedAt: 3 },
+      { name: 'Poll only', icon: '💼', savedAt: 4 },
+    ]));
+  });
+  const { id } = await (await request.post('/poll/api/polls', { data: { question: 'Migration?', options: ['A', 'B'] } })).json();
+  await page.goto('/poll/' + id);
+  await expect(page.getByTestId('saved-pick')).toHaveCount(3);
+  const nova = page.getByTestId('saved-pick').filter({ hasText: 'NOVA' });
+  await expect(nova).toContainText('newer');
+  await nova.getByTestId('saved-remove').click();
+  expect(await page.evaluate(() => localStorage.getItem('bw_poll_custom_wives'))).toBeNull();
+  await page.goto('/planning-poker');
+  await page.getByTestId('create-btn').click();
+  await expect(page.getByTestId('saved-pick')).toHaveCount(2);
+  await expect(page.getByTestId('saved-pick').filter({ hasText: /nova/i })).toHaveCount(0);
+});
+
+
+test('the shared upload tile remains selectable after browsing stock avatars', async ({ page }) => {
+  await openPoker(page);
+  await upload(page, page.getByTestId('custom-file'));
+  const tile = page.getByTestId('avatar-upload');
+  await expect(tile).toHaveClass(/sel/);
+  const src = await tile.locator('img').getAttribute('src');
+  await page.getByTestId('avatar-pick').first().click();
+  await expect(tile).toBeVisible();
+  await expect(tile).not.toHaveClass(/sel/);
+  await tile.click();
+  await expect(tile).toHaveClass(/sel/);
+  await expect(page.getByTestId('custom-preview').locator('.bw-framed img')).toHaveAttribute('src', src);
+});

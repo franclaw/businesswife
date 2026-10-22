@@ -67,7 +67,8 @@ test.describe('Persistence', () => {
     const voter = 'voter-persist-1234';
     const pollMade = (await s.call('/poll/api/polls', { question: 'Lunch?', options: ['Yes', 'No'] })).data;
     const poll = pollMade.id;
-    await s.call(`/poll/api/polls/${poll}/vote`, { voterId: voter, optionId: 'o1' });
+    await s.call(`/poll/api/polls/${poll}/identity`, { voterId: 'unvoted-persist-voter', name: 'Reserved before voting' });
+    await s.call(`/poll/api/polls/${poll}/vote`, { voterId: voter, optionId: 'o1', name: 'Persisted wife' });
     await s.stop();
 
     // Only hashes of the secrets are on disk.
@@ -87,6 +88,10 @@ test.describe('Persistence', () => {
     expect((await s.call(`/dates/api/picks/${id}/mark`, { name: 'Marc', date: iso(2), block: 'evening', on: false })).status).toBe(423);
 
     expect((await s.call(`/poll/api/polls/${poll}`)).data.totalVotes).toBe(1);
+    expect((await s.call(`/poll/api/polls/${poll}/vote`, { voterId: voter, optionId: 'o2' })).status).toBe(409);
+    expect((await s.call(`/poll/api/polls/${poll}`)).data.options[0].count).toBe(1);
+    expect((await s.call(`/poll/api/polls/${poll}/identity`, { voterId: 'other-persist-voter', name: 'Persisted wife' })).status).toBe(409);
+    expect((await s.call(`/poll/api/polls/${poll}/identity`, { voterId: 'other-persist-voter', name: 'Reserved before voting' })).status).toBe(409);
     expect((await s.call(`/poll/api/polls/${poll}/close`, { ownerToken: 'someone-else-1234' })).status).toBe(403);
     expect((await s.call(`/poll/api/polls/${poll}/close`, { ownerToken: pollMade.ownerToken })).status).toBe(200);
     await s.stop();

@@ -258,6 +258,7 @@ async function enterRoom(id) {
   history.replaceState({}, "", "/planning-poker/r/" + id);
   setShare();
   connect();
+  picker.refresh();
   show("join");
   if (await tryReclaim(id)) {
     show("game");

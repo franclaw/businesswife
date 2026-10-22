@@ -26,7 +26,12 @@
   background: var(--surface-2);
 }
 .bwp-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-.bwp-field label { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; color: var(--muted); }
+/* Keep host-wide label typography/margins out of the shared upload UI. */
+.bw-wife-picker .bwp-field label {
+  display: flex; flex-direction: column; gap: 6px; margin: 0;
+  font-size: 0.78rem; font-weight: 400; letter-spacing: normal;
+  text-transform: none; color: var(--muted);
+}
 .bwp-label { font-size: 0.78rem; color: var(--muted); }
 .bwp-opt { color: var(--faint); }
 .bwp-custom input[type="text"], .bwp-custom input[type="url"] {
@@ -69,7 +74,10 @@
   font: inherit; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
 }
 .bwp-btn:hover { border-color: var(--muted); }
-.bwp-file { position: relative; overflow: hidden; flex-direction: row; color: var(--text); font-size: 0.85rem; }
+.bw-wife-picker .bwp-field .bwp-file {
+  position: relative; overflow: hidden; display: inline-flex; flex-direction: row;
+  color: var(--text); font-size: 0.85rem; flex-shrink: 0;
+}
 .bwp-file input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .bwp-err { color: var(--danger, #e0557a); font-size: 0.8rem; min-height: 0; }
 .bwp-err:empty { display: none; }

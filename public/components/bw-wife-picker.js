@@ -8,7 +8,7 @@
 //                   taken-label="Already in the boardroom"></bw-wife-picker>
 //
 // Attributes
-//   storage-key   localStorage key for saved custom wives (this device only)
+//   storage-key   optional override; both apps share sbw_custom_wives by default
 //   roster-name   "name" (title, e.g. "The Closer") or "first" ("Coco"): which
 //                 roster field becomes value.name and is matched by setTaken()
 //   taken-label   heading over cards other people already hold
@@ -27,6 +27,8 @@
 
 (function () {
   const SAVED_MAX = 10;
+  const SHARED_KEY = "sbw_custom_wives";
+  const LEGACY_POLL_KEY = "bw_poll_custom_wives";
   const ICON_MAX = 19000;         // the server accepts up to 20 000 characters
   const FALLBACK_ICON = "💼";
 
@@ -170,7 +172,7 @@
       this.$.urlBtn.onclick = () => this._useUrl();
       this.$.url.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this._useUrl(); } });
 
-      this._renderSaved();
+      this.refresh();
       this._paintPreview();
     }
 
@@ -188,6 +190,12 @@
         return value;
       }
       return null;
+    }
+
+    // Re-read when an app opens the picker: another tab may have saved a wife.
+    refresh() {
+      this._migrateSaved();
+      this._renderSaved();
     }
 
     get valid() {
@@ -345,7 +353,8 @@
         : `<span class="bwp-ph">${FALLBACK_ICON}</span><span class="bwp-hint">Pick a portrait or upload one</span>`;
       // The upload itself joins the avatar list (first tile) so it stays
       // visible and re-selectable after browsing the roster avatars.
-      const uploaded = this._pictureRaw && isSmallData(src);
+      if (this._pictureRaw && isSmallData(src)) this._uploadedPicture = src;
+      const uploaded = this._uploadedPicture;
       let up = this.$.avatars.querySelector(".bwp-avatar--upload");
       if (uploaded) {
         if (!up) {
@@ -357,9 +366,9 @@
           up.addEventListener("click", () => { this._picture = up._src; this._pictureRaw = true; this._custom(); });
           this.$.avatars.prepend(up);
         }
-        up._src = src;
-        up.dataset.img = src;   // the shared .sel toggle below selects it
-        up.innerHTML = `<img src="${esc(src)}" alt="">`;
+        up._src = uploaded;
+        up.dataset.img = uploaded;   // the shared .sel toggle below selects it
+        up.innerHTML = `<img src="${esc(uploaded)}" alt="">`;
       } else if (up) up.remove();
       this.$.avatars.querySelectorAll(".bwp-avatar").forEach((b) => b.classList.toggle("sel", b.dataset.img === src));
     }
@@ -369,9 +378,31 @@
     }
 
     // ---------- saved wives (this device only) ----------
+    // Fold the old poll-only list into the existing poker library once.
+    // Preserve raw/frame flags and subtitles; newest duplicate name wins.
+    _migrateSaved() {
+      if ((this.getAttribute("storage-key") || SHARED_KEY) !== SHARED_KEY) return;
+      try {
+        const legacy = JSON.parse(localStorage.getItem(LEGACY_POLL_KEY) || "null");
+        if (!Array.isArray(legacy)) return;
+        const entries = [...this._loadList(), ...legacy.filter((w) => w && w.name && w.icon)]
+          .sort((a, b) => (Number(b.savedAt) || 0) - (Number(a.savedAt) || 0));
+        const names = new Set();
+        const merged = this._trim(entries.filter((w) => {
+          const name = String(w.name).toLowerCase();
+          if (names.has(name)) return false;
+          names.add(name);
+          return true;
+        }));
+        // Only retire the source after a successful write: quota errors must
+        // not silently lose either library during migration.
+        localStorage.setItem(SHARED_KEY, JSON.stringify(merged));
+        localStorage.removeItem(LEGACY_POLL_KEY);
+      } catch {}
+    }
+
     _loadList() {
-      const key = this.getAttribute("storage-key");
-      if (!key) return [];
+      const key = this.getAttribute("storage-key") || SHARED_KEY;
       try {
         const list = JSON.parse(localStorage.getItem(key) || "[]");
         return Array.isArray(list) ? list.filter((w) => w && w.name && w.icon) : [];
@@ -385,8 +416,7 @@
     }
 
     _saveList(list) {
-      const key = this.getAttribute("storage-key");
-      if (!key) return false;
+      const key = this.getAttribute("storage-key") || SHARED_KEY;
       let items = this._trim(list);
       while (items.length) {
         try { localStorage.setItem(key, JSON.stringify(items)); return true; }
