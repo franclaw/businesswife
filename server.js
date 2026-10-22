@@ -25,9 +25,9 @@ const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 
 const store = createStore(DATA_DIR);
-const pages = createPages(ROOT);
 const poker = createPoker();
 const polls = createPolls(store);
+const pages = createPages(ROOT, { pollTitle: polls.title });
 const dates = createDates(store);
 const feedback = createFeedback(store);
 

@@ -678,6 +678,7 @@ function subscribe() {
 function render(data) {
   if (!data || !state.pollId) return;
   const closed = !!data.closed;
+  document.title = data.question + " — Poll · Business Wife";
   $("#question").textContent = data.question;
   $("#closed-banner").classList.toggle("on", closed);
   $("#close-btn").hidden = !(state.ownerToken && !closed);
