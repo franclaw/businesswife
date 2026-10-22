@@ -197,6 +197,8 @@ $("createBtn").onclick = async () => {
   finally { btn.disabled = false; }
 };
 $("boardroomTitle").addEventListener("keydown", e => { if (e.key === "Enter") $("createBtn").click(); });
+// Show today's date in the example title, matching the server's default.
+$("boardroomTitle").placeholder = "e.g. Refinement " + new Date().toISOString().slice(0, 10);
 function setRoomTitle(title) {
   $("roomTitle").textContent = title || "";
   $("roomTitle").classList.toggle("hidden", !title);

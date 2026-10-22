@@ -65,7 +65,7 @@ test('empty/legacy creation gets a named boardroom; titles are bounded and unkno
     expect(res.ok()).toBe(true);
     const { id } = await res.json();
     const state = await (await request.get(`/planning-poker/api/rooms/${id}/state`)).json();
-    expect(state.title).toBe('Boardroom ' + id.toUpperCase());
+    expect(state.title).toMatch(/^Refinement \d{4}-\d{2}-\d{2}$/);
   }
   expect((await request.post('/planning-poker/api/rooms', { data: { title: { bad: true } } })).status()).toBe(400);
   const { id } = await (await request.post('/planning-poker/api/rooms', { data: { title: 'x'.repeat(140) } })).json();

@@ -25,8 +25,9 @@ HTML, not delivery or refresh behavior in external apps.
 
 Poker uses the same metadata renderer for `/planning-poker/r/:id`.
 `POST /planning-poker/api/rooms` accepts optional `title` (up to 120 characters,
-whitespace normalized). Missing/blank titles default to `Boardroom <CODE>` so
-older clients can still create rooms without a body. Non-text titles are refused.
+whitespace normalized). Missing/blank titles default to `Refinement <YYYY-MM-DD>`
+(the creation day, UTC) so older clients can still create rooms without a body.
+Non-text titles are refused.
 The title is included in room lookup and public state and displayed for both
 joining guests and seated participants. Native sharing includes it as well.
 
