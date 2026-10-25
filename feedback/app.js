@@ -21,12 +21,18 @@ try {
   if (managerPath) {
     token = new URLSearchParams(location.hash.slice(1)).get('token') || localStorage.getItem('bw-feedback-token-' + id) || '';
     if (token) localStorage.setItem('bw-feedback-token-' + id, token);
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   }
 } catch { $('error').textContent = 'Browser storage is unavailable. Keep this tab open; your identity cannot be remembered after closing it.'; participantId ||= crypto.randomUUID(); }
 const endpoint = '/feedback/api/sessions' + (id ? '/' + id : '');
-const query = () => new URLSearchParams({ participantId, ...(token ? { facilitatorToken: token } : {}) });
+// The facilitator token never goes into a URL (server logs, proxies, history):
+// reads send it as a header, writes in the JSON body. The live stream is the
+// plain participant projection, so it needs no token at all.
+const query = () => new URLSearchParams({ participantId });
 async function call(path = '', body) {
-  const res = await fetch(endpoint + path + (body === undefined ? '?' + query() : ''), body === undefined ? { cache: 'no-store' } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ participantId, facilitatorToken: token, ...body }) });
+  const res = await fetch(endpoint + path + (body === undefined ? '?' + query() : ''), body === undefined
+    ? { cache: 'no-store', headers: token ? { 'X-Facilitator-Token': token } : {} }
+    : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ participantId, facilitatorToken: token, ...body }) });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
@@ -148,11 +154,12 @@ if (!id) {
   $('create').hidden = true; $('room').hidden = false;
   action(async () => {
     accept(await call());
+    const isFacilitator = snapshot.facilitator;
     if (managerPath && !snapshot.facilitator) $('error').textContent = 'This link has no valid facilitator token. Open the original private facilitator link.';
     stream = new EventSource(endpoint + '/events?' + query());
     $('connection').hidden = false; $('connection').textContent = 'Connecting…';
     stream.onopen = () => { $('connection').textContent = 'Live · connected'; };
-    stream.onmessage = (e) => accept(JSON.parse(e.data));
+    stream.onmessage = (e) => accept({ ...JSON.parse(e.data), facilitator: isFacilitator });
     stream.onerror = () => { $('connection').textContent = 'Disconnected · reconnecting automatically. Your drafts are kept in this tab.'; };
   });
 }
