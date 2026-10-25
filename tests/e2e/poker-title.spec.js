@@ -72,7 +72,7 @@ test('empty/legacy creation gets a named boardroom; titles are bounded and unkno
   expect((await (await request.get(`/planning-poker/api/rooms/${id}/state`)).json()).title).toHaveLength(120);
   for (const path of ['/planning-poker', '/planning-poker/r/zz99zz']) {
     const html = await (await request.get(path)).text();
-    expect(html).toContain('<title>Planning Poker — Business Wife Edition</title>');
+    expect(html).toContain('<title>Planning Poker — Business Wife</title>');
     expect(html).not.toContain('property="og:title"');
   }
 });

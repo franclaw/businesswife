@@ -38,7 +38,7 @@ test.describe('Hub', () => {
 test.describe('Planning Poker — rooms', () => {
   test('poker lobby is create/join, not a single boardroom', async ({ page }) => {
     await page.goto(POKER);
-    await expect(page).toHaveTitle(/Business Wife Edition/);
+    await expect(page).toHaveTitle('Planning Poker — Business Wife');
     await expect(page.getByTestId('lobby-screen')).toBeVisible();
     await expect(page.getByTestId('create-btn')).toBeVisible();
     await expect(page.getByTestId('join-screen')).toBeHidden();
@@ -467,7 +467,7 @@ test.describe('Pomodoro PWA', () => {
     expect(body.display).toBe('standalone');
     const sw = await request.get('/pomodoro/sw.js');
     expect(sw.ok()).toBeTruthy();
-    expect(await sw.text()).toMatch(/CACHE/);
+    expect(await sw.text()).toContain('importScripts("/components/sw-core.js")');
   });
 });
 
