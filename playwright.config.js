@@ -35,7 +35,7 @@ module.exports = defineConfig({
     reuseExistingServer: false,
     timeout: 20_000,
     env: { PORT: String(PORT), DATA_DIR: dataDir, BW_RATE_LIMIT: process.env.BW_RATE_LIMIT || '1000' },
-    stdout: 'ignore',
+    stdout: 'pipe', // surfaces "[csp] … blocked …" lines from lib/security
     stderr: 'pipe',
   },
   projects: [

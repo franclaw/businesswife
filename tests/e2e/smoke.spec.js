@@ -32,6 +32,17 @@ test.describe('Smoke @live', () => {
     });
   }
 
+  test('pages carry the security headers', async ({ request }) => {
+    for (const p of ['/', '/planning-poker/', '/poll/', '/feedback/']) {
+      const h = (await request.get(p)).headers();
+      expect(h['content-security-policy'], p).toContain("default-src 'self'");
+      expect(h['content-security-policy'], p).toContain("frame-ancestors 'none'");
+      expect(h['content-security-policy'], p).not.toMatch(/script-src[^;]*unsafe-inline/);
+      expect(h['x-content-type-options'], p).toBe('nosniff');
+      expect(h['referrer-policy'], p).toBe('same-origin');
+    }
+  });
+
   test('the hub links every app', async ({ page }) => {
     await page.goto('/');
     for (const href of ['/planning-poker', '/pomodoro', '/poll', '/dates', '/feedback']) {
@@ -57,6 +68,15 @@ test.describe('Smoke @live', () => {
       expect(await res.text()).toContain('importScripts("/components/sw-core.js")');
     }
     expect((await request.get('/components/theme.css')).ok()).toBeTruthy();
+  });
+
+  test('old full-size portrait URLs land on the thumbnail', async ({ request }) => {
+    const res = await request.get('/img/cfo.png', { maxRedirects: 0 });
+    expect(res.status()).toBe(301);
+    expect(res.headers().location).toBe('/img/thumb/cfo.jpg');
+    const img = await request.get('/img/cfo.png');
+    expect(img.headers()['content-type']).toBe('image/jpeg');
+    expect((await request.get('/img/portrait-frame-v1.png')).headers()['content-type']).toBe('image/png');
   });
 
   test('unknown sessions are clean 404s', async ({ request }) => {

@@ -10,6 +10,7 @@
 //   lib/sse     server-sent event streams
 //   lib/http    bodies, JSON replies, static files
 //   lib/ratelimit  per-IP limit on the create endpoints
+//   lib/security   CSP and other security headers on every response
 const http = require('http');
 const path = require('path');
 const sse = require('./lib/sse');
@@ -21,6 +22,7 @@ const { createPolls } = require('./lib/polls');
 const { createDates } = require('./lib/dates');
 const { createFeedback } = require('./lib/feedback');
 const { createRateLimit } = require('./lib/ratelimit');
+const { createSecurity } = require('./lib/security');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 6969;
 const ROOT = __dirname;
@@ -33,6 +35,7 @@ const pages = createPages(ROOT, { pollTitle: polls.title, pokerTitle: poker.titl
 const dates = createDates(store);
 const feedback = createFeedback(store);
 const rateLimit = createRateLimit();
+const security = createSecurity(ROOT);
 
 sse.keepAlive(() => [...poker.listeners(), ...polls.listeners(), ...dates.listeners(), ...feedback.listeners()]);
 
@@ -41,7 +44,9 @@ const handlers = [pages, polls, dates, feedback, poker];
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const pathname = url.pathname.replace(/\/+/g, '/');
+  security.apply(req, res);
   try {
+    if (security.report(req, res, pathname)) return;
     if (rateLimit.handle(req, res, pathname)) return;
     for (const h of handlers) {
       if (await h.handle(req, res, pathname, url.searchParams) !== false) return;
