@@ -1,24 +1,4 @@
 /* Planning Poker — app styles. Shared card styles live in /components/bw-card.css. */
-:root {
-  --bg: #0f0c0e;
-  --surface: #171214;
-  --surface-2: #1e171a;
-  --border: #2e2428;
-  --border-strong: #3d3036;
-  --text: #f2ebe6;
-  --muted: #9a8a90;
-  --faint: #8d7f85;
-  --accent: #c43d6e;
-  --accent-hover: #d54f7f;
-  --accent-text: #e0679a;
-  --accent-soft: rgba(196, 61, 110, 0.14);
-  --gold: #c9a227;
-  --gold-soft: rgba(201, 162, 39, 0.12);
-  --danger: #e0557a;
-  --radius: 10px;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-}
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { background: var(--bg); }
 body {
@@ -34,27 +14,9 @@ body {
   padding: 36px 20px 56px;
   -webkit-font-smoothing: antialiased;
 }
-.brand {
-  text-align: center;
-  max-width: 720px;
-  margin-bottom: 12px;
-}
-.brand-kicker {
-  display: inline-block;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--faint);
-  margin-bottom: 12px;
-}
-h1 {
-  font-size: clamp(1.75rem, 4vw, 2.35rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  color: var(--text);
-}
+.brand { max-width: 720px; margin-bottom: 0; }
+/* The lobby is the poster: a larger title over the fan of wives. */
+html.in-lobby .bw-head h1 { font-size: clamp(1.75rem, 4vw, 2.35rem); line-height: 1.2; }
 h1 .tag {
   color: var(--muted);
   font-weight: 500;
@@ -645,7 +607,7 @@ html.in-lobby footer {
     --fan-h: calc(var(--fan-w) * 1.44);
     --fan-overlap: calc(var(--fan-w) * 0.58);
   }
-  html.in-lobby h1 { font-size: clamp(1.05rem, 5.2vw, 2rem); }
+  html.in-lobby .bw-head h1 { font-size: clamp(1.05rem, 5.2vw, 2rem); }
 }
 @media (max-width: 480px) {
   html.in-lobby #lobby .lobby-row { flex-wrap: wrap; }

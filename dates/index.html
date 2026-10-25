@@ -11,18 +11,8 @@
 <link rel="manifest" href="/dates/manifest.webmanifest">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/dates/icons/icon-192.png">
+<link rel="stylesheet" href="/components/theme.css">
 <style>
-  :root {
-    --bg: #0f0c0e; --surface: #171214; --surface-2: #1e171a;
-    --border: #2e2428; --border-strong: #3d3036;
-    --text: #f2ebe6; --muted: #9a8a90; --faint: #8d7f85;
-    --accent: #c43d6e; --accent-hover: #d54f7f; --accent-text: #e0679a; --accent-soft: rgba(196, 61, 110, 0.14);
-    --gold: #c9a227; --gold-soft: rgba(201, 162, 39, 0.12);
-    --danger: #e0557a;
-    --radius: 10px;
-    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  }
   * { box-sizing: border-box; }
   html { background: var(--bg); }
   body {
@@ -30,10 +20,7 @@
     padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
     max-width: 680px; margin-inline: auto; -webkit-tap-highlight-color: transparent;
   }
-  .kicker { font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
-  h1 { font-size: 1.35rem; margin: 4px 0 2px; font-weight: 650; word-break: break-word; }
   h2 { font-size: .95rem; margin: 0 0 6px; font-weight: 650; }
-  .sub { color: var(--muted); font-size: .8rem; margin: 0 0 16px; }
   .hidden { display: none !important; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
   .card + .card { margin-top: 14px; }
@@ -83,7 +70,6 @@
   .x { min-height: 36px; min-width: 36px; padding: 0; background: transparent; border-color: transparent; color: var(--faint); font-size: 1.1rem; }
 
   /* board */
-  .kicker { display: flex; align-items: center; gap: 8px; }
   .live { font-size: .6rem; letter-spacing: .04em; text-transform: none; color: var(--faint); font-weight: 500; }
   .labelrow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .manage, .switch { color: var(--accent-hover); font-size: .74rem; font-weight: 600; text-decoration: none; cursor: pointer; }
@@ -172,7 +158,6 @@
   summary { cursor: pointer; font-size: .8rem; color: var(--muted); padding: 4px 0; min-height: 32px; display: flex; align-items: center; }
   details[open] summary { margin-bottom: 10px; }
 
-  footer { margin-top: 22px; color: var(--faint); font-size: .68rem; text-align: center; line-height: 1.6; }
 
   @media (max-width: 420px) {
     .prop { flex-wrap: wrap; }
@@ -182,10 +167,11 @@
 </style>
 </head>
 <body>
-  <header>
-    <div class="kicker">Date Picker <span class="live hidden" id="live" data-testid="live" role="status"></span></div>
+  <header class="bw-head">
+    <a class="bw-brand" href="/">Business Wife</a>
+    <p class="bw-kicker">Schedule <span class="live hidden" id="live" data-testid="live" role="status"></span></p>
     <h1 id="title">When are we all free?</h1>
-    <p class="sub" id="tagline">Put the dates on the table. Everyone taps what works. She finds the overlap.</p>
+    <p class="bw-sub" id="tagline">Put the dates on the table. Everyone taps what works. She finds the overlap.</p>
   </header>
 
   <!-- LOBBY -->
@@ -319,7 +305,7 @@
 
   <p class="err" role="alert" data-testid="board-error" id="boardError"></p>
 
-  <footer>Business Wife<br>"She closes the deal before lunch."</footer>
+  <footer class="bw-foot">Business Wife<br>"She closes the deal before lunch."</footer>
 
 <script>
 const $ = (s, root = document) => root.querySelector(s);

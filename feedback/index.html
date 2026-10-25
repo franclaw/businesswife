@@ -7,16 +7,19 @@
 <meta name="description" content="Collect independent feedback, reveal it together, and vote on what matters.">
 <title>Feedback — Business Wife</title>
 <link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/components/theme.css">
 <link rel="stylesheet" href="/feedback/app.css">
 <script defer src="/components/feedback-qr.js"></script>
 <script defer src="/feedback/app.js"></script>
 </head>
 <body>
 <main>
-<a class="brand" href="/">Business Wife</a>
-<p class="kicker">Reflect</p>
+<header class="bw-head">
+<a class="bw-brand" href="/">Business Wife</a>
+<p class="bw-kicker">Reflect</p>
 <h1 id="heading">Feedback</h1>
-<p id="description" class="muted">Independent thoughts. Shared priorities.</p>
+<p id="description" class="bw-sub">Independent thoughts. Shared priorities.</p>
+</header>
 <p id="connection" role="status" hidden></p>
 <p id="error" role="alert"></p>
 <section id="create" class="panel">
@@ -49,7 +52,7 @@
 <div id="categories"></div>
 </section>
 <p id="notice" role="status"></p>
-<footer>No accounts. No names. Just the room.<br><a href="/feedback">New session / your sessions</a></footer>
+<footer class="bw-foot">No accounts. No names. Just the room.<br><a href="/feedback">New session / your sessions</a><br>"She closes the deal before lunch."</footer>
 </main>
 </body>
 </html>

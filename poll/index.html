@@ -11,31 +11,13 @@
 <link rel="manifest" href="/poll/manifest.webmanifest">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/poll/icons/icon-192.png">
+<link rel="stylesheet" href="/components/theme.css">
 <link rel="stylesheet" href="/components/bw-card.css">
 <link rel="stylesheet" href="/components/bw-wife-picker.css">
 <script src="/components/bw-roster.js"></script>
 <script src="/components/bw-card.js"></script>
 <script src="/components/bw-wife-picker.js"></script>
 <style>
-  :root {
-    --bg: #0f0c0e;
-    --surface: #171214;
-    --surface-2: #1e171a;
-    --border: #2e2428;
-    --border-strong: #3d3036;
-    --text: #f2ebe6;
-    --muted: #9a8a90;
-    --faint: #8d7f85;
-    --accent: #c43d6e;
-    --accent-hover: #d54f7f;
-    --accent-text: #e0679a;
-    --accent-soft: rgba(196, 61, 110, 0.14);
-    --gold: #c9a227;
-    --gold-soft: rgba(201, 162, 39, 0.12);
-    --radius: 10px;
-    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { background: var(--bg); }
   html, body { height: 100%; }
@@ -53,31 +35,6 @@
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
   }
-  a.brand {
-    color: var(--faint);
-    text-decoration: none;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-  a.brand:hover { color: var(--accent-text); }
-  .kicker {
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--gold);
-    margin-bottom: 6px;
-  }
-  h1 {
-    font-size: 1.35rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    margin-bottom: 4px;
-  }
-  .wit { color: var(--muted); font-size: 0.92rem; margin-bottom: 26px; }
   .wrap { width: 100%; max-width: 480px; }
   .panel {
     width: 100%;
@@ -226,11 +183,6 @@
   }
   .live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
   .live.on .dot { background: #3fbf7f; }
-  footer {
-    margin-top: auto; padding-top: 36px;
-    color: var(--faint); font-size: 0.74rem; text-align: center; line-height: 1.6;
-    background: var(--bg);
-  }
   [hidden] { display: none !important; }
   /* identity picker */
   .you-chip {
@@ -281,10 +233,12 @@
 </style>
 </head>
 <body>
-  <a class="brand" href="/">Business Wife</a>
-  <div class="kicker">The room, counted</div>
-  <h1>Poll</h1>
-  <p class="wit">She knows how it ends before you finish the question.</p>
+  <header class="bw-head">
+    <a class="bw-brand" href="/">Business Wife</a>
+    <p class="bw-kicker">Decide</p>
+    <h1>Poll</h1>
+    <p class="bw-sub">She knows how it ends before you finish the question.</p>
+  </header>
 
   <div class="wrap">
     <!-- Lobby -->
@@ -341,7 +295,7 @@
     </div>
   </div>
 
-  <footer>Business Wife<br>"She closes the deal before lunch."</footer>
+  <footer class="bw-foot">Business Wife<br>"She closes the deal before lunch."</footer>
 
   <!-- Identity picker -->
   <div class="id-overlay" id="id-overlay" data-testid="identity-overlay" hidden>

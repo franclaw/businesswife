@@ -1,15 +1,7 @@
+/* Feedback — app styles. Colours, type and the header come from
+   /components/theme.css like every other Business Wife app. */
 :root {
-  --bg:#0f0c0e;
-  --surface:#171214;
-  --surface-2:#1e171a;
-  --border:#493940;
-  --text:#f2ebe6;
-  --muted:#b6a5ac;
-  --accent:#a92e5b;
-  --accent-text:#ed88b1;
-  --gold:#d4b445;
-  color-scheme:dark;
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-family:var(--font);
   background:var(--bg);
   color:var(--text)}
 
@@ -23,9 +15,6 @@ body {
 main {
   max-width:640px;
   margin:auto}
-h1 {
-  font-size:1.9rem;
-  margin:4px 0}
 h2 {
   font-size:1.2rem;
   margin:0 0 10px}
@@ -37,26 +26,14 @@ p {
 a {
   color:var(--accent-text);
   overflow-wrap:anywhere}
-.brand {
-  text-transform:uppercase;
-  letter-spacing:.14em;
-  font-size:.78rem;
-  color:var(--muted);
-  text-decoration:none}
-.kicker {
-  color:var(--gold);
-  text-transform:uppercase;
-  letter-spacing:.12em;
-  margin:20px 0 0;
-  font-size:.8rem}
-.muted,.hint,footer {
+.muted,.hint {
   color:var(--muted)}
 .hint {
   font-size:.85rem}
 .panel {
   background:var(--surface);
   border:1px solid var(--border);
-  border-radius:14px;
+  border-radius:12px;
   padding:20px;
   margin:18px 0}
 label {
@@ -68,7 +45,7 @@ input,textarea,select,button {
   font:inherit;
   color:inherit;
   border-radius:8px;
-  border:1px solid var(--border)}
+  border:1px solid var(--border-strong)}
 input,textarea,select {
   width:100%;
   padding:12px;
@@ -88,7 +65,10 @@ button:disabled {
   cursor:not-allowed}
 button.primary {
   background:var(--accent);
+  border-color:var(--accent);
   color:#fff}
+button.primary:hover:not(:disabled) {
+  background:var(--accent-hover)}
 form>button.primary {
   display:block;
   width:100%;
@@ -121,7 +101,7 @@ form>button.primary {
   margin-bottom:0}
 .item .voted {
   border-color:var(--accent-text);
-  background:#452134}
+  background:var(--accent-soft)}
 .vote-total {
   color:var(--gold);
   font-weight:700}
@@ -150,7 +130,7 @@ details li {
   max-width:100%;
   height:auto}
 #error {
-  color:#ffadc9}
+  color:var(--accent-text)}
 #error:empty,#notice:empty {
   display:none}
 #connection {
@@ -161,10 +141,6 @@ details li {
 #notice {
   border:1px solid var(--border);
   padding:12px}
-footer {
-  font-size:.8rem;
-  text-align:center;
-  margin-top:28px}
 footer a {
   display:inline-block;
   padding:14px}

@@ -7,10 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/planning-poker/manifest.webmanifest">
-<title>Planning Poker — Business Wife Edition</title>
+<title>Planning Poker — Business Wife</title>
 <meta name="description" content="Create a boardroom, share the link, estimate stories together.">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/planning-poker/icons/icon-192.png">
+<link rel="stylesheet" href="/components/theme.css">
 <link rel="stylesheet" href="/components/bw-card.css">
 <link rel="stylesheet" href="/components/bw-wife-picker.css">
 <script src="/components/bw-roster.js"></script>
@@ -26,11 +27,12 @@
 </script>
 </head>
 <body>
-  <header class="brand">
-    <a class="brand-kicker" href="/" style="color:inherit;text-decoration:none">Business Wife</a>
+  <header class="bw-head brand">
+    <a class="bw-brand" href="/">Business Wife</a>
+    <p class="bw-kicker">Estimate</p>
     <h1>Planning Poker <span class="tag">Edition</span></h1>
     <p class="room-title hidden" id="roomTitle" data-testid="room-title"></p>
-    <p class="sub sub-room">Create a boardroom, share the link, estimate stories together.</p>
+    <p class="bw-sub sub-room">Create a boardroom, share the link, estimate stories together.</p>
   </header>
 
   <div class="wrap">
@@ -133,7 +135,7 @@
     </div>
   </div>
 
-  <footer>Inspired by the great H S<br>"She closes the deal before lunch."</footer>
+  <footer class="bw-foot">Inspired by the great H S<br>"She closes the deal before lunch."</footer>
 
 <script src="/planning-poker/app.js"></script>
 </body>

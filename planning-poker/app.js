@@ -202,7 +202,7 @@ $("boardroomTitle").placeholder = "e.g. Refinement " + new Date().toISOString().
 function setRoomTitle(title) {
   $("roomTitle").textContent = title || "";
   $("roomTitle").classList.toggle("hidden", !title);
-  document.title = title ? title + " — Planning Poker · Business Wife" : "Planning Poker — Business Wife Edition";
+  document.title = title ? title + " — Planning Poker · Business Wife" : "Planning Poker — Business Wife";
 }
 $("joinRoomBtn").onclick = () => {
   const code = ($("roomCode").value || "").trim().toLowerCase();
