@@ -76,3 +76,15 @@ test('empty/legacy creation gets a named boardroom; titles are bounded and unkno
     expect(html).not.toContain('property="og:title"');
   }
 });
+
+test.describe('blank boardroom title', () => {
+  // UTC+14: for most of the UTC day the local date is already tomorrow.
+  test.use({ timezoneId: 'Pacific/Kiritimati' });
+  test('uses the creator\'s local calendar day, not UTC', async ({ page }) => {
+    await page.goto('/planning-poker');
+    const local = await page.evaluate(() => new Date().toLocaleDateString('sv-SE'));
+    await expect(page.getByTestId('boardroom-title-input')).toHaveAttribute('placeholder', 'e.g. Refinement ' + local);
+    await page.getByTestId('create-btn').click();
+    await expect(page.getByTestId('room-title')).toHaveText('Refinement ' + local);
+  });
+});

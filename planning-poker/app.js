@@ -3,6 +3,8 @@ const ROSTER = window.BW_ROSTER;
 const thumbOf = (r) => (r && r.img ? window.bwThumb(r.img) : null);
 const thumbPath = (p) => window.bwThumb(p);
 const ROSTER_BY_NAME = Object.fromEntries(ROSTER.map(r => [r.name, r]));
+/** YYYY-MM-DD in the browser's own time zone. */
+const localDay = () => new Date().toLocaleDateString("sv-SE");
 function escapeAttr(x) {
   return String(x).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
@@ -17,9 +19,15 @@ function picOrIcon(r, cls) {
   if (t) return `<img class="${cls}" src="${t}" alt="" data-fb="${r.icon}" title="${r.first} — ${r.name}">`;
   return `<span class="ico">${r ? r.icon : "❔"}</span>`;
 }
+// A roster wife shows her portrait and first name; a custom wife who merely
+// shares a roster title keeps her own uploaded picture and name.
+function rosterOf(p) {
+  const r = ROSTER_BY_NAME[p.name];
+  return r && !(isImageIcon(p.icon) && p.icon !== r.img) ? r : null;
+}
 function playerAvatar(p, cls) {
   if (p.role === "observer") return `<span class="ico">${p.icon || "👁️"}</span>`;
-  const r = ROSTER_BY_NAME[p.name];
+  const r = rosterOf(p);
   if (r) return picOrIcon(r, cls);
   if (isImageIcon(p.icon)) {
     const src = p.icon.startsWith("/img/") ? thumbPath(p.icon) : p.icon;
@@ -31,7 +39,7 @@ function playerAvatar(p, cls) {
 }
 function playerLabel(p) {
   if (p.role === "observer") return p.name;
-  const r = ROSTER_BY_NAME[p.name];
+  const r = rosterOf(p);
   return r ? (r.first + " · " + r.name) : p.name;
 }
 function bindImgFallback(root) {
@@ -188,7 +196,8 @@ $("createBtn").onclick = async () => {
   try {
     const res = await fetch("/planning-poker/api/rooms", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: $("boardroomTitle").value }),
+      // Blank title: the creator's own calendar day, not the server's UTC one.
+      body: JSON.stringify({ title: $("boardroomTitle").value.trim() || "Refinement " + localDay() }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || "Could not create the boardroom.");
@@ -198,7 +207,7 @@ $("createBtn").onclick = async () => {
 };
 $("boardroomTitle").addEventListener("keydown", e => { if (e.key === "Enter") $("createBtn").click(); });
 // Show today's date in the example title, matching the server's default.
-$("boardroomTitle").placeholder = "e.g. Refinement " + new Date().toISOString().slice(0, 10);
+$("boardroomTitle").placeholder = "e.g. Refinement " + localDay();
 function setRoomTitle(title) {
   $("roomTitle").textContent = title || "";
   $("roomTitle").classList.toggle("hidden", !title);

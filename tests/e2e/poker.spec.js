@@ -184,6 +184,20 @@ test.describe('Planning Poker — rooms', () => {
     await leave(obs);
   });
 
+  test('a custom wife who shares a roster name keeps her own picture', async ({ page, request }) => {
+    const url = await createRoom(page);
+    await pickWife(page, 'Vivienne');
+    const id = new URL(url).pathname.split('/').pop();
+    const pic = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    expect((await request.post(`/planning-poker/api/rooms/${id}/join`, { data: { name: 'The Closer', icon: pic, raw: true } })).ok()).toBeTruthy();
+    const seat = page.locator('.player', { hasText: 'The Closer' });
+    await expect(seat.locator('img').first()).toHaveAttribute('src', /^\/img\/u\/[a-f0-9]{32}\.png$/);
+    await expect(seat).not.toContainText('Coco');
+    // A real roster pick still gets the roster portrait.
+    expect((await request.post(`/planning-poker/api/rooms/${id}/join`, { data: { name: 'Legal Counsel', icon: '⚖️' } })).ok()).toBeTruthy();
+    await expect(page.locator('.player', { hasText: 'Legal Counsel' }).locator('img').first()).toHaveAttribute('src', '/img/thumb/legal.jpg');
+  });
+
   test('two rooms stay isolated', async ({ browser }) => {
     const a = await browser.newPage();
     const b = await browser.newPage();
