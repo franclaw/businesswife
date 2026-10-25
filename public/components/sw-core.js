@@ -36,6 +36,19 @@
 
   const offline = () => new Response("", { status: 503, statusText: "Offline" });
 
+  // A tap on one of our notifications (e.g. "Focus block closed") brings the
+  // app's open tab forward, or opens it.
+  self.addEventListener("notificationclick", (event) => {
+    event.notification.close();
+    event.waitUntil(
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+        const mine = list.find((c) => new URL(c.url).pathname.startsWith(cfg.scope));
+        if (mine && "focus" in mine) return mine.focus();
+        return self.clients.openWindow(cfg.scope);
+      })
+    );
+  });
+
   self.addEventListener("fetch", (event) => {
     const req = event.request;
     if (req.method !== "GET") return;
