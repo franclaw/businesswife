@@ -375,13 +375,25 @@ const state = {
   pollTimer: null,
 };
 
+// The voter id lives next to the chosen wife (localStorage): a new tab or a
+// restarted browser is still the same voter, so her reservation and the final
+// ballot follow you instead of locking you out or allowing a second vote.
+// Older builds kept it per tab; adopt that id once.
 function voterId() {
-  let id = sessionStorage.getItem("bw_poll_voter");
+  let id = null;
+  try { id = localStorage.getItem("bw_poll_voter"); } catch {}
   if (!id) {
-    id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
-    sessionStorage.setItem("bw_poll_voter", id);
+    id = sessionStorage.getItem("bw_poll_voter") ||
+      (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
+    try { localStorage.setItem("bw_poll_voter", id); } catch { sessionStorage.setItem("bw_poll_voter", id); }
   }
   return id;
+}
+function readVote(id) {
+  try { return localStorage.getItem(voteKey(id)) || sessionStorage.getItem(voteKey(id)); } catch { return sessionStorage.getItem(voteKey(id)); }
+}
+function saveVote(id, optionId) {
+  try { localStorage.setItem(voteKey(id), optionId); } catch { sessionStorage.setItem(voteKey(id), optionId); }
 }
 
 // The owner token comes back once, at creation, and is the only way to close
@@ -467,7 +479,7 @@ async function useIdentity(v, restoring = false) {
     if (v.kind && v.kind !== "roster") picker.remember(v);
     if (body.optionId) {
       state.myVote = body.optionId;
-      sessionStorage.setItem(voteKey(state.pollId), body.optionId);
+      saveVote(state.pollId, body.optionId);
     }
     state.claimedIdentity = body.identity;
     setIdentity(body.identity);
@@ -573,7 +585,6 @@ async function createPoll() {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || "could not create poll");
     try { localStorage.setItem(ownerKey(body.id), body.ownerToken); } catch {}
-    location.hash = "/" + body.id;
     history.pushState(null, "", "/poll/" + body.id);
     openPoll(body.id);
   } catch (e) {
@@ -612,7 +623,7 @@ function showLobby() {
 function openPoll(id) {
   state.pollId = id;
   state.ownerToken = ownerTokenFor(id);
-  state.myVote = sessionStorage.getItem(voteKey(id)) || null;
+  state.myVote = readVote(id) || null;
   state.claimedIdentity = null;
   state.data = null;
   $("#lobby-screen").hidden = true;
@@ -634,6 +645,11 @@ function closeStreams() {
   setLive(false, "offline");
 }
 
+// A closed poll is final: the dot goes quiet instead of claiming "live".
+function syncLive(connected) {
+  if (state.data && state.data.closed) setLive(false, "closed");
+  else setLive(connected, connected ? "live" : "reconnecting");
+}
 function setLive(on, text) {
   const el = $("#live");
   el.classList.toggle("on", !!on);
@@ -665,15 +681,26 @@ function subscribe() {
   if (state.es) state.es.close();
   const es = new EventSource(API + "/" + state.pollId + "/events");
   state.es = es;
-  es.onopen = () => setLive(true, "live");
+  es.onopen = () => syncLive(true);
   es.onmessage = (ev) => {
-    try { accept(JSON.parse(ev.data)); setLive(true, "live"); } catch {}
+    try { accept(JSON.parse(ev.data)); syncLive(true); } catch {}
   };
   es.onerror = () => {
-    setLive(false, "reconnecting");
+    syncLive(false);
     // EventSource retries on its own; also poll as a fallback
     if (!state.pollTimer) state.pollTimer = setInterval(fetchState, 4000);
   };
+}
+
+// Whole percentages that always add up to 100 (largest remainder).
+function percentages(counts, total) {
+  if (!total) return counts.map(() => 0);
+  const exact = counts.map((c) => (c / total) * 100);
+  const out = exact.map(Math.floor);
+  let left = 100 - out.reduce((a, b) => a + b, 0);
+  const order = exact.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (const [, i] of order) { if (left <= 0) break; if (counts[i] > 0) { out[i]++; left--; } }
+  return out;
 }
 
 function render(data) {
@@ -682,13 +709,15 @@ function render(data) {
   document.title = data.question + " — Poll · Business Wife";
   $("#question").textContent = data.question;
   $("#closed-banner").classList.toggle("on", closed);
+  if (closed) setLive(false, "closed");
   $("#close-btn").hidden = !(state.ownerToken && !closed);
 
   const total = data.totalVotes || 0;
+  const pcts = percentages(data.options.map((o) => o.count), total);
   const showResults = closed || state.myVote != null;
   const box = $("#options");
   box.innerHTML = "";
-  for (const opt of data.options) {
+  data.options.forEach((opt, i) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "option";
@@ -696,7 +725,7 @@ function render(data) {
     btn.dataset.optionId = opt.id;
     btn.disabled = closed || state.myVote != null || state.voting || !state.claimedIdentity;
     if (state.myVote === opt.id) btn.classList.add("mine");
-    const pct = total ? Math.round((opt.count / total) * 100) : 0;
+    const pct = pcts[i];
     const bar = document.createElement("span");
     bar.className = "bar";
     bar.dataset.testid = "option-bar";
@@ -734,7 +763,7 @@ function render(data) {
     btn.append(bar, txt);
     btn.onclick = () => vote(opt.id);
     box.append(btn);
-  }
+  });
 
   const tally = $("#tally");
   let tallyHtml = "<strong>" + total + "</strong> vote" + (total === 1 ? "" : "s") +
@@ -743,7 +772,7 @@ function render(data) {
   if (showResults && Array.isArray(data.voters) && data.voters.length) {
     const names = data.voters.slice(0, 3).map(v => escapeHtml(v.name));
     const extra = data.voters.length > 3 ? " +" + (data.voters.length - 3) + " more" : "";
-    tallyHtml += " — " + names.join(", ") + extra + " have voted";
+    tallyHtml += " — " + names.join(", ") + extra + (data.voters.length === 1 ? " has voted" : " have voted");
   }
   tally.innerHTML = tallyHtml;
 }
@@ -765,13 +794,13 @@ async function vote(optionId) {
     // Recover the accepted ballot after a lost response or stale tab state.
     if (res.status === 409 && body.optionId) {
       state.myVote = body.optionId;
-      sessionStorage.setItem(voteKey(state.pollId), body.optionId);
+      saveVote(state.pollId, body.optionId);
       fetchState();
       return;
     }
     if (!res.ok) throw new Error(body.error || "vote failed");
     state.myVote = optionId;
-    sessionStorage.setItem(voteKey(state.pollId), optionId);
+    saveVote(state.pollId, optionId);
     render(state.data);
     fetchState();
   } catch (e) {

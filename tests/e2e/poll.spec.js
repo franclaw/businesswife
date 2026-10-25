@@ -92,10 +92,11 @@ test.describe('Poll — voting', () => {
     await expect(page.getByTestId('tally')).toContainText(/^1 vote\b/);
   });
 
-  test('votes from a second device arrive live', async ({ page, context }) => {
+  test('votes from a second device arrive live', async ({ page, browser }) => {
     const url = await createPoll(page, 'Pick a date', ['March', 'April', 'May']);
     await page.getByTestId('option').filter({ hasText: 'March' }).first().click();
-    const other = await context.newPage();
+    const otherContext = await browser.newContext();
+    const other = await otherContext.newPage();
     await other.goto(url);
     await expect(other.getByTestId('poll-question')).toHaveText('Pick a date');
     await pickIdentity(other);
@@ -106,7 +107,7 @@ test.describe('Poll — voting', () => {
     await expect(page.getByTestId('tally')).toContainText(/^2 votes/);
     const april = page.getByTestId('option').filter({ hasText: 'April' }).first();
     await expect(april.getByTestId('option-count')).toContainText('1');
-    await other.close();
+    await otherContext.close();
   });
 
   test('seeing results locks the choice, including after reload and direct API changes', async ({ page, request }) => {
@@ -118,7 +119,7 @@ test.describe('Poll — voting', () => {
     await expect(tabs).toHaveClass(/mine/);
     await expect(spaces).toBeDisabled();
     await expect(page.getByTestId('you-chip')).toBeDisabled();
-    const voterId = await page.evaluate(() => sessionStorage.getItem('bw_poll_voter'));
+    const voterId = await page.evaluate(() => localStorage.getItem('bw_poll_voter'));
     const id = url.match(CODE_RE)[1];
     const change = await request.post(`/poll/api/polls/${id}/vote`, { data: { voterId, optionId: 'o2' } });
     expect(change.status()).toBe(409);
@@ -127,7 +128,7 @@ test.describe('Poll — voting', () => {
     await expect(spaces).toBeDisabled();
     await expect(page.getByTestId('tally')).toContainText(/^1 vote\b/);
     // Even a stale client that lost its local choice cannot switch sides.
-    await page.evaluate((id) => sessionStorage.removeItem('bw_poll_vote_' + id), id);
+    await page.evaluate((id) => localStorage.removeItem('bw_poll_vote_' + id), id);
     await page.reload();
     await expect(tabs).toHaveClass(/mine/);
     await expect(spaces).toBeDisabled();
@@ -141,7 +142,7 @@ test.describe('Poll — identity', () => {
     await expect(page.getByTestId('you-chip')).toContainText('Vivienne');
     await page.getByTestId('option').filter({ hasText: 'Croissant' }).first().click();
     await expect(page.getByTestId('option-voters').first()).toBeVisible();
-    await expect(page.getByTestId('tally')).toContainText('Vivienne have voted');
+    await expect(page.getByTestId('tally')).toContainText('Vivienne has voted');
   });
 
   test('identity is remembered on this device', async ({ page }) => {
@@ -166,9 +167,10 @@ test.describe('Poll — identity', () => {
 });
 
 test.describe('Poll — closing', () => {
-  test('creator closes the poll and voting locks', async ({ page, context }) => {
+  test('creator closes the poll and voting locks', async ({ page, browser }) => {
     const url = await createPoll(page, 'Final question', ['Left', 'Right']);
-    const other = await context.newPage();
+    const otherContext = await browser.newContext();
+    const other = await otherContext.newPage();
     await other.goto(url);
     await pickIdentity(other);
     await other.getByTestId('option').filter({ hasText: 'Left' }).first().click();
@@ -182,7 +184,12 @@ test.describe('Poll — closing', () => {
     await expect(other.getByTestId('closed-banner')).toBeVisible();
     await expect(other.getByTestId('option').first()).toBeDisabled();
     await expect(other.getByTestId('tally')).toContainText(/^1 vote\b/);
-    await other.close();
+    // a closed poll is final: the live dot goes quiet for everyone
+    for (const p of [page, other]) {
+      await expect(p.getByTestId('live-indicator')).not.toHaveClass(/\bon\b/);
+      await expect(p.getByTestId('live-indicator')).toContainText('closed');
+    }
+    await otherContext.close();
   });
 
   test('a closed poll rejects late votes', async ({ request }) => {
@@ -318,4 +325,55 @@ test('wife reservation races, direct votes, switching and per-poll scope are enf
   const state = await (await request.get(`/poll/api/polls/${id}`)).json();
   expect(state.voters[0].name.toLowerCase()).toBe('nova');
   expect(state.identities.map(i => i.name.toLowerCase()).sort()).toEqual(['another wife', 'nova']);
+});
+
+test.describe('Poll — review fixes', () => {
+  test('a new tab is the same voter: her wife and the final ballot follow', async ({ page, context }) => {
+    const url = await createPoll(page, 'Same person?', ['Yes', 'No']);
+    const chip = await page.getByTestId('you-chip').textContent();
+    await page.getByTestId('option').filter({ hasText: 'Yes' }).first().click();
+    await expect(page.getByTestId('tally')).toContainText('your vote is final');
+    const tab = await context.newPage();
+    await tab.goto(url);
+    await expect(tab.getByTestId('identity-overlay')).toBeHidden();
+    await expect(tab.getByTestId('identity-error')).toHaveText('');
+    await expect(tab.getByTestId('you-chip')).toHaveText(chip);
+    await expect(tab.getByTestId('option').filter({ hasText: 'Yes' }).first()).toHaveClass(/mine/);
+    await expect(tab.getByTestId('option').filter({ hasText: 'No' }).first()).toBeDisabled();
+    await expect(tab.getByTestId('tally')).toContainText(/^1 vote\b/);
+    await tab.close();
+  });
+
+  test('percentages always add up to 100 (largest remainder)', async ({ page, request }) => {
+    const { id } = await (await request.post('/poll/api/polls', { data: { question: 'Rounding', options: ['A', 'B', 'C'] } })).json();
+    const seed = [['o1', 'Ada'], ['o2', 'Bea'], ['o3', 'Cee'], ['o3', 'Dee'], ['o3', 'Eve']];
+    for (const [i, [optionId, name]] of seed.entries()) {
+      const r = await request.post(`/poll/api/polls/${id}/vote`, { data: { voterId: 'roundvoter' + i, optionId, name } });
+      expect(r.ok()).toBeTruthy();
+    }
+    await page.goto('/poll/' + id);
+    await pickIdentity(page);
+    await page.getByTestId('option').filter({ hasText: 'C' }).first().click();
+    await expect(page.getByTestId('tally')).toContainText(/^6 votes/);
+    const texts = await page.getByTestId('option-count').allTextContents();
+    const pcts = texts.map((t) => Number(t.match(/(\d+)%/)[1]));
+    expect(pcts.reduce((a, b) => a + b, 0)).toBe(100);
+    expect(pcts[2]).toBe(66);
+  });
+
+  test('one voter reads "has voted"', async ({ page }) => {
+    await createPoll(page, 'Grammar', ['Yes', 'No']);
+    await page.getByTestId('option').first().click();
+    await expect(page.getByTestId('tally')).toContainText(/has voted$/);
+  });
+
+  test('a custom wife keeps her subtitle after voting', async ({ request }) => {
+    const { id } = await (await request.post('/poll/api/polls', { data: { question: 'Subtitle', options: ['A', 'B'] } })).json();
+    const voterId = 'subtitlevoter1';
+    const claim = await request.post(`/poll/api/polls/${id}/identity`, { data: { voterId, name: 'Francine', icon: '💼', subtitle: 'Head of Vibes' } });
+    expect(claim.ok()).toBeTruthy();
+    await request.post(`/poll/api/polls/${id}/vote`, { data: { voterId, optionId: 'o1' } });
+    const state = await (await request.get(`/poll/api/polls/${id}`)).json();
+    expect(state.identities.find((i) => i.name === 'Francine').subtitle).toBe('Head of Vibes');
+  });
 });
