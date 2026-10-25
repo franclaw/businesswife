@@ -1,11 +1,14 @@
 {
   "name": "planning-poker",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node server.js",
     "test": "playwright test",
     "test:e2e": "playwright test",
-    "test:e2e:live": "BASE_URL=https://businesswife.nl playwright test",
+    "test:e2e:live": "E2E_LIVE=1 playwright test --grep @live",
     "lint:ui": "node scripts/lint-ui.mjs"
   },
   "devDependencies": {

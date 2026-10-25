@@ -1,6 +1,15 @@
 .git
+.github
 node_modules
 test-results
 playwright-report
+blob-report
+tests
+docs
+scripts
 data
+*.md
 *.log
+playwright.config.js
+ui-policy.json
+lintapple-report*

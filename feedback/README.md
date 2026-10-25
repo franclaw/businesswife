@@ -24,8 +24,8 @@ to vote. Backward moves preserve feedback and current vote selections.
 - Results offer category ordering by vote count or original order, an overall
   ranking, and facilitator Markdown download/copy. There is no generated report.
 - Sessions persist in the existing `DATA_DIR/state.json`, with hashed secrets,
-  atomic saves, and graceful-shutdown flushing. Feedback sessions do not expire
-  automatically; the bounded store admits up to 2,000 sessions.
+  atomic saves, and graceful-shutdown flushing. Feedback sessions expire 60 days
+  after their last change (like polls); the bounded store admits up to 2,000.
 - EventSource automatically reconnects and receives a fresh personalized
   snapshot. In-progress drafts survive live updates/reconnects in the open tab;
   offline submissions are not queued. Retrying a failed submission is manual.
