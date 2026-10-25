@@ -1,4 +1,4 @@
-// Polls and date picks survive a restart. These specs start their own server
+// Polls, date picks and poker rooms survive a restart. These specs start their own server
 // on a spare port with a throwaway data directory, so they never touch
 // BASE_URL (and never the live site).
 const { test, expect } = require('@playwright/test');
@@ -17,8 +17,7 @@ const iso = (offset) => {
 
 let nextPort = 7300 + Math.floor(Math.random() * 500);
 
-async function start(dataDir) {
-  const port = nextPort++;
+async function start(dataDir, port = nextPort++) {
   const proc = spawn(process.execPath, [SERVER], {
     env: { ...process.env, PORT: String(port), DATA_DIR: dataDir },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -35,9 +34,9 @@ async function start(dataDir) {
     proc.on('exit', () => reject(new Error('server exited: ' + log)));
   });
   const base = `http://127.0.0.1:${port}`;
-  const call = async (p, body) => {
+  const call = async (p, body, headers = {}) => {
     const res = await fetch(base + p, body === undefined ? {} : {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body),
     });
     let data = null;
     try { data = await res.json(); } catch {}
@@ -48,7 +47,7 @@ async function start(dataDir) {
     proc.on('exit', resolve);
     proc.kill(signal);
   });
-  return { base, call, stop, log: () => log };
+  return { base, port, call, stop, log: () => log };
 }
 
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'bw-data-'));
@@ -167,6 +166,75 @@ test.describe('Persistence', () => {
     const s = await start(dir);
     expect((await s.call('/dates/api/picks/abcdef')).status).toBe(404);
     expect(fs.readdirSync(dir).some((f) => f.startsWith('state.json.corrupt-'))).toBe(true);
+    await s.stop();
+  });
+
+  test('poker rooms survive a restart: round, story, votes, history and seats', async () => {
+    const dir = tmpDir();
+    let s = await start(dir);
+    const API = '/planning-poker/api/rooms';
+    const { id } = (await s.call(API, { title: 'Sprint 42 refinement' })).data;
+    const host = (await s.call(`${API}/${id}/join`, { name: 'The Executive', icon: '💼' })).data;
+    const guest = (await s.call(`${API}/${id}/join`, { name: 'The Closer', icon: '👠' })).data;
+    const as = (seat) => ({ 'X-Seat-Secret': seat.secret });
+    await s.call(`${API}/${id}/question`, { question: 'PROJ-1 Login' }, as(host));
+    await s.call(`${API}/${id}/vote`, { value: '5' }, as(host));
+    await s.call(`${API}/${id}/vote`, { value: '8' }, as(guest));
+    await s.call(`${API}/${id}/reveal`, {}, as(guest));
+    await s.call(`${API}/${id}/next`, {}, as(host));
+    await s.call(`${API}/${id}/question`, { question: 'PROJ-2 Export' }, as(host));
+    await s.call(`${API}/${id}/vote`, { value: '3' }, as(guest));
+    await s.stop();
+
+    const raw = fs.readFileSync(stateFile(dir), 'utf8');
+    expect(raw).toContain('Sprint 42 refinement');
+    for (const secret of [host.secret, guest.secret]) expect(raw).not.toContain(secret);
+
+    s = await start(dir);
+    const state = (await s.call(`${API}/${id}/state`)).data;
+    expect(state).toMatchObject({ title: 'Sprint 42 refinement', round: 2, phase: 'voting', question: 'PROJ-2 Export', hostId: host.id });
+    expect(state.history).toHaveLength(1);
+    expect(state.history[0]).toMatchObject({ question: 'PROJ-1 Login', summary: { median: 6.5, count: 2 } });
+    expect(state.players.map((p) => [p.name, p.hasVoted, p.vote])).toEqual(expect.arrayContaining([
+      ['The Executive', false, null], ['The Closer', true, '🔒'],
+    ]));
+    // The old seat secrets still work: no rejoin needed after a deploy.
+    expect((await s.call(`${API}/${id}/vote`, { value: '5' }, as(host))).status).toBe(200);
+    expect((await s.call(`${API}/${id}/reveal`, {}, as(host))).data.summary.median).toBe(4);
+    expect((await s.call(`${API}/${id}/vote`, { value: '5' }, { 'X-Seat-Secret': 'not-a-seat-secret' })).status).toBe(401);
+    await s.stop();
+  });
+
+  test('poker rooms expire after a day without activity', async () => {
+    const dir = tmpDir();
+    const t = Date.now();
+    const room = (id, idleHours) => ({ id, title: id, round: 1, phase: 'lobby', question: '', hostId: null, locked: false, history: [], players: [], updatedAt: t - idleHours * 3_600_000 });
+    fs.writeFileSync(stateFile(dir), JSON.stringify({ version: 1, rooms: [room('room25', 25), room('room23', 23)] }));
+    const s = await start(dir);
+    expect((await s.call('/planning-poker/api/rooms/room25')).status).toBe(404);
+    expect((await s.call('/planning-poker/api/rooms/room23')).data).toMatchObject({ exists: true, title: 'room23' });
+    await s.stop();
+  });
+
+  test('an open boardroom keeps working through a server restart', async ({ page }) => {
+    const dir = tmpDir();
+    let s = await start(dir);
+    await page.goto(s.base + '/planning-poker');
+    await page.getByTestId('create-btn').click();
+    await page.locator('[data-testid="pick"][data-first="Charlotte"]').click();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await page.getByTestId('question').fill('Survives a deploy');
+    await page.getByTestId('question').blur();
+    const id = page.url().split('/').pop();
+    await expect.poll(async () => (await s.call(`/planning-poker/api/rooms/${id}/state`)).data.question).toBe('Survives a deploy');
+    await s.stop();
+    s = await start(dir, s.port);
+    // The page reconnects on its own and its seat is still valid.
+    await page.getByTestId('card').filter({ hasText: /^5$/ }).click();
+    await expect(page.getByTestId('hand')).toHaveClass(/compact/);
+    await expect.poll(async () => (await s.call(`/planning-poker/api/rooms/${id}/state`)).data.players[0].hasVoted).toBe(true);
+    await expect(page.getByTestId('question')).toHaveValue('Survives a deploy');
     await s.stop();
   });
 });

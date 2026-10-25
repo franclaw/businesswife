@@ -2,7 +2,7 @@
 // Business Wife hub — planning poker, pomodoro, poll and date picker.
 // Zero runtime dependencies. This file only wires the pieces together:
 //   lib/pages   static pages and assets
-//   lib/poker   planning poker rooms (in memory)
+//   lib/poker   planning poker rooms (persisted, 24 h idle expiry)
 //   lib/polls   polls (persisted)
 //   lib/dates   date picks (persisted)
 //   lib/feedback   feedback & voting sessions (persisted)
@@ -25,7 +25,7 @@ const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 
 const store = createStore(DATA_DIR);
-const poker = createPoker();
+const poker = createPoker(store);
 const polls = createPolls(store);
 const pages = createPages(ROOT, { pollTitle: polls.title, pokerTitle: poker.title });
 const dates = createDates(store);
