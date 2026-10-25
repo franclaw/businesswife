@@ -680,7 +680,23 @@ function render(s) {
     document.querySelectorAll(".poker-card").forEach(b =>
       b.classList.toggle("sel", b.dataset.v === (localStorage.getItem("sbw_myvote") || "")));
   }
+  syncHand(s, me);
   renderActor(s);
+}
+
+// The hand shrinks once you have played or the cards are revealed, so the
+// table, the revealed votes and the median always stay in view.
+function syncHand(s, me) {
+  const hand = $("playCard");
+  const revealed = s.phase === "revealed";
+  const played = !!(me && me.hasVoted);
+  const compact = revealed || played;
+  hand.classList.toggle("compact", compact);
+  hand.classList.toggle("revealed", revealed);
+  hand.classList.toggle("docked", !compact);
+  const pick = localStorage.getItem("sbw_myvote") || (revealed && me && me.vote && me.vote !== "🔒" ? me.vote : "");
+  $("handPick").textContent = played && pick ? "· " + pick : "";
+  document.querySelectorAll(".poker-card").forEach((b) => { b.disabled = revealed; });
 }
 
 // --- Who did that ---

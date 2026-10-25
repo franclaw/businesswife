@@ -21,8 +21,13 @@ for (const width of [1280, 390]) {
     await page.locator('.player img').evaluateAll(imgs => Promise.all(imgs.map(img => img.decode())));
 
     for (const phase of ['voting', 'revealed']) {
-      if (phase === 'revealed') await page.getByTestId('reveal-btn').click();
-      const cards = await page.locator('.player').evaluateAll(els => els.map(el => {
+      if (phase === 'revealed') {
+        await page.getByTestId('reveal-btn').click();
+        await expect(page.getByTestId('revote-btn')).toBeVisible();
+      }
+      // Query and measure in one synchronous step: the table re-renders on
+      // every live update, so handles resolved earlier may already be detached.
+      const cards = await page.evaluate(() => [...document.querySelectorAll('.player')].map(el => {
         const rect = e => {
           const r = e.getBoundingClientRect();
           return { top: r.top, bottom: r.bottom, width: r.width, height: r.height };
@@ -54,5 +59,51 @@ for (const width of [1280, 390]) {
         expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(0.1);
       }
     }
+  });
+}
+
+for (const width of [390, 1280]) {
+  test(`the hand never covers seats, votes or the median at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/planning-poker');
+    await expect(page.locator('.sub-room')).toBeVisible(); // tagline belongs to the lobby
+    await page.getByTestId('create-btn').click();
+    await page.locator('[data-testid="pick"][data-first="Charlotte"]').click();
+    await page.getByTestId('join-btn').click();
+    await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.locator('.sub-room')).toBeHidden(); // …not to a room
+    const api = '/planning-poker/api/rooms/' + page.url().split('/').pop();
+    for (const [name, icon, value] of [['The Closer', '👠', '5'], ['Champagne CFO', '🥂', '8'], ['Head of HR', '🗂️', '5'], ['The Merger', '💍', '3']]) {
+      const { secret } = await (await request.post(api + '/join', { data: { name, icon } })).json();
+      await request.post(api + '/vote', { data: { value }, headers: { 'X-Seat-Secret': secret } });
+    }
+    await expect(page.locator('.player')).toHaveCount(5);
+    const hand = page.getByTestId('hand');
+    await expect(hand).not.toHaveClass(/compact/);
+    await page.getByTestId('card').filter({ hasText: /^8$/ }).click();
+    await expect(hand).toHaveClass(/compact/);
+    await expect(hand).toContainText('· 8');
+    await page.getByTestId('reveal-btn').click();
+    await expect(page.getByTestId('vote-summary')).toBeVisible();
+    await expect(hand).toHaveClass(/revealed/);
+    await expect(page.getByTestId('card').first()).toBeDisabled();
+    // Scroll through the whole page: the hand must never sit on top of a seat
+    // or the summary.
+    const overlaps = await page.evaluate(async () => {
+      const hits = [];
+      const handEl = document.querySelector('[data-testid=hand]');
+      const targets = [...document.querySelectorAll('.player, [data-testid=vote-summary]')];
+      for (let y = 0; y <= document.documentElement.scrollHeight; y += 120) {
+        window.scrollTo(0, y);
+        await new Promise((r) => requestAnimationFrame(() => r()));
+        const h = handEl.getBoundingClientRect();
+        for (const t of targets) {
+          const r = t.getBoundingClientRect();
+          if (r.bottom > h.top + 1 && r.top < h.bottom - 1 && r.right > h.left && r.left < h.right) hits.push(y);
+        }
+      }
+      return hits;
+    });
+    expect(overlaps).toEqual([]);
   });
 }
