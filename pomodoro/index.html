@@ -37,11 +37,9 @@
     border-radius: 14px;
     padding: 28px 22px 24px;
     text-align: center;
-    flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-height: min(70dvh, 560px);
   }
   .mode {
     font-size: 0.75rem;
@@ -141,6 +139,32 @@
     font-size: 0.95rem;
     text-align: center;
   }
+  .controls .bell {
+    min-width: 0;
+    width: 50px;
+    padding: 0;
+    font-size: 1.05rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bell[aria-pressed="true"] { color: var(--gold); border-color: rgba(201, 162, 39, 0.5); }
+  .bell.blocked { opacity: 0.55; }
+  .bell svg { width: 18px; height: 18px; }
+  .ask {
+    margin: 18px auto 0;
+    max-width: 34ch;
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
+  .ask .row { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+  .ask button { min-width: 0; padding: 8px 14px; font-size: 0.82rem; }
+  .note { margin-top: 14px; color: var(--faint); font-size: 0.78rem; min-height: 1.2em; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
   .install-hint {
     margin-top: 22px;
     color: var(--faint);
@@ -162,12 +186,22 @@
 
   <div class="panel">
     <div class="mode focus" id="modeLabel">Focus</div>
-    <div class="digits" id="digits" aria-live="polite">25:00</div>
+    <div class="digits" id="digits" data-testid="digits">25:00</div>
+    <p class="sr-only" id="announce" role="status"></p>
     <div class="sessions">Sessions closed: <strong id="sessionCount">0</strong></div>
     <div class="controls">
       <button class="primary" id="toggleBtn" type="button">Start</button>
       <button class="ghost" id="resetBtn" type="button">Reset</button>
+      <button class="ghost bell" id="bellBtn" data-testid="bell" type="button" aria-pressed="false" aria-label="Notify me when a block ends" title="Notify me when a block ends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
     </div>
+    <div class="ask" id="ask" data-testid="notify-ask" hidden>
+      Want a quiet notification when this block ends, even in another tab?
+      <div class="row">
+        <button class="primary" type="button" id="askYes" data-testid="notify-yes">Notify me</button>
+        <button class="ghost" type="button" id="askNo" data-testid="notify-no">Not now</button>
+      </div>
+    </div>
+    <p class="note" id="note" data-testid="notify-note"></p>
     <div class="presets" role="group" aria-label="Presets">
       <button type="button" data-focus="25" data-break="5" class="on">25 / 5</button>
       <button type="button" data-focus="15" data-break="3">15 / 3</button>
@@ -179,7 +213,7 @@
       <label>Break <input id="customBreak" type="number" min="1" max="60" value="5"> min</label>
       <button class="ghost" type="button" id="applyCustom" style="min-width:0;padding:8px 12px;font-size:0.82rem">Apply</button>
     </div>
-    <p class="install-hint">Android: Chrome → menu → Install app / Add to Home screen. Works offline once installed.</p>
+    <p class="install-hint">Install her from your browser menu to keep her on your home screen. Works offline.</p>
   </div>
 
 <script>
@@ -206,13 +240,7 @@ function load() {
     const raw = JSON.parse(localStorage.getItem(KEY) || "null");
     if (!raw) return defaults();
     const s = Object.assign(defaults(), raw);
-    if (s.running && s.endsAt) {
-      s.remainingMs = Math.max(0, s.endsAt - Date.now());
-      if (s.remainingMs === 0) {
-        s.running = false;
-        s.endsAt = null;
-      }
-    }
+    if (s.running && s.endsAt) s.remainingMs = Math.max(0, s.endsAt - Date.now());
     return s;
   } catch {
     return defaults();
@@ -238,7 +266,19 @@ function fmt(ms) {
   return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
 }
 
+// The tab title carries the countdown, so the clock is readable from any tab.
+const BASE_TITLE = "Pomodoro — Business Wife";
+let doneTitle = null;
+function paintTitle() {
+  if (doneTitle) { document.title = doneTitle; return; }
+  const label = state.mode === "focus" ? "Focus" : "Break";
+  if (state.running) document.title = fmt(state.remainingMs) + " · " + label + " — Pomodoro";
+  else if (state.remainingMs < durationMs()) document.title = "Paused " + fmt(state.remainingMs) + " — Pomodoro";
+  else document.title = BASE_TITLE;
+}
+
 function paint() {
+  paintTitle();
   $("digits").textContent = fmt(state.remainingMs);
   $("sessionCount").textContent = String(state.sessions);
   const label = $("modeLabel");
@@ -273,8 +313,87 @@ function beep() {
   try { if (navigator.vibrate) navigator.vibrate([80, 40, 80]); } catch {}
 }
 
-function completeBlock() {
-  beep();
+// ---------- notifications ----------
+// Opt-in only: nothing is asked on load. The first Start offers a quiet
+// "Notify me"; the bell toggles it afterwards. Without permission (denied or
+// unsupported) she still chimes and the tab title says the block is over.
+const NOTIFY_KEY = "bw_pomodoro_notify"; // "on" | "off" | null (never asked)
+const canNotify = () => "Notification" in window;
+const permission = () => (canNotify() ? Notification.permission : "unsupported");
+function notifyPref() { try { return localStorage.getItem(NOTIFY_KEY); } catch { return null; } }
+function setNotifyPref(v) { try { localStorage.setItem(NOTIFY_KEY, v); } catch {} paintBell(); }
+const notifyOn = () => notifyPref() === "on" && permission() === "granted";
+
+function paintBell() {
+  const bell = $("bellBtn");
+  const on = notifyOn();
+  const blocked = permission() === "denied" || permission() === "unsupported";
+  bell.setAttribute("aria-pressed", String(on));
+  bell.classList.toggle("blocked", blocked);
+  const label = blocked
+    ? "Notifications are unavailable here; she will chime and show it in the tab title"
+    : on ? "Notifications on — tap to turn off" : "Notify me when a block ends";
+  bell.title = label;
+  bell.setAttribute("aria-label", label);
+}
+
+function say(text) {
+  $("note").textContent = text;
+}
+
+async function askPermission() {
+  $("ask").hidden = true;
+  if (!canNotify()) { setNotifyPref("off"); say("This browser can't notify. She'll chime and update the tab title instead."); return; }
+  let result = Notification.permission;
+  if (result === "default") {
+    try { result = await Notification.requestPermission(); } catch { result = Notification.permission; }
+  }
+  if (result === "granted") { setNotifyPref("on"); say("She'll let you know when the block ends."); }
+  else { setNotifyPref("off"); say("No notifications, then. She'll chime and show it in the tab title."); }
+}
+
+function maybeOfferNotifications() {
+  if (notifyPref() !== null || !canNotify() || permission() === "denied") return;
+  if (permission() === "granted") { setNotifyPref("on"); return; }
+  $("ask").hidden = false;
+}
+
+async function showNotification(title, body) {
+  const opts = { body, tag: "bw-pomodoro", renotify: true, icon: "/pomodoro/icons/icon-192.png", badge: "/favicon.png" };
+  // The service worker's showNotification also works from a background tab
+  // and on Android, where `new Notification()` is not allowed.
+  try {
+    const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration("/pomodoro/") : null;
+    if (reg && typeof reg.showNotification === "function") { await reg.showNotification(title, opts); return true; }
+  } catch {}
+  try { new Notification(title, opts); return true; } catch { return false; }
+}
+
+function announceEnd(endedMode) {
+  const next = state.mode === "focus" ? state.focusMin : state.breakMin;
+  const title = endedMode === "focus" ? "Focus block closed." : "Break's over.";
+  const body = endedMode === "focus"
+    ? "Take " + next + " minutes. Start the break when you're ready."
+    : "Back to it — " + next + " minutes on the clock when you're ready.";
+  $("announce").textContent = title + " " + body;
+  if (document.visibilityState !== "visible") {
+    doneTitle = "✓ " + title + " — Pomodoro";
+    paintTitle();
+  }
+  if (notifyOn() && document.visibilityState !== "visible") showNotification(title, body);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    doneTitle = null;
+    tick();
+    paint();
+  }
+});
+
+function completeBlock(quiet) {
+  const ended = state.mode;
+  if (!quiet) beep();
   if (state.mode === "focus") {
     state.sessions += 1;
     state.mode = "break";
@@ -286,16 +405,30 @@ function completeBlock() {
   state.running = false;
   state.endsAt = null;
   save();
+  if (!quiet) announceEnd(ended);
   paint();
+}
+
+// Time is always endsAt − now. The 250 ms interval only repaints (browsers
+// throttle it in background tabs); a single timeout aimed at endsAt ends the
+// block on time, and coming back to the tab catches up at once.
+let endTimer = null;
+function stopTimers() {
+  if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  if (endTimer) { clearTimeout(endTimer); endTimer = null; }
+}
+function startTimers() {
+  stopTimers();
+  tickTimer = setInterval(tick, 250);
+  endTimer = setTimeout(tick, Math.max(0, state.endsAt - Date.now()) + 20);
 }
 
 function tick() {
   if (!state.running || !state.endsAt) return;
   state.remainingMs = Math.max(0, state.endsAt - Date.now());
   if (state.remainingMs <= 0) {
-    clearInterval(tickTimer);
-    tickTimer = null;
-    completeBlock();
+    stopTimers();
+    completeBlock(false);
     return;
   }
   paint();
@@ -303,12 +436,13 @@ function tick() {
 
 function start() {
   if (state.remainingMs <= 0) state.remainingMs = durationMs();
+  doneTitle = null;
   state.running = true;
   state.endsAt = Date.now() + state.remainingMs;
   save();
   paint();
-  if (tickTimer) clearInterval(tickTimer);
-  tickTimer = setInterval(tick, 250);
+  startTimers();
+  maybeOfferNotifications();
 }
 
 function pause() {
@@ -319,7 +453,7 @@ function pause() {
   state.endsAt = null;
   save();
   paint();
-  if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  stopTimers();
 }
 
 function reset() {
@@ -341,6 +475,14 @@ function setPreset(f, b) {
 }
 
 $("toggleBtn").onclick = () => state.running ? pause() : start();
+$("askYes").onclick = askPermission;
+$("askNo").onclick = () => { $("ask").hidden = true; setNotifyPref("off"); say("Fine. The bell turns it on later."); };
+$("bellBtn").onclick = () => {
+  if (notifyOn()) { setNotifyPref("off"); say("Notifications off."); return; }
+  if (permission() === "denied") { say("Notifications are blocked in this browser's site settings. She'll chime and show it in the tab title."); return; }
+  if (permission() === "unsupported") { say("This browser can't notify. She'll chime and show it in the tab title."); return; }
+  askPermission();
+};
 $("resetBtn").onclick = reset;
 
 document.querySelectorAll(".presets [data-focus]").forEach((b) => {
@@ -360,11 +502,13 @@ $("applyCustom").onclick = () => {
   setPreset(f, b);
 };
 
-paint();
-if (state.running) {
-  tickTimer = setInterval(tick, 250);
-  tick();
+paintBell();
+if (state.running && state.endsAt && state.endsAt <= Date.now()) {
+  // The block ended while the page was closed: move on quietly.
+  completeBlock(true);
 }
+paint();
+if (state.running) startTimers();
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/pomodoro/sw.js", { scope: "/pomodoro/" }).catch(() => {});
