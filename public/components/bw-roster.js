@@ -21,8 +21,8 @@ window.BW_ROSTER = [
   { icon: "🧾", name: "Expense Account", first: "Tamara", img: "/img/expense.png" },
 ];
 
-/** /img/x.png -> /img/thumb/x.jpg; anything else unchanged. */
+/** /img/x.png -> /img/thumb/x.jpg; anything else (uploads at /img/u/…) unchanged. */
 window.bwThumb = function (src) {
-  if (!src || !String(src).startsWith("/img/") || String(src).startsWith("/img/thumb/")) return src;
+  if (!src || !/^\/img\/[a-z0-9-]+\.png$/.test(String(src))) return src;
   return String(src).replace("/img/", "/img/thumb/").replace(/\.png$/, ".jpg");
 };

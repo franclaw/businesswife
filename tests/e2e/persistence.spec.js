@@ -3,6 +3,7 @@
 // BASE_URL (and never the live site).
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
+const path = require('path');
 const { start, tmpDir, stateFile, iso, DAY } = require('../support/server');
 
 test.describe('Persistence', () => {
@@ -154,6 +155,47 @@ test.describe('Persistence', () => {
     expect((await s.call(`${API}/${id}/vote`, { value: '5' }, as(host))).status).toBe(200);
     expect((await s.call(`${API}/${id}/reveal`, {}, as(host))).data.summary.median).toBe(4);
     expect((await s.call(`${API}/${id}/vote`, { value: '5' }, { 'X-Seat-Secret': 'not-a-seat-secret' })).status).toBe(401);
+    await s.stop();
+  });
+
+  test('stored data-URL pictures move to /img/u links on load; unused ones are swept', async () => {
+    const dir = tmpDir();
+    const t = Date.now();
+    const pic = 'data:image/png;base64,' + Buffer.from('legacy upload bytes').toString('base64');
+    const player = { id: 'p1', secretHash: 'x'.repeat(64), name: 'Nova', icon: pic, raw: true, role: 'player', subtitle: '', vote: null, revealed: false };
+    fs.writeFileSync(stateFile(dir), JSON.stringify({ version: 1, rooms: [{ id: 'pic001', title: 'Pictures', round: 1, phase: 'lobby', question: '', hostId: 'p1', locked: false, history: [], players: [player], updatedAt: t }] }));
+    const s = await start(dir);
+    const state = (await s.call('/planning-poker/api/rooms/pic001/state')).data;
+    const icon = state.players[0].icon;
+    expect(icon).toMatch(/^\/img\/u\/[a-f0-9]{32}\.png$/);
+    expect(state.players[0].raw).toBe(true);
+    const res = await fetch(s.base + icon);
+    expect(Buffer.from(await res.arrayBuffer()).toString()).toBe('legacy upload bytes');
+    await s.stop();
+
+    // The sweep keeps what is referenced and deletes the rest (after a grace period).
+    const { createUploads } = require('../../lib/icons');
+    const uploads = createUploads(dir);
+    const orphan = uploads.intake('data:image/png;base64,' + Buffer.from('orphan').toString('base64'));
+    expect(uploads.sweep(new Set([icon]), 0)).toBe(1);
+    expect(fs.existsSync(path.join(dir, 'uploads', icon.split('/').pop()))).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'uploads', orphan.split('/').pop()))).toBe(false);
+    // A link whose picture is gone falls back to a neutral emoji instead of a broken image.
+    expect(uploads.intake(orphan)).toBe('👤');
+  });
+
+  test('a poker rejoin cannot rename a seat onto another seat', async () => {
+    const s = await start(tmpDir());
+    const API = '/planning-poker/api/rooms';
+    const { id } = (await s.call(API, { title: 'Names' })).data;
+    await s.call(`${API}/${id}/join`, { name: 'Coco', icon: '👠' });
+    const margot = (await s.call(`${API}/${id}/join`, { name: 'Margot', icon: '📊' })).data;
+    const again = await s.call(`${API}/${id}/join`, { name: 'coco', icon: '📊' }, { 'X-Seat-Secret': margot.secret });
+    expect(again.status).toBe(200);
+    expect((await s.call(`${API}/${id}/state`)).data.players.map((p) => p.name).sort()).toEqual(['Coco', 'Margot']);
+    // A free name is still taken over on rejoin.
+    await s.call(`${API}/${id}/join`, { name: 'Margot B', icon: '📊' }, { 'X-Seat-Secret': margot.secret });
+    expect((await s.call(`${API}/${id}/state`)).data.players.map((p) => p.name).sort()).toEqual(['Coco', 'Margot B']);
     await s.stop();
   });
 

@@ -376,6 +376,7 @@ function escapeHtml(x) {
 function usableIcon(icon) {
   if (!icon) return false;
   if (/^\/img\/[a-z0-9-]+\.png$/.test(icon)) return true;
+  if (/^\/img\/u\/[a-f0-9]{32}\.(png|jpg|webp)$/.test(icon)) return true;
   if (/^data:image\//.test(icon)) return icon.length <= 20000;
   return !/[:/]/.test(icon) && [...icon].length <= 8;
 }
@@ -436,7 +437,8 @@ async function useIdentity(v, restoring = false) {
       saveVote(state.pollId, body.optionId);
     }
     state.claimedIdentity = body.identity;
-    setIdentity(body.identity);
+    // The server shares uploads as a link; this device keeps the picture itself.
+    setIdentity(/^data:image\//.test(v.icon || "") && /^\/img\/u\//.test(body.identity.icon || "") ? { ...body.identity, icon: v.icon } : body.identity);
     syncTaken();
     $("#id-overlay").hidden = true;
   } catch (e) {

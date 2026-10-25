@@ -1,4 +1,13 @@
 const { test, expect } = require('@playwright/test');
+const crypto = require('crypto');
+
+// Uploads travel as data URLs but are stored once and broadcast as a
+// content-addressed link; local-only views (preview, saved cards) keep the data.
+function linkFor(dataUrl) {
+  const [, type, b64] = /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(dataUrl);
+  const hash = crypto.createHash('sha256').update(Buffer.from(b64, 'base64')).digest('hex').slice(0, 32);
+  return `/img/u/${hash}.${type === 'jpeg' ? 'jpg' : type}`;
+}
 
 // Uploads are stored RAW (no baked frame) and the frame is painted over them
 // in the frontend via .bw-framed. A flat blue upload makes that unambiguous:
@@ -48,7 +57,7 @@ test('upload stores the raw photo and the frontend frames preview, seat and save
   await expect(page.getByTestId('custom-preview').locator('.bw-framed img')).toHaveCount(1);
   await page.getByTestId('join-btn').click();
   await expect(page.getByTestId('game-screen')).toBeVisible();
-  await expect(page.locator('.player.me .bw-framed img.pic')).toHaveAttribute('src', src);
+  await expect(page.locator('.player.me .bw-framed img.pic')).toHaveAttribute('src', linkFor(src));
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sbw_custom_wives')));
   await page.goto('/planning-poker'); await page.getByTestId('create-btn').click();
   const saved = page.getByTestId('saved-pick'); await expect(saved).toHaveCount(1);
@@ -56,7 +65,7 @@ test('upload stores the raw photo and the frontend frames preview, seat and save
   await expect(saved.locator('.bw-framed img')).toHaveCount(1);
   await saved.click(); await page.getByTestId('join-btn').click();
   await expect(page.getByTestId('game-screen')).toBeVisible();
-  await expect(page.locator('.player.me .bw-framed img.pic')).toHaveAttribute('src', src);
+  await expect(page.locator('.player.me .bw-framed img.pic')).toHaveAttribute('src', linkFor(src));
   expect(Array.isArray(stored)).toBe(true);
 });
 
@@ -79,7 +88,7 @@ test('legacy saved uploads keep their baked frame and get no overlay', async ({ 
   await expect(saved.locator('.bw-framed')).toHaveCount(0);      // no double frame
   await saved.click(); await page.getByTestId('join-btn').click();
   await expect(page.getByTestId('game-screen')).toBeVisible();
-  await expect(page.locator('.player.me img.pic')).toHaveAttribute('src', legacy);
+  await expect(page.locator('.player.me img.pic')).toHaveAttribute('src', linkFor(legacy));
   await expect(page.locator('.player.me .bw-framed')).toHaveCount(0);
 });
 
@@ -99,7 +108,7 @@ test('poll stores the raw upload and frames the chip, the vote state and voter c
   await expect.poll(async () => {
     const state = await (await request.get('/poll/api/polls/' + r.id)).json();
     const voter = state.voters && state.voters[0];
-    return voter && voter.icon === src && voter.raw === true;
+    return voter && voter.icon === linkFor(src) && voter.raw === true;
   }).toBe(true);
   await expect(page.getByTestId('option-voters').locator('.bw-framed img')).toHaveCount(1);
 });
@@ -155,7 +164,7 @@ test('an uploaded poker wife is selectable in polls with her subtitle and frame'
   await expect(saved.locator('.bw-framed img')).toHaveAttribute('src', src);
   await saved.click();
   await page.getByTestId('option').first().click();
-  await expect(page.getByTestId('option-voters').locator('.bw-framed img')).toHaveAttribute('src', src);
+  await expect(page.getByTestId('option-voters').locator('.bw-framed img')).toHaveAttribute('src', linkFor(src));
 });
 
 test('a poll upload appears in an already-open poker tab without re-uploading', async ({ page, context, request }) => {
@@ -175,7 +184,7 @@ test('a poll upload appears in an already-open poker tab without re-uploading', 
   await expect(saved.locator('.bw-framed img')).toHaveAttribute('src', src);
   await saved.click();
   await page.getByTestId('join-btn').click();
-  await expect(page.locator('.player.me .bw-framed img')).toHaveAttribute('src', src);
+  await expect(page.locator('.player.me .bw-framed img')).toHaveAttribute('src', linkFor(src));
 });
 
 test('old poll and poker libraries merge once; newer duplicates win and removal is shared', async ({ page, request }) => {
@@ -216,4 +225,22 @@ test('the shared upload tile remains selectable after browsing stock avatars', a
   await tile.click();
   await expect(tile).toHaveClass(/sel/);
   await expect(page.getByTestId('custom-preview').locator('.bw-framed img')).toHaveAttribute('src', src);
+});
+
+test('an upload is stored once and served by link with the same bytes', async ({ request }) => {
+  const r = await (await request.post('/poll/api/polls', { data: { question: 'Linked pictures', options: ['Yes', 'No'] } })).json();
+  const poll = await (await request.get('/poll/api/polls/' + r.id)).json();
+  const pic = 'data:image/jpeg;base64,' + Buffer.from('not really a jpeg, just bytes ' + Date.now()).toString('base64');
+  for (const voterId of ['link-voter-1', 'link-voter-2']) {
+    expect((await request.post('/poll/api/polls/' + r.id + '/vote', { data: { voterId, optionId: poll.options[0].id, name: voterId, icon: pic, raw: true } })).ok()).toBeTruthy();
+  }
+  const state = await (await request.get('/poll/api/polls/' + r.id)).json();
+  expect(state.voters.map((v) => v.icon)).toEqual([linkFor(pic), linkFor(pic)]);
+  expect(JSON.stringify(state)).not.toContain('base64');
+  const img = await request.get(linkFor(pic));
+  expect(img.headers()['content-type']).toBe('image/jpeg');
+  expect(img.headers()['cache-control']).toContain('immutable');
+  expect((await img.body()).toString('base64')).toBe(pic.split(',')[1]);
+  expect((await request.get('/img/u/' + 'f'.repeat(32) + '.jpg')).status()).toBe(404);
+  expect((await request.get('/img/u/../state.json')).status()).not.toBe(200);
 });

@@ -10,6 +10,7 @@
 //   lib/sse     server-sent event streams
 //   lib/http    bodies, JSON replies, static files
 //   lib/ratelimit  per-IP limit on the create endpoints
+//   lib/icons      picture rules; uploads stored once, served as /img/u/<hash>
 //   lib/security   CSP and other security headers on every response
 const http = require('http');
 const path = require('path');
@@ -23,14 +24,16 @@ const { createDates } = require('./lib/dates');
 const { createFeedback } = require('./lib/feedback');
 const { createRateLimit } = require('./lib/ratelimit');
 const { createSecurity } = require('./lib/security');
+const { createUploads } = require('./lib/icons');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 6969;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 
 const store = createStore(DATA_DIR);
-const poker = createPoker(store);
-const polls = createPolls(store);
+const uploads = createUploads(DATA_DIR);
+const poker = createPoker(store, uploads);
+const polls = createPolls(store, uploads);
 const pages = createPages(ROOT, { pollTitle: polls.title, pokerTitle: poker.title });
 const dates = createDates(store);
 const feedback = createFeedback(store);
@@ -39,7 +42,10 @@ const security = createSecurity(ROOT);
 
 sse.keepAlive(() => [...poker.listeners(), ...polls.listeners(), ...dates.listeners(), ...feedback.listeners()]);
 
-const handlers = [pages, polls, dates, feedback, poker];
+const handlers = [uploads, pages, polls, dates, feedback, poker];
+
+// Uploaded pictures live as long as a room or poll still shows them.
+setInterval(() => uploads.sweep(new Set([...poker.iconsInUse(), ...polls.iconsInUse()])), 3_600_000).unref();
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');

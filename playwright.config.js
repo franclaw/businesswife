@@ -41,6 +41,7 @@ module.exports = defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     // Phone-sized Chromium (touch, 390px wide): every flow must work one-handed.
-    { name: 'phone', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } } },
+    // API/restart specs have no UI, so they run once (desktop).
+    { name: 'phone', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } }, testIgnore: /(persistence|server)\.spec\.js$/ },
   ],
 });
