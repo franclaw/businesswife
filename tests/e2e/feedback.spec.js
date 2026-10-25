@@ -1,8 +1,6 @@
 const { test, expect } = require('@playwright/test');
-const { spawn } = require('child_process');
 const fs = require('fs');
-const os = require('os');
-const path = require('path');
+const { start, tmpDir, stateFile } = require('../support/server');
 
 async function create(request, votes = 3) {
   const res = await request.post('/feedback/api/sessions', { data: { title: 'Project evaluation', categories: ['Wins', 'Challenges', 'Learning'], votesPerParticipant: votes } });
@@ -12,7 +10,7 @@ async function create(request, votes = 3) {
 }
 const post = (request, room, sub, data) => request.post(room.api + sub, { data });
 const move = async (request, room, state) => expect((await post(request, room, '/state', { facilitatorToken: room.facilitatorToken, state })).ok()).toBeTruthy();
-const get = async (request, room, participantId, facilitatorToken) => (await request.get(room.api, { params: { participantId, ...(facilitatorToken ? { facilitatorToken } : {}) } })).json();
+const get = async (request, room, participantId, facilitatorToken) => (await request.get(room.api, { params: { participantId }, headers: facilitatorToken ? { 'X-Facilitator-Token': facilitatorToken } : {} })).json();
 const add = async (request, room, participantId, text, categoryId = 'c1') => {
   const res = await post(request, room, '/items', { participantId, categoryId, text });
   expect(res.ok()).toBeTruthy(); return (await res.json()).item.id;
@@ -94,7 +92,7 @@ test('mobile eight-person session: create, collect, merge, vote, abstain, export
   for (let i = 1; i <= 3; i++) await page.getByLabel('Question ' + i, { exact: true }).fill(['Wins', 'Challenges', 'Learning'][i - 1]);
   await page.getByRole('button', { name: 'Remove question 4' }).click();
   await page.getByRole('button', { name: 'Create session', exact: true }).click();
-  await expect(page).toHaveURL(/facilitator#token=/);
+  await expect(page).toHaveURL(/\/facilitator$/); // token kept on device, not on screen
   await expect(page.getByRole('heading', { name: 'Collecting', exact: true })).toBeVisible();
   await page.getByText('Share & facilitator link').click();
   const participantLink = await page.getByLabel('Participant link', { exact: true }).inputValue();
@@ -160,6 +158,25 @@ test('mobile eight-person session: create, collect, merge, vote, abstain, export
   } finally { await Promise.all(contexts.map((c) => c.close())); }
 });
 
+test('the facilitator token never travels in a URL', async ({ page, request }) => {
+  const r = await create(request);
+  const urls = [];
+  page.on('request', (req) => urls.push(req.url()));
+  await page.goto(`/feedback/${r.id}/facilitator#token=${encodeURIComponent(r.facilitatorToken)}`);
+  await expect(page.locator('#connection')).toHaveText('Live · connected');
+  await expect(page.getByRole('button', { name: 'Reveal feedback', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/feedback/${r.id}/facilitator$`));
+  // A live update keeps the facilitator controls even though the stream is anonymous.
+  await page.locator('#draft-c1').fill('From the facilitator');
+  await page.locator('[data-submit="c1"]').getByRole('button', { name: 'Add feedback' }).click();
+  await expect(page.locator('.item')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Reveal feedback', exact: true })).toBeVisible();
+  expect(urls.filter((u) => u.includes(r.facilitatorToken))).toEqual([]);
+  // Reopening from history works without the fragment (token kept on this device).
+  await page.goto(`/feedback/${r.id}/facilitator`);
+  await expect(page.getByRole('button', { name: 'Reveal feedback', exact: true })).toBeVisible();
+});
+
 test('automatic SSE reconnection keeps drafts and catches up after offline', async ({ page, context, request }) => {
   const r = await create(request); await page.goto('/feedback/' + r.id);
   await expect(page.locator('#connection')).toHaveText('Live · connected');
@@ -173,41 +190,31 @@ test('automatic SSE reconnection keeps drafts and catches up after offline', asy
 });
 
 test('feedback persists through restart and live clients reconnect with hashed capabilities', async ({ browser }) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bw-feedback-persist-'));
-  let proc, context;
-  let start;
-  // Reserve an ephemeral port without assuming another test's fixed ports are free.
-  const net = require('net'); const reservation = net.createServer();
-  await new Promise((resolve) => reservation.listen(0, '127.0.0.1', resolve));
-  const port = reservation.address().port; await new Promise((resolve) => reservation.close(resolve));
-  start = async () => {
-    proc = spawn(process.execPath, [path.join(__dirname, '../../server.js')], { env: { ...process.env, PORT: String(port), DATA_DIR: dir }, stdio: ['ignore', 'pipe', 'pipe'] });
-    await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('server start timed out')), 5000); proc.stdout.on('data', (chunk) => { if (chunk.toString().includes('business wife hub on')) { clearTimeout(timer); resolve(); } }); proc.once('error', reject); });
-  };
-  const stop = () => new Promise((resolve) => { proc.once('exit', resolve); proc.kill('SIGTERM'); });
-  const url = `http://127.0.0.1:${port}/feedback/api/sessions`;
-  const call = async (p, body) => (await fetch(url + p, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})).json();
+  const dir = tmpDir();
+  let s, context;
+  const api = (p = '') => '/feedback/api/sessions' + p;
   try {
-    await start();
-    const r = await call('', { title: 'Persistent feedback', categories: ['Wins'] });
+    s = await start(dir);
+    const r = (await s.call(api(), { title: 'Persistent feedback', categories: ['Wins'] })).data;
     const participantId = 'persistent-device-123';
-    const item = await call('/' + r.id + '/items', { participantId, categoryId: 'c1', text: 'Keep this' });
-    for (const state of ['revealed', 'voting']) await call('/' + r.id + '/state', { facilitatorToken: r.facilitatorToken, state });
-    await call('/' + r.id + '/vote', { participantId, itemId: item.item.id, add: true });
-    await call('/' + r.id + '/state', { facilitatorToken: r.facilitatorToken, state: 'results' });
+    const item = (await s.call(api('/' + r.id + '/items'), { participantId, categoryId: 'c1', text: 'Keep this' })).data;
+    for (const state of ['revealed', 'voting']) await s.call(api('/' + r.id + '/state'), { facilitatorToken: r.facilitatorToken, state });
+    await s.call(api('/' + r.id + '/vote'), { participantId, itemId: item.item.id, add: true });
+    await s.call(api('/' + r.id + '/state'), { facilitatorToken: r.facilitatorToken, state: 'results' });
     context = await browser.newContext();
     const page = await context.newPage();
-    await page.goto(`http://127.0.0.1:${port}/feedback/${r.id}`);
+    await page.goto(`${s.base}/feedback/${r.id}`);
     await expect(page.locator('#connection')).toHaveText('Live · connected');
-    await stop();
+    const port = s.port;
+    await s.stop();
     await expect(page.locator('#connection')).toContainText('reconnecting automatically');
-    const raw = fs.readFileSync(path.join(dir, 'state.json'), 'utf8');
+    const raw = fs.readFileSync(stateFile(dir), 'utf8');
     expect(raw).not.toContain(r.facilitatorToken); expect(raw).not.toContain(participantId);
-    await start();
-    const s = await call('/' + r.id + '?participantId=' + participantId + '&facilitatorToken=' + r.facilitatorToken);
-    expect(s.state).toBe('results'); expect(s.facilitator).toBe(true); expect(s.items[0].votes).toBe(1); expect(s.myVotes).toEqual([item.item.id]);
-    await call('/' + r.id + '/state', { facilitatorToken: r.facilitatorToken, state: 'voting' });
+    s = await start(dir, port);
+    const got = (await s.call(api('/' + r.id + '?participantId=' + participantId), undefined, { 'X-Facilitator-Token': r.facilitatorToken })).data;
+    expect(got.state).toBe('results'); expect(got.facilitator).toBe(true); expect(got.items[0].votes).toBe(1); expect(got.myVotes).toEqual([item.item.id]);
+    await s.call(api('/' + r.id + '/state'), { facilitatorToken: r.facilitatorToken, state: 'voting' });
     await expect(page.getByRole('heading', { name: 'Voting', exact: true })).toBeVisible({ timeout: 20000 });
     await expect(page.locator('#connection')).toHaveText('Live · connected');
-  } finally { if (context) await context.close(); if (proc && proc.exitCode === null) await stop(); fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { if (context) await context.close(); if (s) await s.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
 });

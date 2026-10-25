@@ -59,7 +59,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 store.load();
-server.listen(PORT, () => console.log(`business wife hub on :${PORT}`));
+server.listen(PORT, () => console.log(`business wife hub on :${server.address().port}`));
 
 // Docker stops the container with SIGTERM: write any pending change first.
 for (const signal of ['SIGTERM', 'SIGINT']) {

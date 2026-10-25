@@ -21,6 +21,14 @@ async function pickWife(page, firstName) {
   await expect(page.getByTestId('boardroom')).toContainText(firstName);
 }
 
+// The lobby fan is the hero: on desktop each card is >100px wide, on a phone
+// it scales with the viewport but never shrinks to a thumbnail.
+async function expectBigFan(page) {
+  const vw = page.viewportSize().width;
+  const w = await page.getByTestId('lobby-fan').locator('img.fan-card').first().evaluate((el) => el.getBoundingClientRect().width);
+  expect(w).toBeGreaterThan(vw < 600 ? Math.min(100, vw * 0.15) : 100);
+}
+
 async function leave(page) {
   const link = page.locator('[data-testid="leave-link"]:visible').first();
   if (await link.count() && await link.isVisible().catch(() => false)) await link.click();
@@ -48,8 +56,7 @@ test.describe('Planning Poker — rooms', () => {
     await expect(page.locator('.room-code-label')).toHaveText(/room code/i);
     await expect(page.locator('.lobby-switch')).toHaveCount(0);
     await expect(page.locator('footer')).not.toContainText(/Bold|Calm|Mix/);
-    const fanW = await page.getByTestId('lobby-fan').evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue('--fan-w')));
-    expect(fanW).toBeGreaterThan(100);
+    await expectBigFan(page);
     await expect(page.locator('footer')).toContainText('Inspired by the great H S');
     await expect(page.locator('h1')).not.toContainText('💋');
   });
@@ -63,8 +70,7 @@ test.describe('Planning Poker — rooms', () => {
       await expect(page.locator('.room-code-label')).toBeVisible();
       await expect(page.locator('.lobby-switch')).toHaveCount(0);
       await expect(page.locator('body')).not.toContainText('Bold');
-      const fanW = await page.getByTestId('lobby-fan').evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue('--fan-w')));
-      expect(fanW).toBeGreaterThan(100);
+      await expectBigFan(page);
     }
   });
 

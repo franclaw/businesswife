@@ -39,6 +39,17 @@ test.describe('Smoke @live', () => {
     }
   });
 
+  test('hub → every app → back to the hub', async ({ page }) => {
+    for (const app of APPS.filter((a) => !a.hub)) {
+      await page.goto('/');
+      await page.locator(`a.app[href="${app.path.slice(0, -1)}"]`).click();
+      await expect(page).toHaveTitle(app.title);
+      await page.locator('.bw-head .bw-brand').click();
+      await expect(page).toHaveURL(/\/$/);
+      await expect(page.locator('a.app')).toHaveCount(5);
+    }
+  });
+
   test('every app worker is the shared network-first core', async ({ request }) => {
     for (const app of ['planning-poker', 'pomodoro', 'poll', 'dates']) {
       const res = await request.get(`/${app}/sw.js`);

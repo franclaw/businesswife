@@ -14,9 +14,9 @@ const iso = (offset) => {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 };
 
-let nextPort = 7300 + Math.floor(Math.random() * 500);
-
-async function start(dataDir, port = nextPort++, env = {}) {
+// Port 0 lets the OS pick a free port, so parallel workers never collide;
+// pass the previous port to restart "the same" server.
+async function start(dataDir, port = 0, env = {}) {
   const proc = spawn(process.execPath, [SERVER], {
     env: { ...process.env, BW_RATE_LIMIT: '1000', ...env, PORT: String(port), DATA_DIR: dataDir },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -26,7 +26,8 @@ async function start(dataDir, port = nextPort++, env = {}) {
     const timer = setTimeout(() => reject(new Error('server did not start: ' + log)), 10_000);
     const onData = (chunk) => {
       log += chunk;
-      if (log.includes('business wife hub on')) { clearTimeout(timer); resolve(); }
+      const m = log.match(/business wife hub on :(\d+)/);
+      if (m) { port = Number(m[1]); clearTimeout(timer); resolve(); }
     };
     proc.stdout.on('data', onData);
     proc.stderr.on('data', onData);
@@ -34,7 +35,7 @@ async function start(dataDir, port = nextPort++, env = {}) {
   });
   const base = `http://127.0.0.1:${port}`;
   const call = async (p, body, headers = {}) => {
-    const res = await fetch(base + p, body === undefined ? {} : {
+    const res = await fetch(base + p, body === undefined ? { headers } : {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body),
     });
     let data = null;
@@ -43,6 +44,7 @@ async function start(dataDir, port = nextPort++, env = {}) {
   };
   const stop = (signal = 'SIGTERM') => new Promise((resolve) => {
     proc.removeAllListeners('exit');
+    if (proc.exitCode !== null || proc.signalCode !== null) return resolve();
     proc.on('exit', resolve);
     proc.kill(signal);
   });

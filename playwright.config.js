@@ -19,9 +19,9 @@ module.exports = defineConfig({
   testDir: 'tests/e2e',
   timeout: 45_000,
   expect: { timeout: 15_000 },
-  fullyParallel: false,
+  fullyParallel: true, // every test makes its own rooms/polls/sessions
   retries: 0,
-  workers: 1,
+  workers: process.env.CI ? 2 : 4,
   reporter: [['list']],
   use: {
     baseURL,
@@ -38,5 +38,9 @@ module.exports = defineConfig({
     stdout: 'ignore',
     stderr: 'pipe',
   },
-  projects: [{ name: 'desktop', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    // Phone-sized Chromium (touch, 390px wide): every flow must work one-handed.
+    { name: 'phone', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } } },
+  ],
 });
