@@ -177,6 +177,9 @@ test.describe('Persistence', () => {
     const { createUploads } = require('../../lib/icons');
     const uploads = createUploads(dir);
     const orphan = uploads.intake('data:image/png;base64,' + Buffer.from('orphan').toString('base64'));
+    // Do not depend on the filesystem timestamp ticking between intake and sweep.
+    const old = new Date(Date.now() - 10_000);
+    fs.utimesSync(path.join(dir, 'uploads', orphan.split('/').pop()), old, old);
     expect(uploads.sweep(new Set([icon]), 0)).toBe(1);
     expect(fs.existsSync(path.join(dir, 'uploads', icon.split('/').pop()))).toBe(true);
     expect(fs.existsSync(path.join(dir, 'uploads', orphan.split('/').pop()))).toBe(false);
