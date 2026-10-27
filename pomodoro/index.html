@@ -151,6 +151,9 @@
   .bell[aria-pressed="true"] { color: var(--gold); border-color: rgba(201, 162, 39, 0.5); }
   .bell.blocked { opacity: 0.55; }
   .bell svg { width: 18px; height: 18px; }
+  .bell-wrap { position: relative; }
+  .bell-tip { display: none; position: absolute; z-index: 5; top: calc(100% + 6px); right: 0; width: 220px; padding: 8px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font-size: .8rem; }
+  .bell-wrap:hover .bell-tip, .bell-wrap:focus-within .bell-tip { display: block; }
   .ask {
     margin: 18px auto 0;
     max-width: 34ch;
@@ -192,7 +195,7 @@
     <div class="controls">
       <button class="primary" id="toggleBtn" type="button">Start</button>
       <button class="ghost" id="resetBtn" type="button">Reset</button>
-      <button class="ghost bell" id="bellBtn" data-testid="bell" type="button" aria-pressed="false" aria-label="Notify me when a block ends" title="Notify me when a block ends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+      <span class="bell-wrap"><button class="ghost bell" id="bellBtn" data-testid="bell" type="button" aria-pressed="false" aria-label="Notify me when a block ends" aria-describedby="bellTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button><span id="bellTip" class="bell-tip" role="tooltip">Notify me when a block ends</span></span>
     </div>
     <div class="ask" id="ask" data-testid="notify-ask" hidden>
       Want a quiet notification when this block ends, even in another tab?
@@ -333,7 +336,7 @@ function paintBell() {
   const label = blocked
     ? "Notifications are unavailable here; she will chime and show it in the tab title"
     : on ? "Notifications on — tap to turn off" : "Notify me when a block ends";
-  bell.title = label;
+  $("bellTip").textContent = label;
   bell.setAttribute("aria-label", label);
 }
 
