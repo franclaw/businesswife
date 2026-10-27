@@ -60,12 +60,13 @@ let heartbeatTimer = null;
 let intentionalLeave = false;
 let lastPhase = null;
 let audioCtx = null;
+let checkingSeat = false;
 
 const $ = id => document.getElementById(id);
 
 // A seat is { playerId, secret, name, icon, role, subtitle }. It lives in
 // localStorage so closing the tab or the installed app keeps your seat (the
-// server frees it after 90s of silence anyway). Older builds kept only the
+// server frees it after five minutes of silence). Older builds kept only the
 // public id, which no longer authorises anything; those sessions are dropped.
 function sessionKey(id) { return "sbw_seat_" + id; }
 function loadSession(id) {
@@ -252,6 +253,23 @@ function startHeartbeat() {
 function stopHeartbeat() {
   if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
 }
+// Timers and EventSource may have been suspended while a phone was asleep.
+let reclaiming = false;
+async function resumePresence() {
+  if (document.visibilityState !== "visible" || !roomId || intentionalLeave) return;
+  if (!mySecret && loadSession(roomId) && !reclaiming) {
+    reclaiming = true;
+    try {
+      if (await tryReclaim(roomId)) { show("game"); startHeartbeat(); await refreshState(); }
+    } finally { reclaiming = false; }
+  }
+  if (!mySecret) return;
+  act("/heartbeat").then(res => { if (res && res.ok) refreshState(); }).catch(() => {});
+  connect();
+}
+document.addEventListener("visibilitychange", resumePresence);
+window.addEventListener("online", resumePresence);
+window.addEventListener("pageshow", resumePresence);
 
 // Back after a refresh: the stored secret reclaims the same seat.
 async function tryReclaim(id) {
@@ -262,7 +280,8 @@ async function tryReclaim(id) {
     headers: { "Content-Type": "application/json", "X-Seat-Secret": sess.secret },
     body: JSON.stringify({ name: sess.name, icon: sess.icon, subtitle: sess.subtitle, raw: sess.raw || undefined }),
   }).catch(() => null);
-  if (!res || !res.ok) { clearSession(id); return false; }
+  if (!res) return false; // A transient network failure must not erase the profile.
+  if (!res.ok) { if (res.status === 404 || res.status === 401) clearSession(id); return false; }
   const data = await res.json();
   sitDown({ ...sess, playerId: data.id });
   return true;
@@ -535,16 +554,19 @@ function renderHistory(history) {
 
 function render(s) {
   setRoomTitle(s.title);
+  // A delayed SSE snapshot may predate our join or resume. Only an
+  // authenticated server response can establish that our seat is gone.
+  if (myId && !(s.players || []).some(p => p.id === myId)) {
+    if (!checkingSeat) {
+      checkingSeat = true;
+      act("/heartbeat").then(res => { if (res && res.ok) return refreshState(); })
+        .catch(() => {}).finally(() => { checkingSeat = false; });
+    }
+    return;
+  }
   const prevPhase = lastPhase;
   lastState = s;
   lastPhase = s.phase;
-  // Kicked or idle-removed while seated
-  if (myId && !(s.players || []).some(p => p.id === myId)) {
-    standUp();
-    $("joinErr").textContent = "You were removed from the boardroom (kicked or idle). Rejoin below.";
-    show("join");
-    return;
-  }
 
   updateTaken(s.players.filter(p => p.role !== "observer").map(p => p.name));
   $("round").textContent = s.round;

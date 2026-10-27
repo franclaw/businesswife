@@ -1,6 +1,6 @@
 /* Planning Poker service worker — see /components/sw-core.js. */
 self.BW_SW = {
-  cache: "bw-poker-v8",
+  cache: "bw-poker-v9",
   scope: "/planning-poker/",
   shell: "/planning-poker/index.html",
   precache: [

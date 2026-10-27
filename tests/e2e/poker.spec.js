@@ -2,6 +2,26 @@ const { test, expect } = require('@playwright/test');
 
 const POKER = '/planning-poker';
 
+test('waking a seated mobile client immediately refreshes its presence', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(POKER);
+  await page.getByTestId('create-btn').click();
+  await page.locator('[data-testid="pick"]').first().click();
+  await page.getByTestId('join-btn').click();
+  await expect(page.getByTestId('game-screen')).toBeVisible();
+  const seat = await page.locator('.player.me').getAttribute('data-id');
+  const heartbeat = page.waitForResponse(r => r.url().endsWith('/heartbeat') && r.request().method() === 'POST');
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  expect((await heartbeat).status()).toBe(200);
+  await expect(page.locator('.player.me')).toHaveAttribute('data-id', seat);
+  // A queued, older room snapshot must not erase a still-valid seat.
+  const check = page.waitForResponse(r => r.url().endsWith('/heartbeat') && r.request().method() === 'POST');
+  await page.evaluate(() => render({ players: [] }));
+  expect((await check).status()).toBe(200);
+  await expect(page.getByTestId('game-screen')).toBeVisible();
+  await expect(page.locator('.player.me')).toHaveAttribute('data-id', seat);
+});
+
 async function createRoom(page) {
   await page.goto(POKER);
   await expect(page.getByTestId('lobby-screen')).toBeVisible();

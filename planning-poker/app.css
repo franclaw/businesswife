@@ -184,6 +184,8 @@ h2 {
    centring move from the image to it. */
 .player .bw-framed { flex-shrink: 0; margin: 0 auto; border-radius: 6px; }
 .player .bw-framed .pic { margin: 0; }
+/* At seat size the oversized shared frame loses its top ornament. */
+.player .bw-framed::after { inset: 0; }
 /* Two lines are reserved either way, so a one-word name clears the same
    room as a wrapped "Vivienne · The Executive". */
 .player .nm {

@@ -58,6 +58,7 @@ test('upload stores the raw photo and the frontend frames preview, seat and save
   await page.getByTestId('join-btn').click();
   await expect(page.getByTestId('game-screen')).toBeVisible();
   await expect(page.locator('.player.me .bw-framed img.pic')).toHaveAttribute('src', linkFor(src));
+  expect(await page.locator('.player.me .bw-framed').evaluate(el => getComputedStyle(el, '::after').top)).toBe('0px');
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sbw_custom_wives')));
   await page.goto('/planning-poker'); await page.getByTestId('create-btn').click();
   const saved = page.getByTestId('saved-pick'); await expect(saved).toHaveCount(1);
