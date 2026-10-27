@@ -325,6 +325,9 @@ footer {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
 }
 #shareUrl { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+#shareCard .qr-panel { flex: 0 0 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); }
+#shareCard .qr-panel.hidden { display: none; }
+#qrCanvas { width: 200px; height: 200px; max-width: 100%; image-rendering: pixelated; border-radius: 4px; }
 
 /* Host menu (⋯) */
 .host-menu-wrap { position: relative; }

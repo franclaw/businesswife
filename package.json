@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
+    "jsqr": "^1.4.0",
     "lintapple": "^0.1.20"
   }
 }

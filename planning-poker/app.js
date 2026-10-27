@@ -175,7 +175,28 @@ function show(which) {
 function setShare() {
   if ($("shareUrl") && roomId) $("shareUrl").value = roomUrl(roomId);
   if ($("roomCodeBig") && roomId) $("roomCodeBig").textContent = roomId;
+  if (!$('qrPanel').classList.contains('hidden')) drawQr();
 }
+function drawQr() {
+  const qr = qrcode(0, 'M');
+  qr.addData(roomUrl(roomId));
+  qr.make();
+  const count = qr.getModuleCount(), scale = 6, margin = 4;
+  const canvas = $('qrCanvas');
+  canvas.width = canvas.height = (count + margin * 2) * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  for (let y = 0; y < count; y++) for (let x = 0; x < count; x++) {
+    if (qr.isDark(y, x)) ctx.fillRect((x + margin) * scale, (y + margin) * scale, scale, scale);
+  }
+}
+$('qrBtn').onclick = () => {
+  const opening = $('qrPanel').classList.contains('hidden');
+  if (opening) drawQr();
+  $('qrPanel').classList.toggle('hidden', !opening);
+  $('qrBtn').setAttribute('aria-expanded', String(opening));
+};
 
 // --- Join screen: the shared <bw-wife-picker> ---
 const picker = $("picker");

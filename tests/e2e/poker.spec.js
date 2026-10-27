@@ -1,6 +1,26 @@
 const { test, expect } = require('@playwright/test');
+const jsQR = require('jsqr');
 
 const POKER = '/planning-poker';
+
+test('QR sharing expands and encodes this room link', async ({ page }) => {
+  await createRoom(page);
+  const button = page.getByTestId('qr-btn');
+  const panel = page.getByTestId('qr-panel');
+  await expect(panel).toBeHidden();
+  await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  await expect(panel).toBeVisible();
+  const pixels = await page.locator('#qrCanvas').evaluate(canvas => ({
+    width: canvas.width, height: canvas.height,
+    data: Array.from(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data),
+  }));
+  const decoded = jsQR(new Uint8ClampedArray(pixels.data), pixels.width, pixels.height);
+  expect(decoded && decoded.data).toBe(page.url());
+  await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await expect(panel).toBeHidden();
+});
 
 test('waking a seated mobile client immediately refreshes its presence', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

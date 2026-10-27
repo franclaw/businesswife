@@ -80,6 +80,7 @@
         <input id="shareUrl" class="hidden" data-testid="share-url" readonly tabindex="-1" aria-hidden="true">
         <button class="btn gold" id="shareBtn" data-testid="share-btn" type="button">Share</button>
         <button class="btn" id="copyBtn" data-testid="copy-btn" type="button">Copy</button>
+        <button class="btn" id="qrBtn" data-testid="qr-btn" type="button" aria-expanded="false" aria-controls="qrPanel">QR code</button>
         <div class="host-menu-wrap hidden" id="hostBar" data-testid="host-bar">
           <button type="button" class="host-menu-btn" id="hostMenuBtn" data-testid="host-menu-btn" aria-haspopup="true" aria-expanded="false" title="Host controls">⋯</button>
           <div class="host-menu hidden" id="hostMenu" data-testid="host-menu" role="menu">
@@ -93,6 +94,10 @@
             </label>
           </div>
         </div>
+      </div>
+      <div id="qrPanel" class="qr-panel hidden" data-testid="qr-panel">
+        <canvas id="qrCanvas" role="img" aria-label="QR code for this boardroom"></canvas>
+        <span>Scan to join this boardroom</span>
       </div>
     </div>
 
@@ -137,6 +142,7 @@
 
   <footer class="bw-foot">Inspired by the great H S<br>"She closes the deal before lunch."</footer>
 
+<script src="/components/qrcode-generator.js"></script>
 <script src="/planning-poker/app.js"></script>
 </body>
 </html>
