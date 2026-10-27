@@ -55,6 +55,7 @@ test('upload stores the raw photo and the frontend frames preview, seat and save
   const src = await preview.getAttribute('src'); await assertRawUpload(page, src);
   // The frame must be an overlay element, not pixels inside the image.
   await expect(page.getByTestId('custom-preview').locator('.bw-framed img')).toHaveCount(1);
+  expect(await page.getByTestId('custom-preview').locator('.bw-framed').evaluate(el => getComputedStyle(el, '::after').top)).toBe('0px');
   await page.getByTestId('join-btn').click();
   await expect(page.getByTestId('game-screen')).toBeVisible();
   await expect(page.locator('.player.me .bw-framed img.pic')).toHaveAttribute('src', linkFor(src));
@@ -102,6 +103,7 @@ test('poll stores the raw upload and frames the chip, the vote state and voter c
   const preview = picker.getByTestId('custom-preview').locator('img'); await expect(preview).toBeVisible();
   const src = await preview.getAttribute('src'); await assertRawUpload(page, src);
   await picker.getByTestId('custom-preview').locator('.bw-framed img').waitFor();
+  expect(await picker.getByTestId('custom-preview').locator('.bw-framed').evaluate(el => getComputedStyle(el, '::after').top)).toBe('0px');
   await page.getByTestId('identity-add-btn').click();
   await expect(page.getByTestId('identity-overlay')).toBeHidden();
   await expect(page.getByTestId('you-chip').locator('.bw-framed img')).toHaveCount(1);

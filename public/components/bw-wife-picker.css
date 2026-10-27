@@ -99,3 +99,6 @@
   background: url("/img/portrait-frame-v1.png") 0 0 / 100% 100% no-repeat;
 }
 .bwp-preview .bw-framed { border-radius: 4px; }
+/* Show the whole ornament in the upload preview, just as on poker seats. */
+.bwp-preview .bw-framed::after { inset: 0; }
+.bwp-preview .bw-framed img { display: block; }
