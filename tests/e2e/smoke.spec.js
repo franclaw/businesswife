@@ -45,7 +45,7 @@ test.describe('Smoke @live', () => {
 
   test('the hub links every app', async ({ page }) => {
     await page.goto('/');
-    for (const href of ['/planning-poker', '/pomodoro', '/poll', '/dates', '/feedback']) {
+    for (const href of ['/planning-poker', '/pomodoro', '/poll', '/dates', '/feedback', '/games']) {
       await expect(page.locator(`a.app[href="${href}"]`)).toHaveCount(1);
     }
   });
@@ -57,7 +57,7 @@ test.describe('Smoke @live', () => {
       await expect(page).toHaveTitle(app.title);
       await page.locator('.bw-head .bw-brand').click();
       await expect(page).toHaveURL(/\/$/);
-      await expect(page.locator('a.app')).toHaveCount(5);
+      await expect(page.locator('a.app')).toHaveCount(6);
     }
   });
 
