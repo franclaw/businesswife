@@ -19,6 +19,7 @@ const { json, notFound, HttpError } = require('./lib/http');
 const { createStore } = require('./lib/store');
 const { createPages } = require('./lib/pages');
 const { createPoker } = require('./lib/poker');
+const { createMeetings } = require('./lib/meetings');
 const { createGames } = require('./lib/games');
 const { createPolls } = require('./lib/polls');
 const { createDates } = require('./lib/dates');
@@ -35,6 +36,7 @@ const store = createStore(DATA_DIR);
 const uploads = createUploads(DATA_DIR);
 const poker = createPoker(store, uploads);
 const games = createGames();
+const meetings = createMeetings(store, uploads);
 const polls = createPolls(store, uploads);
 const pages = createPages(ROOT, { pollTitle: polls.title, pokerTitle: poker.title });
 const dates = createDates(store);
@@ -42,12 +44,12 @@ const feedback = createFeedback(store);
 const rateLimit = createRateLimit();
 const security = createSecurity(ROOT);
 
-sse.keepAlive(() => [...poker.listeners(), ...polls.listeners(), ...dates.listeners(), ...feedback.listeners(), ...games.listeners()]);
+sse.keepAlive(() => [...poker.listeners(), ...polls.listeners(), ...dates.listeners(), ...feedback.listeners(), ...games.listeners(), ...meetings.listeners()]);
 
-const handlers = [uploads, pages, games, polls, dates, feedback, poker];
+const handlers = [uploads, pages, meetings, games, polls, dates, feedback, poker];
 
 // Uploaded pictures live as long as a room or poll still shows them.
-setInterval(() => uploads.sweep(new Set([...poker.iconsInUse(), ...polls.iconsInUse()])), 3_600_000).unref();
+setInterval(() => uploads.sweep(new Set([...poker.iconsInUse(), ...polls.iconsInUse(), ...meetings.iconsInUse()])), 3_600_000).unref();
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="One room for planning poker, polls and your team’s meeting history."><title>Meeting Room · Business Wife</title>
+<link rel="stylesheet" href="/components/theme.css"><link rel="stylesheet" href="/components/bw-card.css"><link rel="stylesheet" href="/components/bw-wife-picker.css"><link rel="stylesheet" href="/meeting-room/app.css">
+<script defer src="/components/bw-roster.js"></script><script defer src="/components/bw-card.js"></script><script defer src="/components/bw-wife-picker.js"></script><script defer src="/meeting-room/app.js"></script></head>
+<body><main>
+<header class="bw-head"><a class="bw-brand" href="/">Business Wife</a><p class="bw-kicker">Meet · Estimate · Decide</p><h1 id="room-title">Meeting Room</h1><p class="bw-sub">One link. Your team. Whatever’s next.</p></header>
+<p id="error" role="alert"></p>
+<section id="landing" class="panel"><h2>Bring the room together</h2><p>Join once, move between planning poker and polls, and keep the decisions in one place.</p><form id="create-form"><label for="title">Room name</label><input id="title" maxlength="120" placeholder="Friday refinement" required><button>Create meeting room</button></form><form id="join-form"><label for="code">Room code or link</label><input id="code" required placeholder="Paste a room link or code"><button class="secondary">Open room</button></form><p class="muted">Your link stays reusable for one month after the last join or action.</p></section>
+<section id="identity" class="panel" hidden><h2>Take your seat</h2><p>Choose once for poker and polls. Your identity stays with this room.</p><bw-wife-picker id="picker" roster-name="name"></bw-wife-picker><button id="join" disabled>Join meeting</button></section>
+<section id="room" hidden>
+<div class="room-bar panel"><div><span id="connection" role="status">Connecting…</span><p id="expiry" class="muted"></p></div><button id="share" class="secondary">Copy room link</button></div>
+<div class="layout"><div class="workspace">
+<section class="panel" id="facilitator" hidden><div class="section-heading"><h2>Run the meeting</h2><span class="badge">Facilitator</span></div><form id="activity-form"><label for="type">Next activity</label><select id="type"><option value="poker">Planning poker</option><option value="poll">Poll</option></select><label for="question">Story or question</label><input id="question" maxlength="200" required placeholder="What should we tackle next?"><div id="poll-options" hidden><label for="options">Poll options · one per line (2–8)</label><textarea id="options" rows="4" placeholder="Option one&#10;Option two"></textarea></div><button>Start activity</button></form><div class="actions"><button id="end" class="secondary">End meeting</button><button id="new-meeting" hidden>Start new meeting</button></div></section>
+<section class="panel" id="activity"><p>Waiting for the facilitator to start an activity.</p></section>
+<section class="panel"><h2>People in this room</h2><p class="muted">Saved participants, including those away from the room.</p><ul id="members" class="members"></ul></section>
+</div><aside class="panel"><h2>Meeting history</h2><p class="muted">Revisit results without moving everyone else. The facilitator can resume activities in the current meeting.</p><div id="history"></div></aside></div>
+</section><footer class="bw-foot">Business Wife<br>Keep the meeting moving.</footer></main></body></html>

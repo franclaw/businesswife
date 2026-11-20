@@ -1,0 +1,44 @@
+html { background: var(--bg); }
+input::placeholder, textarea::placeholder { color: #baabb1; opacity: 1; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.5; }
+main { max-width: 1200px; margin: auto; padding: 32px 20px; }
+h2 { font-size: 20px; margin: 0 0 16px; overflow-wrap: anywhere; }
+h3 { font-size: 16px; overflow-wrap: anywhere; }
+p { margin: 0 0 16px; }
+.panel { padding: 24px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; margin-bottom: 20px; min-width: 0; }
+#landing { max-width: 640px; margin-inline: auto; }
+label { display: block; margin-bottom: 8px; }
+input, select, textarea, button { font: inherit; color: var(--text); border-radius: 8px; border: 1px solid var(--border-strong); padding: 12px; min-height: 48px; }
+input, select, textarea { display: block; width: 100%; background: var(--bg); margin-bottom: 16px; }
+textarea { resize: vertical; }
+button { background: #a82f5b; cursor: pointer; font-weight: 600; }
+button:hover { background: #b73764; }
+button.secondary { background: var(--surface-2); }
+button:disabled { opacity: .55; cursor: default; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+form + form { margin-top: 28px; }
+.muted { color: #baabb1; font-size: 14.4px; }
+#landing > .muted { margin-top: 24px; }
+#error { color: #ff9cbb; overflow-wrap: anywhere; }
+#error:empty { display: none; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+.room-bar, .section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.room-bar p { margin: 4px 0 0; }
+.badge { color: #f4cc6d; font-size: 14.4px; }
+.actions, .cards { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.cards button { min-width: 52px; }
+.selected { outline: 2px solid #f4cc6d; outline-offset: 2px; }
+.members { list-style: none; padding: 0; margin: 0; }
+.members li { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.members li:last-child { border-bottom: 0; }
+.members img { width: 40px; height: 60px; object-fit: cover; border-radius: 6px; }
+.member-picture.bw-framed { position: relative; display: inline-flex; }
+.member-picture.bw-framed::after { content: ''; position: absolute; inset: 0; background: url('/img/portrait-frame-v1.png') center / 100% 100%; pointer-events: none; }
+.history-item { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.history-item button { display: block; width: 100%; margin-top: 12px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.history-item p { margin: 0 0 8px; }
+.result { margin: 16px 0; padding: 12px; border-left: 3px solid var(--accent-text); background: var(--bg); overflow-wrap: anywhere; }
+#identity > button { margin-top: 20px; }
+@media (max-width: 760px) { main { padding: 24px 16px; } .layout { grid-template-columns: 1fr; } .panel { padding: 20px; } }

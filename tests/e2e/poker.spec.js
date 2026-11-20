@@ -78,7 +78,7 @@ test.describe('Hub', () => {
   test('homepage lists sub-apps', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/Business Wife/);
-    await expect(page.getByRole('link', { name: /Planning Poker/i })).toHaveAttribute('href', '/planning-poker');
+    await expect(page.locator('a.app').filter({ has: page.getByRole('heading', { name: 'Planning Poker', exact: true }) })).toHaveAttribute('href', '/planning-poker');
     await expect(page.getByRole('link', { name: /Pomodoro/i })).toHaveAttribute('href', '/pomodoro');
   });
 });

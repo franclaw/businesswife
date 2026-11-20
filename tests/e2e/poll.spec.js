@@ -39,7 +39,7 @@ async function createPoll(page, question, options) {
 test.describe('Hub', () => {
   test('homepage lists the Poll app', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('link', { name: /Poll/i })).toHaveAttribute('href', '/poll');
+    await expect(page.locator('a.app').filter({ has: page.getByRole('heading', { name: 'Poll', exact: true }) })).toHaveAttribute('href', '/poll');
   });
 });
 

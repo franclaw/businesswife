@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
 
 const APPS = [
   { path: '/', title: 'Business Wife', hub: true },
+  { path: '/meeting-room/', title: 'Meeting Room · Business Wife', kicker: 'Meet' },
   { path: '/planning-poker/', title: 'Planning Poker — Business Wife', kicker: 'Estimate' },
   { path: '/pomodoro/', title: 'Pomodoro — Business Wife', kicker: 'Focus' },
   { path: '/poll/', title: 'Poll — Business Wife', kicker: 'Decide' },
@@ -45,7 +46,7 @@ test.describe('Smoke @live', () => {
 
   test('the hub links every app', async ({ page }) => {
     await page.goto('/');
-    for (const href of ['/planning-poker', '/pomodoro', '/poll', '/dates', '/feedback', '/games']) {
+    for (const href of ['/meeting-room', '/planning-poker', '/pomodoro', '/poll', '/dates', '/feedback', '/games']) {
       await expect(page.locator(`a.app[href="${href}"]`)).toHaveCount(1);
     }
   });
@@ -57,7 +58,7 @@ test.describe('Smoke @live', () => {
       await expect(page).toHaveTitle(app.title);
       await page.locator('.bw-head .bw-brand').click();
       await expect(page).toHaveURL(/\/$/);
-      await expect(page.locator('a.app')).toHaveCount(6);
+      await expect(page.locator('a.app')).toHaveCount(7);
     }
   });
 
