@@ -697,14 +697,16 @@ test.describe('Poker PWA', () => {
 });
 
 test.describe('Planning Poker — seat secrets and attribution', () => {
+  const creators = new Map();
   const API = '/planning-poker/api/rooms';
 
   async function room(request) {
-    const { id } = await (await request.post(API)).json();
+    const { id, ownerToken } = await (await request.post(API)).json();
+    creators.set(id, ownerToken);
     return id;
   }
   async function seat(request, id, name, icon = '/img/hr.png') {
-    const res = await request.post(`${API}/${id}/join`, { data: { name, icon } });
+    const res = await request.post(`${API}/${id}/join`, { data: { name, icon, ...(name === "Host" ? { ownerToken: creators.get(id) } : {}) } });
     expect(res.ok()).toBeTruthy();
     return res.json();
   }

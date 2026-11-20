@@ -10,6 +10,8 @@
   gap: 10px;
 }
 
+[data-testid="custom-first"] { margin-bottom: 16px; }
+.bwp-custom { margin-bottom: 16px; }
 .bwp-saved { margin-bottom: 16px; }
 .bwp-taken { margin-top: 18px; }
 .bwp-h {
@@ -102,3 +104,5 @@
 /* Show the whole ornament in the upload preview, just as on poker seats. */
 .bwp-preview .bw-framed::after { inset: 0; }
 .bwp-preview .bw-framed img { display: block; }
+
+.bw-wife-picker bw-card[variant="add"] .ico { font-size: 1.9rem; }

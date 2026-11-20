@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/components/theme.css">
 <link rel="stylesheet" href="/components/bw-card.css">
 <link rel="stylesheet" href="/components/bw-wife-picker.css">
+<script src="/components/bw-room-session.js"></script>
 <script src="/components/bw-roster.js"></script>
 <script src="/components/bw-card.js"></script>
 <script src="/components/bw-wife-picker.js"></script>
@@ -62,9 +63,10 @@
       <h2>Choose your Business Wife</h2>
       <bw-wife-picker id="picker" roster-name="name" taken-label="Already in the boardroom"></bw-wife-picker>
 
-      <button class="join-btn" id="joinBtn" data-testid="join-btn" disabled>Enter the boardroom</button>
+      <div class="character-actions"><button class="join-btn" id="joinBtn" data-testid="join-btn" disabled>Enter the boardroom</button>
 
-      <div class="obs-row">
+      <button class="btn gold hidden" id="cancelCharacter" type="button">Cancel</button></div>
+      <div class="obs-row" id="observerJoin">
         <input id="obsName" data-testid="observer-name" placeholder="Your name" maxlength="24" autocomplete="off">
         <button class="btn gold" id="obsBtn" data-testid="observer-btn">Watch as observer</button>
       </div>
@@ -103,6 +105,7 @@
 
     <!-- TABLE -->
     <div id="game" class="hidden" data-testid="game-screen">
+      <div class="character-tools"><button class="btn gold" id="changeCharacter" type="button">Change character</button></div>
       <div class="stage-board" id="stageBoard">
         <div class="stage-head" id="stageHead">
           <div class="stage-meta">

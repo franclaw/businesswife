@@ -126,8 +126,8 @@ test.describe('Persistence', () => {
     const dir = tmpDir();
     let s = await start(dir);
     const API = '/planning-poker/api/rooms';
-    const { id } = (await s.call(API, { title: 'Sprint 42 refinement' })).data;
-    const host = (await s.call(`${API}/${id}/join`, { name: 'The Executive', icon: '💼' })).data;
+    const { id, ownerToken } = (await s.call(API, { title: 'Sprint 42 refinement' })).data;
+    const host = (await s.call(`${API}/${id}/join`, { name: 'The Executive', icon: '💼', ownerToken })).data;
     const guest = (await s.call(`${API}/${id}/join`, { name: 'The Closer', icon: '👠' })).data;
     const as = (seat) => ({ 'X-Seat-Secret': seat.secret });
     await s.call(`${API}/${id}/question`, { question: 'PROJ-1 Login' }, as(host));

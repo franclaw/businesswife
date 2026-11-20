@@ -68,20 +68,21 @@ const $ = id => document.getElementById(id);
 // localStorage so closing the tab or the installed app keeps your seat (the
 // server frees it after five minutes of silence). Older builds kept only the
 // public id, which no longer authorises anything; those sessions are dropped.
-function sessionKey(id) { return "sbw_seat_" + id; }
+const creatorSession = id => window.bwRoomSession("sbw_owner_", id);
+const roomSession = id => window.bwRoomSession("sbw_seat_", id);
 function loadSession(id) {
   try {
-    const s = JSON.parse(localStorage.getItem(sessionKey(id)) || "null");
+    const s = roomSession(id).read();
     return s && s.secret ? s : null;
   } catch { return null; }
 }
 function saveSession(id, data) {
   if (!id || !data) return;
-  localStorage.setItem(sessionKey(id), JSON.stringify(data));
+  roomSession(id).write(data);
 }
 function clearSession(id) {
   if (!id) return;
-  localStorage.removeItem(sessionKey(id));
+  roomSession(id).clear();
   localStorage.removeItem("sbw_session_" + id);
   localStorage.removeItem("sbw_id_" + id);
 }
@@ -200,6 +201,26 @@ $('qrBtn').onclick = () => {
 
 // --- Join screen: the shared <bw-wife-picker> ---
 const picker = $("picker");
+let editingCharacter = false;
+function closeCharacterEditor() {
+  editingCharacter = false;
+  $("joinBtn").textContent = "Enter the boardroom";
+  $("cancelCharacter").classList.add("hidden");
+  $("observerJoin").classList.remove("hidden");
+  show("game");
+}
+$("changeCharacter").onclick = () => {
+  editingCharacter = true;
+  $("joinBtn").textContent = "Save character";
+  $("cancelCharacter").classList.remove("hidden");
+  $("observerJoin").classList.add("hidden");
+  picker.refresh();
+  picker.setTaken((lastState?.players || []).filter(p => p.id !== myId).map(p => p.name));
+  picker.selectName(myMeta.name);
+  $("joinErr").textContent = "";
+  show("join");
+};
+$("cancelCharacter").onclick = closeCharacterEditor;
 
 function syncJoinBtn() {
   $("joinBtn").disabled = !picker.valid;
@@ -223,6 +244,7 @@ $("createBtn").onclick = async () => {
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || "Could not create the boardroom.");
+    creatorSession(body.id).write({ ownerToken: body.ownerToken });
     await enterRoom(body.id);
   } catch (e) { $("lobbyErr").textContent = e.message; }
   finally { btn.disabled = false; }
@@ -299,7 +321,7 @@ async function tryReclaim(id) {
   const res = await api("/join", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Seat-Secret": sess.secret },
-    body: JSON.stringify({ name: sess.name, icon: sess.icon, subtitle: sess.subtitle, raw: sess.raw || undefined }),
+    body: JSON.stringify({ name: sess.name, icon: sess.icon, subtitle: sess.subtitle, raw: sess.raw || undefined, ownerToken: creatorSession(id).read()?.ownerToken }),
   }).catch(() => null);
   if (!res) return false; // A transient network failure must not erase the profile.
   if (!res.ok) { if (res.status === 404 || res.status === 401) clearSession(id); return false; }
@@ -339,7 +361,7 @@ async function enterRoom(id) {
 async function join(payload, role) {
   const res = await api("/join", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(role === "observer" ? { ...payload, role } : payload),
+    body: JSON.stringify({ ...payload, ...(role === "observer" ? { role } : {}), ownerToken: creatorSession(roomId).read()?.ownerToken }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) return { error: body.error || "failed" };
@@ -365,6 +387,19 @@ $("joinBtn").onclick = async () => {
   const payload = { name: v.name, icon: v.icon };
   if (v.subtitle) payload.subtitle = v.subtitle;
   if (v.raw) payload.raw = true;
+  if (editingCharacter) {
+    try {
+      const response = await act("/identity", payload);
+      const result = await response.json();
+      if (!response.ok) throw new Error(JOIN_ERRORS[result.error] || result.error);
+      sitDown({ ...myMeta, ...payload, subtitle: v.subtitle || "", raw: !!v.raw });
+      if (v.kind !== "roster") picker.remember(v);
+      closeCharacterEditor();
+      await refreshState();
+    } catch (e) { $("joinErr").textContent = e.message; }
+    finally { syncJoinBtn(); }
+    return;
+  }
   const { error } = await join(payload, "player");
   if (error) {
     $("joinErr").textContent = JOIN_ERRORS[error] || "Could not join. Try again.";
@@ -589,7 +624,7 @@ function render(s) {
   lastState = s;
   lastPhase = s.phase;
 
-  updateTaken(s.players.filter(p => p.role !== "observer").map(p => p.name));
+  updateTaken(s.players.filter(p => p.id !== myId && p.role !== "observer").map(p => p.name));
   $("round").textContent = s.round;
   $("phaseBadge").textContent = s.phase === "revealed" ? "revealed" : s.phase === "voting" ? "voting" : "lobby";
   if (document.activeElement !== $("question")) $("question").value = s.question || "";

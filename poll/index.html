@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/components/theme.css">
 <link rel="stylesheet" href="/components/bw-card.css">
 <link rel="stylesheet" href="/components/bw-wife-picker.css">
+<script src="/components/bw-room-session.js"></script>
 <script src="/components/bw-roster.js"></script>
 <script src="/components/bw-card.js"></script>
 <script src="/components/bw-wife-picker.js"></script>
@@ -366,7 +367,7 @@ function voteKey(id) { return "bw_poll_vote_" + id; }
 // ---------- identity ----------
 // Who you are in this room: a Business Wife from the shared picker. Stored on
 // this device and sent with each vote so she shows up next to it.
-const IDENTITY_KEY = "bw_poll_identity";
+const identitySession = () => window.bwRoomSession("bw_poll_identity_", state.pollId);
 const picker = $("#picker");
 
 function escapeHtml(x) {
@@ -382,14 +383,14 @@ function usableIcon(icon) {
 }
 function getIdentity() {
   try {
-    const id = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "null");
+    const id = identitySession().read();
     if (!id || !id.name) return null;
     if (!usableIcon(id.icon)) id.icon = "💼";   // older builds hot-linked URLs
     return id;
   } catch { return null; }
 }
 function setIdentity(id) {
-  try { localStorage.setItem(IDENTITY_KEY, JSON.stringify(id)); } catch {}
+  identitySession().write(id);
   renderChip();
 }
 function avatarHtml(icon, raw) {
@@ -407,12 +408,12 @@ function renderChip() {
   const id = state.claimedIdentity || getIdentity();
   if (!id) { chip.hidden = true; return; }
   chip.hidden = false;
-  chip.innerHTML = avatarHtml(id.icon, id.raw) + "<span>You: <b>" + escapeHtml(id.name) + "</b></span>";
-  chip.disabled = !!state.myVote || state.voting;
-  chip.title = state.myVote ? "Identity on your submitted vote" : "Change your identity";
+  chip.innerHTML = avatarHtml(id.icon, id.raw) + "<span>You: <b>" + escapeHtml(id.name) + "</b> · Change character</span>";
+  chip.disabled = state.voting;
+  chip.title = "Change character";
 }
 function showIdentityPicker() {
-  if (state.myVote || state.voting) return;
+  if (state.voting) return;
   picker.refresh();
   $("#id-overlay").hidden = false;
   const current = getIdentity();
@@ -420,14 +421,14 @@ function showIdentityPicker() {
   syncIdentityBtn();
 }
 async function useIdentity(v, restoring = false) {
-  if (!v || !v.name || state.identityBusy || state.voting || (state.myVote && !restoring)) return;
+  if (!v || !v.name || state.identityBusy || state.voting) return;
   state.identityBusy = true;
   $("#identity-error").textContent = "";
   syncIdentityBtn();
   try {
     const res = await fetch(API + "/" + state.pollId + "/identity", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voterId: state.voterId, name: v.name, icon: v.icon, raw: !!v.raw, subtitle: v.subtitle }),
+      body: JSON.stringify({ voterId: state.voterId, name: v.name, icon: v.icon, raw: !!v.raw, subtitle: v.subtitle, restore: restoring }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || "Could not select her. Try again.");

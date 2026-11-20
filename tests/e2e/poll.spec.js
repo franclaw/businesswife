@@ -118,7 +118,7 @@ test.describe('Poll — voting', () => {
     await expect(page.getByTestId('tally')).toContainText('your vote is final');
     await expect(tabs).toHaveClass(/mine/);
     await expect(spaces).toBeDisabled();
-    await expect(page.getByTestId('you-chip')).toBeDisabled();
+    await expect(page.getByTestId('you-chip')).toBeEnabled();
     const voterId = await page.evaluate(() => localStorage.getItem('bw_poll_voter'));
     const id = url.match(CODE_RE)[1];
     const change = await request.post(`/poll/api/polls/${id}/vote`, { data: { voterId, optionId: 'o2' } });
@@ -323,8 +323,8 @@ test('wife reservation races, direct votes, switching and per-poll scope are enf
   await request.post(`/poll/api/polls/${id}/vote`, { data: { voterId: loser, optionId: 'o1', name: 'Spoofed wife' } });
   await claim(id, loser, 'Changed after voting');
   const state = await (await request.get(`/poll/api/polls/${id}`)).json();
-  expect(state.voters[0].name.toLowerCase()).toBe('nova');
-  expect(state.identities.map(i => i.name.toLowerCase()).sort()).toEqual(['another wife', 'nova']);
+  expect(state.voters[0].name).toBe('Changed after voting');
+  expect(state.identities.map(i => i.name.toLowerCase()).sort()).toEqual(['another wife', 'changed after voting']);
 });
 
 test.describe('Poll — review fixes', () => {

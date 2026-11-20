@@ -90,6 +90,7 @@
       this._pictureRaw = false;   // true = uploaded picture, needs the frame overlay
       this.classList.add("bw-wife-picker");
       this.innerHTML = `
+        <div class="bwp-grid" data-testid="custom-first"></div>
         <div class="bwp-saved" data-testid="saved-wrap" hidden>
           <h3 class="bwp-h bwp-h--gold">Yours</h3>
           <div class="bwp-grid" data-testid="saved-grid"></div>
@@ -145,7 +146,8 @@
       add.dataset.testid = "custom-wife";
       add.addEventListener("select", () => this._setOpen(!this._open));
       this.$.add = add;
-      this.$.grid.appendChild(add);
+      q("custom-first").appendChild(add);
+      q("custom-first").after(this.$.panel);
 
       for (const r of window.BW_ROSTER || []) {
         const b = document.createElement("button");
@@ -257,7 +259,7 @@
       for (let i = order.indexOf(card) + 1; i < order.length; i++) {
         if (order[i].parentNode === this.$.grid) return order[i];
       }
-      return this.$.add;
+      return null;
     }
 
     _card({ name, subtitle, img, icon, testid }) {

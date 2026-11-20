@@ -634,3 +634,8 @@ html.in-lobby footer {
   color: var(--gold); font-size: 1.3rem; font-weight: 600;
   margin: 14px auto 0; max-width: 48ch; overflow-wrap: anywhere;
 }
+
+.character-tools { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+
+.character-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.character-actions .join-btn { flex: 1; }

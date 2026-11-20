@@ -6,7 +6,7 @@
 
 - `lib/meetings.js`: persisted room, participants, facilitator, sessions, active activity and SSE. Stored under `meetingRooms` in the existing atomic store.
 - `lib/meeting-activities.js`: activity registry. Each type supplies `configure`, `valid`, and `results`. Poker reuses the standalone summary calculation; poll uses distinct option/count rules.
-- `meeting-room/`: shared room UI. One saved seat identity per device/room; changing activity is a room-wide facilitator action, while browsing history is local.
+- `meeting-room/`: shared room UI. One saved seat identity per device/room, editable through Change character without replacing the seat or ballots; changing activity is a room-wide facilitator action, while browsing history is local.
 
 Add future tools to the registry and their UI renderer. Do not put tool-specific workflows into room membership or make each tool join a separate room. Tools beyond ballots may require additional explicit activity commands rather than forcing every interaction into `respond`.
 

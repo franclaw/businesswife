@@ -1,11 +1,10 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const roomId = location.pathname.match(/^\/meeting-room\/([a-z0-9]{6})\/?$/)?.[1];
-const key = 'bw_meeting_' + roomId;
-let saved;
-try { saved = JSON.parse(localStorage.getItem(key) || '{}'); } catch { saved = {}; }
-let credential = saved, state, stream, viewing = null, selected = new Map();
-const remember = () => localStorage.setItem(key, JSON.stringify(credential));
+const roomSession = id => window.bwRoomSession('bw_meeting_', id);
+const saved = roomSession(roomId).read() || {};
+let credential = saved, state, stream, viewing = null, selected = new Map(), editingCharacter = false;
+const remember = () => roomSession(roomId).write(credential);
 const error = e => { $('error').textContent = e.message || String(e); };
 function node(tag, content, className) { const el = document.createElement(tag); if (content != null) el.textContent = content; if (className) el.className = className; return el; }
 function button(label, handler, className = 'secondary') { const el = node('button', label, className); el.type = 'button'; el.onclick = () => run(handler); return el; }
@@ -26,14 +25,26 @@ function connect() {
 }
 $('create-form').onsubmit = e => { e.preventDefault(); run(async () => {
   const made = await api('', { title: $('title').value });
-  localStorage.setItem('bw_meeting_' + made.id, JSON.stringify({ ownerToken: made.ownerToken }));
+  roomSession(made.id).write({ ownerToken: made.ownerToken });
   location.href = '/meeting-room/' + made.id;
 }); };
 $('join-form').onsubmit = e => { e.preventDefault(); const code = $('code').value.trim().match(/(?:^|\/)([a-z0-9]{6})\/?$/i)?.[1]; if (code) location.href = '/meeting-room/' + code.toLowerCase(); else error('Enter a six-character code or room link.'); };
+$('change-character').onclick = () => {
+  editingCharacter = true; $('picker').refresh();
+  $('picker').selectName(state.members.find(m => m.id === credential.id)?.name);
+  render(); $('identity').scrollIntoView({ block: 'start' });
+};
+$('cancel-character').onclick = () => { editingCharacter = false; render(); };
 $('picker').addEventListener('change', () => { $('join').disabled = !$('picker').valid; });
 $('join').onclick = () => run(async () => {
   if (!$('picker').valid) return;
   const value = $('picker').value;
+  if (editingCharacter) {
+    await act('identity', value);
+    editingCharacter = false;
+    if (value.kind !== 'roster') $('picker').remember(value);
+    render(); return;
+  }
   const joined = await api('join', { ...value, ownerToken: credential.ownerToken });
   credential = { ...credential, ...joined }; remember();
   if (value.kind !== 'roster') $('picker').remember(value);
@@ -51,7 +62,10 @@ function render() {
   if (!state) return;
   $('room-title').textContent = state.title; document.title = state.title + ' · Meeting Room';
   const member = state.members.find(m => m.id === credential.id);
-  $('landing').hidden = true; $('identity').hidden = !!member; $('room').hidden = !member;
+  $('landing').hidden = true; $('identity').hidden = !!member && !editingCharacter;
+  $('cancel-character').hidden = !editingCharacter;
+  $('join').textContent = editingCharacter ? 'Save character' : 'Join meeting';
+  $('picker').setTaken(state.members.filter(m => m.id !== credential.id).map(m => m.name)); $('room').hidden = !member;
   if (!member) { $('picker').setTaken(state.members.map(m => m.name)); return; }
   const host = member.id === state.hostId, current = state.sessions.at(-1);
   $('expiry').textContent = 'Reusable until ' + new Date(state.expiresAt).toLocaleDateString(undefined, { dateStyle: 'long' }) + ' · joins and actions renew for one month';
