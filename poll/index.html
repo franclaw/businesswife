@@ -185,6 +185,11 @@
   .live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
   .live.on .dot { background: #3fbf7f; }
   [hidden] { display: none !important; }
+  .round-setup-title { font-size: 1.25rem; margin-bottom: 12px; }
+  #setup-note { color: var(--muted); margin-bottom: 16px; font-size: 0.9rem; }
+  .round-result { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px; }
+  .round-result h3 { font-size: 1rem; margin-bottom: 8px; overflow-wrap: anywhere; }
+  .round-result p { font-size: 0.9rem; margin-bottom: 8px; overflow-wrap: anywhere; }
   /* identity picker */
   .you-chip {
     display: inline-flex; align-items: center; gap: 8px;
@@ -245,6 +250,8 @@
     <!-- Lobby -->
     <div id="lobby-screen" data-testid="lobby-screen">
       <div class="panel">
+        <h2 id="setup-title" class="round-setup-title" hidden>New poll round</h2>
+        <p id="setup-note" hidden>Edit the question and options below. Current votes stay unchanged until you start the new round.</p>
         <label for="create-question">Ask the room</label>
         <div class="stack">
           <input id="create-question" data-testid="question-input" type="text" maxlength="200" placeholder="Where do we spend the offsite?">
@@ -254,12 +261,13 @@
           </div>
           <div class="err" id="create-err" data-testid="create-error"></div>
           <button type="button" class="primary" id="create-btn" data-testid="create-btn">Create poll</button>
+          <button type="button" class="ghost" id="cancel-round" hidden>Cancel</button>
         </div>
       </div>
 
-      <div class="divider">or join</div>
+      <div class="divider" id="join-divider">or join</div>
 
-      <div class="panel">
+      <div class="panel" id="join-panel">
         <label for="join-code">Poll code</label>
         <div class="row">
           <input id="join-code" data-testid="join-code" class="code" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="6" placeholder="abc123">
@@ -273,7 +281,7 @@
     <div id="poll-screen" data-testid="poll-screen" hidden>
       <div class="panel">
         <div class="poll-meta">
-          <span class="poll-code">Poll <span class="code" data-testid="poll-code"></span></span>
+          <span class="poll-code">Poll <span class="code" data-testid="poll-code"></span> · <span id="round-label" data-testid="round-label">Round 1</span></span>
           <button type="button" class="you-chip" id="you-chip" data-testid="you-chip" hidden></button>
           <span class="live" id="live" data-testid="live-indicator"><span class="dot"></span><span id="live-text">connecting</span></span>
         </div>
@@ -290,9 +298,10 @@
         </div>
         <div class="actions">
           <button type="button" class="ghost" id="close-btn" data-testid="close-btn" hidden>Close polling</button>
-          <button type="button" class="ghost" id="new-btn" data-testid="new-poll-btn">New poll</button>
+          <button type="button" class="ghost" id="new-btn" data-testid="new-poll-btn" hidden>New poll round</button>
         </div>
       </div>
+      <details class="panel" id="history-panel" hidden><summary>Previous rounds</summary><div id="round-history" data-testid="round-history"></div></details>
     </div>
   </div>
 
@@ -319,6 +328,8 @@ const MIN_OPTIONS = 2;
 
 const state = {
   pollId: null,
+  round: 1,
+  editingRound: null,
   voterId: voterId(),
   ownerToken: null,
   myVote: null,
@@ -344,11 +355,11 @@ function voterId() {
   }
   return id;
 }
-function readVote(id) {
-  try { return localStorage.getItem(voteKey(id)) || sessionStorage.getItem(voteKey(id)); } catch { return sessionStorage.getItem(voteKey(id)); }
+function readVote(id, round = state.round) {
+  try { return localStorage.getItem(voteKey(id, round)) || sessionStorage.getItem(voteKey(id, round)); } catch { return sessionStorage.getItem(voteKey(id, round)); }
 }
-function saveVote(id, optionId) {
-  try { localStorage.setItem(voteKey(id), optionId); } catch { sessionStorage.setItem(voteKey(id), optionId); }
+function saveVote(id, optionId, round = state.round) {
+  try { localStorage.setItem(voteKey(id, round), optionId); } catch { sessionStorage.setItem(voteKey(id, round), optionId); }
 }
 
 // The owner token comes back once, at creation, and is the only way to close
@@ -362,7 +373,7 @@ function ownerTokenFor(id) {
   } catch {}
   return sessionStorage.getItem("bw_poll_creator_" + id) === "1" ? state.voterId : null;
 }
-function voteKey(id) { return "bw_poll_vote_" + id; }
+function voteKey(id, round) { return "bw_poll_vote_" + id + (round > 1 ? "_r" + round : ""); }
 
 // ---------- identity ----------
 // Who you are in this room: a Business Wife from the shared picker. Stored on
@@ -433,9 +444,9 @@ async function useIdentity(v, restoring = false) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || "Could not select her. Try again.");
     if (v.kind && v.kind !== "roster") picker.remember(v);
-    if (body.optionId) {
+    if (body.optionId && (!state.data || body.round === state.round)) {
       state.myVote = body.optionId;
-      saveVote(state.pollId, body.optionId);
+      saveVote(state.pollId, body.optionId, body.round);
     }
     state.claimedIdentity = body.identity;
     // The server shares uploads as a link; this device keeps the picture itself.
@@ -534,13 +545,15 @@ async function createPoll() {
   if (options.length < MIN_OPTIONS) { err.textContent = "Give at least " + MIN_OPTIONS + " options."; return; }
   $("#create-btn").disabled = true;
   try {
-    const res = await fetch(API, {
+    const editingRound = state.editingRound;
+    const res = await fetch(editingRound ? API + "/" + state.pollId + "/round" : API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, options }),
+      body: JSON.stringify({ question, options, ...(editingRound ? { ownerToken: state.ownerToken, round: editingRound } : {}) }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || "could not create poll");
+    if (editingRound) { finishRoundSetup(); await fetchState(); return; }
     try { localStorage.setItem(ownerKey(body.id), body.ownerToken); } catch {}
     history.pushState(null, "", "/poll/" + body.id);
     openPoll(body.id);
@@ -571,7 +584,29 @@ async function joinPoll() {
 }
 
 // ---------- poll ----------
+function roundSetupUI(editing) {
+  $("#setup-title").hidden = !editing; $("#setup-note").hidden = !editing;
+  $("#cancel-round").hidden = !editing;
+  $("#join-divider").hidden = editing; $("#join-panel").hidden = editing;
+  $("#create-btn").textContent = editing ? "Start new round" : "Create poll";
+}
+function finishRoundSetup() {
+  state.editingRound = null; roundSetupUI(false);
+  $("#lobby-screen").hidden = true; $("#poll-screen").hidden = false;
+}
+function beginRoundSetup() {
+  if (!state.ownerToken || !state.data) return;
+  state.editingRound = state.round;
+  $("#create-question").value = state.data.question;
+  optionRows = []; $("#option-rows").replaceChildren();
+  state.data.options.forEach(o => addOptionRow(o.label));
+  $("#create-err").textContent = "";
+  roundSetupUI(true);
+  $("#lobby-screen").hidden = false; $("#poll-screen").hidden = true;
+  $("#create-question").focus();
+}
 function showLobby() {
+  state.editingRound = null; roundSetupUI(false);
   $("#lobby-screen").hidden = false;
   $("#poll-screen").hidden = true;
   closeStreams();
@@ -579,6 +614,8 @@ function showLobby() {
 
 function openPoll(id) {
   state.pollId = id;
+  state.round = 1;
+  state.editingRound = null; roundSetupUI(false);
   state.ownerToken = ownerTokenFor(id);
   state.myVote = readVote(id) || null;
   state.claimedIdentity = null;
@@ -629,6 +666,11 @@ async function fetchState() {
 function accept(data) {
   if (!data || data.id !== state.pollId) return;
   if (state.data && state.data.id === data.id && (data.rev || 0) < (state.data.rev || 0)) return;
+  if (state.round !== data.round) {
+    state.round = data.round;
+    state.myVote = readVote(state.pollId, data.round) || null;
+    state.voting = false;
+  }
   state.data = data;
   syncTaken();
   render(data);
@@ -663,6 +705,10 @@ function percentages(counts, total) {
 function render(data) {
   if (!data || !state.pollId) return;
   const closed = !!data.closed;
+  $("#round-label").textContent = "Round " + data.round;
+  $("#new-btn").hidden = !state.ownerToken;
+  $("#history-panel").hidden = !data.history?.length;
+  $("#round-history").innerHTML = (data.history || []).map(h => '<section class="round-result"><h3>Round ' + h.round + ': ' + escapeHtml(h.question) + '</h3><p>' + h.totalVotes + ' votes</p>' + h.options.map(o => '<p>' + escapeHtml(o.label) + ': ' + o.count + '</p>').join('') + '</section>').join('');
   document.title = data.question + " — Poll · Business Wife";
   $("#question").textContent = data.question;
   $("#closed-banner").classList.toggle("on", closed);
@@ -738,6 +784,7 @@ async function vote(optionId) {
   if (!state.pollId || state.myVote || state.voting || state.data?.closed) return;
   const id = state.claimedIdentity;
   if (!id) { showIdentityPicker(); return; }
+  const submittedRound = state.round;
   state.voting = true;
   render(state.data);
   renderChip();
@@ -745,13 +792,15 @@ async function vote(optionId) {
     const res = await fetch(API + "/" + state.pollId + "/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voterId: state.voterId, optionId, name: id && id.name, icon: id && id.icon, raw: id && id.icon && id.raw ? true : undefined }),
+      body: JSON.stringify({ voterId: state.voterId, optionId, round: submittedRound, name: id && id.name, icon: id && id.icon, raw: id && id.icon && id.raw ? true : undefined }),
     });
     const body = await res.json().catch(() => ({}));
+    if (state.round !== submittedRound) return;
+    if (body.round && body.round !== submittedRound) { await fetchState(); return; }
     // Recover the accepted ballot after a lost response or stale tab state.
     if (res.status === 409 && body.optionId) {
       state.myVote = body.optionId;
-      saveVote(state.pollId, body.optionId);
+      saveVote(state.pollId, body.optionId, body.round);
       fetchState();
       return;
     }
@@ -777,7 +826,7 @@ async function closePoll() {
     const res = await fetch(API + "/" + state.pollId + "/close", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ownerToken: state.ownerToken }),
+      body: JSON.stringify({ ownerToken: state.ownerToken, round: state.round }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "could not close");
@@ -810,7 +859,8 @@ $("#join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") join
 $("#close-btn").onclick = closePoll;
 $("#you-chip").onclick = showIdentityPicker;
 $("#id-add-btn").onclick = () => useIdentity(picker.value);
-$("#new-btn").onclick = () => { history.pushState(null, "", "/poll/"); route(); };
+$("#new-btn").onclick = beginRoundSetup;
+$("#cancel-round").onclick = finishRoundSetup;
 $("#copy-btn").onclick = async () => {
   const input = $("#share-url");
   try { await navigator.clipboard.writeText(input.value); }

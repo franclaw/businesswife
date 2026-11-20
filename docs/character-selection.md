@@ -13,3 +13,11 @@ New poker room creation returns `ownerToken` once. The server persists only `own
 Existing persisted poker rooms without creator metadata retain their existing host model: the original creator cannot be reliably recovered from old data. Creating a new room uses the new creator-host rule. Normal seated participants still retain the existing collaborative reveal/next-round actions; kick and lock remain host-only.
 
 Verification: `change-character.spec.js` covers UI changes on desktop and phone, per-poll join isolation and guest-before-creator order. `character-server.spec.js` covers permissions, conflicts, persistence, creator recovery and unchanged votes.
+
+## Poll rounds on a stable link
+
+The poll creator's New poll round button opens a private draft using the existing question/title and option labels. The URL stays fixed. Cancel leaves the active round untouched; Start new round validates and archives it, clears ballots, and opens the next round. Participant identities and owner authority persist. Earlier aggregate results remain under Previous rounds, including after restart. A poll supports up to 100 rounds without silently dropping history.
+
+`POST /poll/api/polls/:id/round` requires the owner capability and expected current `round`, plus `question` and `options`. Votes and close operations include the displayed round; stale operations fail with 409 instead of voting in or closing a newer round. Missing round is accepted only for round 1 to support older clients. Existing saved polls load as round 1.
+
+Clients retain the existing round-1 ballot key and use `bw_poll_vote_<poll>_r<round>` thereafter. Live round changes clear the old locked ballot and allow another vote without another character join. The server returns the round with restored ballots so delayed responses cannot restore a previous round's vote into the current round.

@@ -1,0 +1,64 @@
+const { test, expect } = require('@playwright/test');
+
+test('creator edits a prefilled round without changing the link; participants vote afresh and history remains', async ({ page, browser, request }) => {
+  await page.goto('/poll');
+  await page.getByTestId('question-input').fill('Where for lunch?');
+  await page.getByTestId('option-input').nth(0).fill('Pizza');
+  await page.getByTestId('option-input').nth(1).fill('Tacos');
+  await page.getByTestId('create-btn').click();
+  await page.getByTestId('pick').first().click();
+  await expect(page.getByTestId('identity-overlay')).toBeHidden();
+  const url = page.url(), api = '/poll/api/polls/' + url.split('/').at(-1);
+  await page.getByTestId('option').first().click();
+  await expect(page.getByTestId('option').first()).toHaveClass(/mine/);
+  const context = await browser.newContext();
+  try {
+    const guest = await context.newPage();
+    await guest.goto(url);
+    await guest.getByTestId('pick').first().click();
+    await expect(guest.getByTestId('identity-overlay')).toBeHidden();
+    await expect(guest.getByTestId('new-poll-btn')).toBeHidden();
+    await guest.getByTestId('option').last().click();
+    await expect(page.getByTestId('tally')).toContainText(/^2 votes/);
+    await page.getByRole('button', { name: 'New poll round', exact: true }).click();
+    await expect(page).toHaveURL(url);
+    await expect(page.getByTestId('question-input')).toHaveValue('Where for lunch?');
+    await expect(page.getByTestId('option-input').nth(0)).toHaveValue('Pizza');
+    await expect(page.getByTestId('option-input').nth(1)).toHaveValue('Tacos');
+    await page.getByTestId('question-input').fill('Not yet');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByTestId('poll-question')).toHaveText('Where for lunch?');
+    expect((await (await request.get(api)).json()).totalVotes).toBe(2);
+    await page.getByRole('button', { name: 'New poll round', exact: true }).click();
+    await page.getByTestId('question-input').fill('Where for dinner?');
+    await page.getByTestId('option-input').nth(0).fill('Pasta');
+    await page.getByTestId('option-input').nth(1).fill('Sushi');
+    // Drafts stay private and do not invalidate current ballots.
+    await expect(guest.getByTestId('poll-question')).toHaveText('Where for lunch?');
+    expect((await (await request.get(api)).json()).round).toBe(1);
+    await page.getByRole('button', { name: 'Start new round', exact: true }).click();
+    await expect(page.getByTestId('round-label')).toHaveText('Round 2');
+    await expect(page).toHaveURL(url);
+    await expect(guest.getByTestId('poll-question')).toHaveText('Where for dinner?');
+    await expect(guest.getByTestId('option').first()).toBeEnabled();
+    await expect(guest.getByTestId('identity-overlay')).toBeHidden();
+    await expect(page.getByTestId('option').first()).not.toHaveClass(/mine/);
+    const fresh = await (await request.get(api)).json();
+    expect(fresh).toMatchObject({ round: 2, totalVotes: 0, closed: false });
+    expect(fresh.history[0]).toMatchObject({ round: 1, question: 'Where for lunch?', totalVotes: 2 });
+    await guest.getByTestId('option').last().click();
+    await expect(guest.getByTestId('option').last()).toHaveClass(/mine/);
+    await guest.reload();
+    await expect(guest.getByTestId('round-label')).toHaveText('Round 2');
+    await expect(guest.getByTestId('option').last()).toHaveClass(/mine/);
+    await page.getByTestId('close-btn').click();
+    await expect(page.getByTestId('closed-banner')).toHaveClass(/on/);
+    await page.getByText('Previous rounds', { exact: true }).click();
+    await expect(page.getByTestId('round-history')).toContainText('Pizza: 1');
+    await expect(page.getByTestId('round-history')).toContainText('Tacos: 1');
+    await page.getByRole('button', { name: 'New poll round', exact: true }).click();
+    await expect(page.getByTestId('question-input')).toHaveValue('Where for dinner?');
+    await expect(page.getByTestId('option-input').nth(0)).toHaveValue('Pasta');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  } finally { await context.close(); }
+});
