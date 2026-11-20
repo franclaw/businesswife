@@ -41,6 +41,7 @@ test('one room carries identities and votes between poker and poll', async ({ pa
   await expect(other.locator('#activity')).toContainText('0 responses');
   await page.getByRole('button', { name: 'End meeting', exact: true }).click();
   await page.getByRole('button', { name: 'Start new meeting', exact: true }).click();
+  await expect(page.locator('#history')).toContainText('Meeting 2 · current');
   state = await (await request.get(api)).json();
   expect(state.sessions).toHaveLength(2);
   expect(state.members).toHaveLength(2);
