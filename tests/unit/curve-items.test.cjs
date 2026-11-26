@@ -34,3 +34,16 @@ test('only one player can collect an item and expired items cannot be collected'
   collectItems(r); assert.equal(r.players[0].effect.type, 'shield'); assert.equal(r.players[1].effect, null);
   const expired = fixture('haste'); expired.items[0].expires = .5; collectItems(expired); assert.equal(expired.players[0].effect, null);
 });
+
+test('larger world keeps collision occupancy and spawns pickups beyond the old boundary', () => {
+  const r = fixture('slow');
+  assert.equal(r.sim.occ.w, 1600); assert.equal(r.sim.occ.h, 1000);
+  assert.equal(r.sim.occ.data.length, 1600000);
+  r.items = []; r.nextItem = 0; r.sim.rng = () => .9;
+  collectItems(r); assert.equal(r.items.length, 1);
+  const item = r.items[0]; assert.ok(item.x > 960 && item.y > 640);
+  assert.ok(item.x < 1550 && item.y < 950);
+  r.items = []; r.nextItem = 0;
+  r.sim.occ.data[item.y * r.sim.occ.w + item.x] = 1;
+  collectItems(r); assert.equal(r.items.length, 0, 'new-area trail cells must prevent spawning a pickup');
+});

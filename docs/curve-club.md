@@ -55,4 +55,16 @@ Local samples on 2026-11-26 (not public-internet performance guarantees):
 
 Mobile layout was checked at 390 px: no horizontal overflow, ten visible roster entries, and 64 px minimum-height steering controls. Fullscreen and reduced-motion preferences do not change gameplay.
 
-Desktop rooms fit the available viewport with a compact header and a large arena; 1440×900 and 1512×982 are the primary laptop checks. The sidebar can scroll independently. Fullscreen provides the largest 3:2 arena that fits, without stretching the game coordinates.
+Desktop rooms fit the available viewport with a compact header and a large arena; 1440×900 and 1512×982 are the primary laptop checks. The sidebar can scroll independently. Fullscreen provides the largest 16:10 arena that fits, without stretching the game coordinates.
+
+
+## Fullscreen-first arena (2026-11-26 follow-up)
+
+The shared world is now **1600×1000**, about **2.6× the old 960×640 area**. Speed and trail thickness remain in world coordinates; windowed mode shows the entire same field at a smaller scale, not a different game or a cropped camera. Field metadata drives canvas sizing; pickup spawning and collision lookup use the actual occupancy dimensions.
+
+Desktop fullscreen reserves only a slim top HUD and hides steering buttons and the lower hint rows. Touch devices keep their steering controls. **F** toggles fullscreen in the room, including during countdown; it ignores text editing, browser modifier shortcuts, and repeated keydown events. The host has a start/rematch action inside fullscreen, and final score text is visible there too.
+
+The fullscreen button pulses in the lobby and countdown, never during active play or while already fullscreen. Reduced-motion users get a static highlighted outline instead. The shortcut appears on the control and in the windowed-mode hint. On laptop checks, fullscreen must increase arena width at least 20% over windowed mode, use over 90% of the 982 px viewport height, and keep the complete field on screen.
+
+
+Isolated follow-up measurement (one rendering client, ten active players throughout, 1512×982 viewport): the 1600×1000 world rendered at **16.7 ms median and p95** over 1400 ms. Visible arena geometry was **1473×921 fullscreen** versus **1147×717 windowed**. The fullscreen sample is local, not an internet-latency guarantee. Follow-up checks: **349 end-to-end passes**, **6 platform-inapplicable skips**, **7 unit passes**, and clean UI lint.

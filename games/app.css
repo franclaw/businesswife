@@ -50,8 +50,8 @@ button { font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; bord
 #phase-label { color: var(--pink); letter-spacing: .08em; }
 .icon-button { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: #dfcfd8; font-size: 20px; }
 .icon-button:hover { background: #3a2a36; }
-.arena-wrap { aspect-ratio: 3 / 2; position: relative; overflow: hidden; border: 1px solid #5a4351; background: #151116; }
-canvas { position: absolute; inset: 0; display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; touch-action: none; }
+.arena-wrap { aspect-ratio: 8 / 5; position: relative; overflow: hidden; border: 1px solid #5a4351; background: #151116; }
+canvas { position: absolute; inset: 0; display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; touch-action: none; }
 .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; background: #151116bc; pointer-events: none; }
 .overlay .eyebrow { margin: 0; }
 .overlay strong { font-size: 29.6px; line-height: 1.15; letter-spacing: -.03em; max-width: 20ch; overflow-wrap: anywhere; }
@@ -91,8 +91,8 @@ footer span { color: var(--pink); }
 button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
 button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 .play-stage:fullscreen { display: flex; flex-direction: column; padding: 12px; height: 100dvh; align-items: center; justify-content: center; }
-.play-stage:fullscreen .arena-wrap { min-height: 0; max-width: calc((100dvh - 230px) * 1.5); width: 100%; }
-.play-stage:fullscreen .arena-toolbar, .play-stage:fullscreen .controls, .play-stage:fullscreen .arena-foot { width: 100%; max-width: calc((100dvh - 230px) * 1.5); }
+.play-stage:fullscreen .arena-wrap { min-height: 0; max-width: calc((100dvh - 230px) * 1.6); width: 100%; }
+.play-stage:fullscreen .arena-toolbar, .play-stage:fullscreen .controls, .play-stage:fullscreen .arena-foot { width: 100%; max-width: calc((100dvh - 230px) * 1.6); }
 @media (max-width: 850px) {
  main { padding: 24px 20px; }
  .game-layout { grid-template-columns: 1fr; gap: 16px; }
@@ -150,7 +150,7 @@ button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
  .room-title { font-size: 29.6px; }
  #invite { margin: 4px 0 0; font-size: 12px; line-height: 1.5; }
  .game-layout { grid-template-columns: minmax(0, 1fr) 240px; gap: 16px; margin-top: 10px; }
- .play-stage { width: min(100%, calc((100dvh - 264px) * 1.5)); justify-self: center; }
+ .play-stage { width: min(100%, calc((100dvh - 264px) * 1.6)); justify-self: center; }
  .arena-toolbar { padding-top: 0; padding-bottom: 0; }
  .controls { margin-top: 8px; gap: 8px; }
  .controls button { min-height: 44px; }
@@ -162,3 +162,19 @@ button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
  .roster-panel .rules { margin-top: 14px; padding-top: 12px; }
  .play-stage:fullscreen { width: 100%; }
 }
+
+.fullscreen-actions { display: flex; align-items: center; gap: 8px; }
+#fullscreen { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; font-size: 13.12px; white-space: nowrap; }
+#fullscreen > span[aria-hidden] { font-size: 20px; }
+#fullscreen kbd { border: 1px solid #866679; border-radius: 4px; padding: 2px 5px; color: #e3cddc; }
+.compact-start { min-height: 40px; padding: 8px 14px; font-size: 13.12px; }
+@keyframes fullscreen-invite { 0%, 100% { background: #3d2838; box-shadow: inset 0 0 0 1px #9d6c87, 0 0 0 0 #e4a1bf00; } 50% { background: #674256; box-shadow: inset 0 0 0 1px #ffc9df, 0 0 0 4px #e4a1bf20; } }
+@media (min-width: 851px) and (pointer: fine) {
+ #fullscreen.fullscreen-nudge { animation: fullscreen-invite 1.7s ease-in-out infinite; color: #ffe8f1; }
+ .play-stage:fullscreen { padding: 6px; height: 100dvh; }
+ .play-stage:fullscreen .controls, .play-stage:fullscreen .effect-status, .play-stage:fullscreen .arena-foot { display: none; }
+ .play-stage:fullscreen .arena-wrap, .play-stage:fullscreen .arena-toolbar { width: min(100%, calc((100dvh - 60px) * 1.6)); max-width: none; }
+ .play-stage:fullscreen .arena-wrap { flex: none; }
+}
+@media (max-width: 560px) { #fullscreen-label, #fullscreen kbd { display: none; } #fullscreen { padding: 0 8px; } }
+@media (prefers-reduced-motion: reduce) { #fullscreen.fullscreen-nudge { animation: none; background: #5b374c; box-shadow: inset 0 0 0 2px #efb3ce; } }

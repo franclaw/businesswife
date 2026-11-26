@@ -166,14 +166,51 @@ test('touch steering supports two fingers and releases without a stuck turn', as
   await expect(page.locator('#right')).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('fullscreen keeps the complete arena and controls inside the display', async ({ page }, testInfo) => {
+test('F toggles a much larger fullscreen arena with no desktop steering buttons', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name === 'phone', 'Fullscreen support varies on mobile browsers.');
   await page.setViewportSize({ width: 1512, height: 982 });
   await page.goto('/games'); await page.locator('#name').fill('Fullscreen'); await page.locator('#create').click();
-  await page.getByRole('button', {name:'Enter fullscreen'}).click();
+  await expect(page.locator('#room')).toBeVisible();
+  const room = await page.evaluate(() => game.id);
+  for (let i = 2; i <= 10; i++) expect((await request.post(`/games/api/rooms/${room}/join`, { data: { name: `Player ${i}` } })).ok()).toBeTruthy();
+  await expect(page.locator('#count')).toHaveText('10 / 10');
+  const windowed = await page.locator('#arena').boundingBox();
+  expect(await page.evaluate(() => [game.field.width, game.field.height, canvas.width, canvas.height])).toEqual([1600, 1000, 1600, 1000]);
+  await expect(page.locator('#fullscreen')).toHaveClass(/fullscreen-nudge/);
+  await expect(page.locator('#fullscreen')).toHaveCSS('animation-name', 'fullscreen-invite');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('#fullscreen')).toHaveCSS('animation-name', 'none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.keyboard.press('f');
   await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBeTruthy();
-  const bottom = await page.locator('#right').evaluate(el => el.getBoundingClientRect().bottom);
-  expect(bottom).toBeLessThanOrEqual(982);
-  await page.getByRole('button', {name:'Exit fullscreen'}).click();
+  await expect(page.locator('.controls')).toBeHidden();
+  await expect(page.locator('#fullscreen')).not.toHaveClass(/fullscreen-nudge/);
+  const fullscreen = await page.locator('#arena').boundingBox();
+  expect(fullscreen.width).toBeGreaterThan(windowed.width * 1.2);
+  expect(fullscreen.height).toBeGreaterThan(982 * .9);
+  expect(fullscreen.x).toBeGreaterThanOrEqual(0); expect(fullscreen.y).toBeGreaterThanOrEqual(0);
+  expect(fullscreen.x + fullscreen.width).toBeLessThanOrEqual(1512);
+  expect(fullscreen.y + fullscreen.height).toBeLessThanOrEqual(982);
+  await page.locator('#fullscreen-start').click();
+  await expect(page.locator('#overlay strong')).toHaveText(/[123]/);
+  await page.keyboard.press('f');
   await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBeFalsy();
+  await expect(page.locator('#fullscreen')).toHaveClass(/fullscreen-nudge/);
+  await expect(page.locator('#overlay')).toBeHidden({ timeout: 6000 });
+  await expect(page.locator('#fullscreen')).not.toHaveClass(/fullscreen-nudge/);
+  await expect(page.locator('.controls')).toBeVisible();
+});
+
+test('F never interrupts text entry or browser modifier shortcuts', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'phone', 'Desktop keyboard shortcut.');
+  await page.goto('/games'); await page.locator('#name').fill('Focus'); await page.keyboard.press('f');
+  await expect(page.locator('#name')).toHaveValue('Focusf');
+  expect(await page.evaluate(() => !!document.fullscreenElement)).toBeFalsy();
+  await page.locator('#create').click(); await expect(page.locator('#room')).toBeVisible();
+  await page.evaluate(() => { const input = document.createElement('input'); input.id = 'chat-draft'; document.querySelector('#play-stage').append(input); input.focus(); });
+  await page.keyboard.press('f'); await expect(page.locator('#chat-draft')).toHaveValue('f');
+  expect(await page.evaluate(() => !!document.fullscreenElement)).toBeFalsy();
+  await page.locator('#chat-draft').evaluate(el => el.remove());
+  const prevented = await page.evaluate(() => { const event = new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true, cancelable: true }); document.body.dispatchEvent(event); return event.defaultPrevented; });
+  expect(prevented).toBeFalsy();
 });

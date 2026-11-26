@@ -15,6 +15,7 @@ let me = null, game = null, source = null, held = 0, inputSeq = 0;
 let receivedAt = 0, lastFrame = 0, dirty = true, connected = false, rtt = 0;
 let rosterSignature = '', trailCount = 0, joining = false, sending = false;
 let previousRects = [];
+let fullscreenPending = false;
 let localView = null, correction = { x: 0, y: 0, yaw: 0 }, rendered = new Map();
 const keys = new Set(), pointers = new Map();
 
@@ -28,10 +29,11 @@ async function api(path, body) {
   return data;
 }
 function clearArena() {
-  ink.fillStyle = '#151116'; ink.fillRect(0, 0, 960, 640);
+  const w = layer.width, h = layer.height, border = game?.field.border || 10;
+  ink.fillStyle = '#151116'; ink.fillRect(0, 0, w, h);
   ink.fillStyle = '#332631';
-  for (let x = 24; x < 960; x += 24) for (let y = 24; y < 640; y += 24) ink.fillRect(x, y, 1, 1);
-  ink.strokeStyle = '#685060'; ink.lineWidth = 1; ink.strokeRect(10, 10, 940, 620);
+  for (let x = 24; x < w; x += 24) for (let y = 24; y < h; y += 24) ink.fillRect(x, y, 1, 1);
+  ink.strokeStyle = '#685060'; ink.lineWidth = 1; ink.strokeRect(border, border, w - border * 2, h - border * 2);
   dirty = true;
 }
 function normalize(angle) { return Math.atan2(Math.sin(angle), Math.cos(angle)); }
@@ -49,6 +51,10 @@ function project(p, dt, turn = p.turn) {
   return result;
 }
 function receive(g) {
+  if (canvas.width !== g.field.width || canvas.height !== g.field.height) {
+    canvas.width = layer.width = g.field.width; canvas.height = layer.height = g.field.height;
+    previousRects = []; clearArena();
+  }
   const fresh = !game || game.generation !== g.generation;
   const reset = fresh || g.full || game.trailEpoch !== g.trailEpoch;
   if (!reset && g.trailFrom !== trailCount) { connect(); return; }
@@ -76,6 +82,7 @@ function receive(g) {
 }
 function updateUI() {
   if (!game) return;
+  updateFullscreenUI();
   const g = game, now = performance.now();
   const elapsed = g.elapsed + (g.phase === 'playing' && !g.countdown && connected ? Math.min((now - receivedAt) / 1000, .15) : 0);
   text('clock', `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`);
@@ -106,7 +113,8 @@ function updateUI() {
     const winner = g.players.find(p => p.id === g.winner);
     $('overlay').querySelector('strong').textContent = g.countdown ? String(g.countdown) : g.phase === 'over' ? (g.solo ? 'RUN COMPLETE' : winner ? `${winner.name} WINS` : 'IT’S A DRAW') : 'THE FLOOR IS YOURS';
     text('overlay-kicker', g.countdown ? 'FIND YOUR LINE' : g.phase === 'over' ? 'ROUND COMPLETE' : 'READY WHEN YOU ARE');
-    text('overlay-detail', g.countdown ? 'Get ready. Keep your eyes on your colour.' : g.phase === 'over' ? (g.solo ? `${g.players[0].score.toFixed(1)} seconds on the floor` : 'Final scores are on the board. The host can start a rematch.') : 'Play solo or invite friends.');
+    text('overlay-detail', g.countdown ? (document.fullscreenElement ? 'Get ready. Keep your eyes on your colour.' : 'Press F for fullscreen. Find your colour.') : g.phase === 'over' ? (g.solo ? `${g.players[0].score.toFixed(1)} seconds on the floor` : 'Final scores are on the board. The host can start a rematch.') : (document.fullscreenElement ? 'Play solo or invite friends.' : 'Press F for the full-size field. Play solo or invite friends.'));
+    if (document.fullscreenElement && g.phase === 'over' && !g.solo) text('overlay-detail', [...g.players].sort((a, b) => b.score - a.score).map(p => `${p.name}: ${p.score} pts`).join(' · '));
     text('status', g.phase === 'playing' ? (g.solo ? 'Survive as long as you can.' : 'Last curve standing wins.') : g.phase === 'over' ? (g.solo ? 'Survival time shown above.' : 'Final scores shown above.') : host ? 'Your room is ready. Start solo or invite friends.' : 'Waiting for the host to start.');
     $('out-banner').hidden = g.phase !== 'playing' || !!g.countdown || !!g.players.find(p => p.id === me?.id)?.alive;
     if (g.phase !== 'playing') release();
@@ -200,21 +208,48 @@ $('copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(location.href); text('invite', 'Invite link copied. Send it to your rivals.'); }
   catch { text('invite', 'Copy this link: ' + location.href); }
 });
-$('start').addEventListener('click', async () => {
-  if (sending || !connected) return; sending = true; $('start').disabled = true; release();
+async function startGame() {
+  if (sending || !connected) return; sending = true; $('start').disabled = true; $('fullscreen-start').disabled = true; release();
   try { await api(`/games/api/rooms/${roomId}/start`, { token: me.token }); error(); }
   catch (e) { error(e.message); }
   finally { sending = false; rosterSignature = ''; updateUI(); }
-});
+}
+$('start').addEventListener('click', startGame);
+$('fullscreen-start').addEventListener('click', startGame);
 $('leave').addEventListener('click', async () => {
   try { await api(`/games/api/rooms/${roomId}/leave`, { token: me.token }); source?.close(); sessionStorage.removeItem('curve-' + roomId); location.href = '/games'; }
   catch (e) { error(e.message); }
 });
-$('fullscreen').addEventListener('click', async () => {
-  try { if (document.fullscreenElement) await document.exitFullscreen(); else if ($('play-stage').requestFullscreen) await $('play-stage').requestFullscreen(); else throw new Error('Fullscreen is not available in this browser.'); }
-  catch (e) { error(e.message); }
+function updateFullscreenUI() {
+  const full = document.fullscreenElement === $('play-stage');
+  const desktop = matchMedia('(min-width: 851px) and (pointer: fine)').matches;
+  $('fullscreen').classList.toggle('fullscreen-nudge', !full && !!game && (game.phase === 'lobby' || !!game.countdown));
+  $('fullscreen').setAttribute('aria-label', full ? 'Exit fullscreen' : 'Enter fullscreen');
+  $('fullscreen').title = full ? 'Exit fullscreen (F or Esc)' : 'Fullscreen (F)';
+  text('fullscreen-label', full ? 'Exit fullscreen' : 'Fullscreen');
+  text('view-hint', full ? 'Arrow keys or A / D · F or Esc to exit' : desktop ? 'Windowed overview · Press F for full-size play' : 'Zoomed-out view · Hold the steering buttons');
+  $('fullscreen-start').hidden = !full || !game || me?.id !== game.host || game.phase === 'playing';
+  $('fullscreen-start').disabled = sending || !connected;
+  text('fullscreen-start', game?.phase === 'over' ? 'Play again' : 'Start game');
+}
+async function toggleFullscreen() {
+  if (fullscreenPending || $('room').hidden) return;
+  fullscreenPending = true;
+  try {
+    release();
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else if ($('play-stage').requestFullscreen) await $('play-stage').requestFullscreen();
+    else throw new Error('Fullscreen is not available in this browser.');
+  } catch (e) { error(e.message); }
+  finally { fullscreenPending = false; }
+}
+$('fullscreen').addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', () => { release(); rosterSignature = ''; updateUI(); dirty = true; });
+window.addEventListener('keydown', event => {
+  if (event.key.toLowerCase() !== 'f' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || $('room').hidden) return;
+  if (event.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+  event.preventDefault(); toggleFullscreen();
 });
-document.addEventListener('fullscreenchange', () => { $('fullscreen').setAttribute('aria-label', document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen'); dirty = true; });
 async function sendTurn() {
   if (!me || !game) return;
   const seq = ++inputSeq, gen = game.generation, start = performance.now();

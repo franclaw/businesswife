@@ -7,3 +7,5 @@ Business Wife modification: hole duration is 50% longer than upstream.
 Additional Business Wife modifications: optional per-worm speed/turn multipliers and trail-only shield immunity support authoritative pickups. The server supplies ten colours independently of the upstream palette. Regenerate the CommonJS engine with `node scripts/build-curve-engine.cjs` using Node 24; no compiler is needed at runtime. See `docs/curve-club.md` for rules and network protocol.
 
 Trail radius is now 1.5 arena pixels (3 px diameter), shared by the simulation and rendered trail.
+
+The world is expanded from 960×640 to 1600×1000 (16:10) for ten-player play. Windowed and fullscreen clients share the same physics/world dimensions.

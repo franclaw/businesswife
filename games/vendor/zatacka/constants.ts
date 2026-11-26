@@ -1,5 +1,5 @@
-export const FIELD_W = 960;
-export const FIELD_H = 640;
+export const FIELD_W = 1600;
+export const FIELD_H = 1000;
 export const BORDER = 10;
 export const RADIUS = 1.5;
 export const LOOKAHEAD = 3.4;

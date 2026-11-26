@@ -1,6 +1,6 @@
 // Generated from Zatacka sim.ts and constants.ts; see LICENSE and README.
-const FIELD_W = 960;
-const FIELD_H = 640;
+const FIELD_W = 1600;
+const FIELD_H = 1000;
 const BORDER = 10;
 const RADIUS = 1.5;
 const LOOKAHEAD = 3.4;
@@ -479,4 +479,4 @@ function wormTemplate(id, name, colorIndex, kind, score = 0) {
     };
 }
 
-module.exports={Sim,wormTemplate,FIELD_W,FIELD_H,PLAYER_COLORS,RADIUS};
+module.exports={Sim,wormTemplate,FIELD_W,FIELD_H,PLAYER_COLORS,RADIUS,BORDER};
