@@ -1,7 +1,7 @@
 export const FIELD_W = 960;
 export const FIELD_H = 640;
 export const BORDER = 10;
-export const RADIUS = 2.35;
+export const RADIUS = 1.5;
 export const LOOKAHEAD = 3.4;
 export const BASE_SPEED = 108;
 export const BASE_TURN = 2.85;

@@ -1,49 +1,251 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const roomId = location.pathname.match(/^\/games\/([a-f0-9]{8})\/?$/)?.[1];
-let me = null, game = null, source = null, held = 0;
-const canvas=$('arena'), ctx=canvas.getContext('2d');
-function error(e){ $('error').textContent = e || ''; }
-async function api(path, body) { const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const data=await response.json(); if(!response.ok) throw new Error(data.error||'Something went wrong.'); return data; }
-// Keep the arena in an offscreen canvas and apply only new trail points.
-const layer=document.createElement('canvas'); layer.width=960; layer.height=640;
-const ink=layer.getContext('2d'); let generation=null, positions=new Map(), frameAt=performance.now();
-function clearArena(){
- ink.fillStyle='#161217'; ink.fillRect(0,0,960,640); ink.strokeStyle='#2a2028'; ink.lineWidth=1;
- for(let x=40;x<960;x+=40){ink.beginPath();ink.moveTo(x,0);ink.lineTo(x,640);ink.stroke()}
- for(let y=40;y<640;y+=40){ink.beginPath();ink.moveTo(0,y);ink.lineTo(960,y);ink.stroke()}
+const canvas = $('arena'), ctx = canvas.getContext('2d');
+const layer = $('trail-layer');
+const ink = layer.getContext('2d', { alpha: false });
+const ITEMS = {
+  shield: { glyph: '◇', name: 'Trail shield', color: '#84dfec' },
+  slow: { glyph: '−', name: 'Slow motion', color: '#65d69b' },
+  haste: { glyph: '+', name: 'Speed rush', color: '#ffa66e' },
+  turn: { glyph: '↶', name: 'Tight turns', color: '#c6a0ff' },
+  erase: { glyph: '×', name: 'Arena eraser', color: '#f4cd70' },
+};
+let me = null, game = null, source = null, held = 0, inputSeq = 0;
+let receivedAt = 0, lastFrame = 0, dirty = true, connected = false, rtt = 0;
+let rosterSignature = '', trailCount = 0, joining = false, sending = false;
+let previousRects = [];
+let localView = null, correction = { x: 0, y: 0, yaw: 0 }, rendered = new Map();
+const keys = new Set(), pointers = new Map();
+
+function saved(key) { try { return JSON.parse(sessionStorage.getItem(key) || 'null'); } catch { return null; } }
+function error(message = '') { $('error').textContent = message; }
+function text(id, value) { if ($(id).textContent !== value) $(id).textContent = value; }
+async function api(path, body) {
+  const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not complete that action. Try again.');
+  return data;
 }
-function draw(now=performance.now()) {
- ctx.drawImage(layer,0,0);
- if(game?.phase==='playing') for(const p of game.players.filter(p=>p.alive)) {
-   const pos=positions.get(p.id); const t=Math.min(1,Math.max(0,(now-frameAt)/50));
-   const x=pos ? pos.fromX+(pos.toX-pos.fromX)*t : p.x, y=pos ? pos.fromY+(pos.toY-pos.fromY)*t : p.y;
-   ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
- }
- requestAnimationFrame(draw);
+function clearArena() {
+  ink.fillStyle = '#151116'; ink.fillRect(0, 0, 960, 640);
+  ink.fillStyle = '#332631';
+  for (let x = 24; x < 960; x += 24) for (let y = 24; y < 640; y += 24) ink.fillRect(x, y, 1, 1);
+  ink.strokeStyle = '#685060'; ink.lineWidth = 1; ink.strokeRect(10, 10, 940, 620);
+  dirty = true;
 }
-function render(g){
- const reset=g.full || generation!==g.generation;
- if(reset){clearArena();generation=g.generation;positions.clear();game=null;}
- const colors=Object.fromEntries(g.players.map(p=>[p.id,p.color]));
- for(const t of g.trails){ink.fillStyle=colors[t.player]||'#fff';ink.beginPath();ink.arc(t.x,t.y,3,0,Math.PI*2);ink.fill()}
- // Retain the trail history for reconnects and diagnostics, but don't redraw it.
- if(!reset && game){game.trails.push(...g.trails);g.trails=game.trails;}
- const old=game; game=g; frameAt=performance.now();
- for(const p of g.players){const prev=old?.players.find(x=>x.id===p.id);positions.set(p.id,{fromX:prev?.x??p.x,fromY:prev?.y??p.y,toX:p.x,toY:p.y});}
- $('count').textContent=`${g.players.length} / 6`; const list=$('players');list.replaceChildren(); for(const p of g.players){const li=document.createElement('li'),dot=document.createElement('span'),label=document.createElement('span');dot.className='dot';dot.style.background=p.color;label.textContent=p.name+(p.id===me?.id?' (you)':'')+(p.id===g.host?' ♛':'')+(g.phase!=='lobby'?` · ${p.score || 0} ${g.solo?'sec':'pts'}`:'')+(g.phase==='playing'&&!p.alive?' · out':'');li.append(dot,label);list.append(li)}
- const host=me?.id===g.host; $('start').hidden=!host||g.phase==='playing';$('start').disabled=false;$('start').firstChild.textContent=g.phase==='over'?'Play again ':'Start game ';
- $('overlay').hidden=g.phase==='playing'&&!g.countdown;
- const winner=g.players.find(p=>p.id===g.winner); $('overlay').querySelector('strong').textContent=g.countdown ? String(g.countdown) : g.phase==='over'?(g.solo?'RUN COMPLETE':winner?`${winner.name} WINS`:'IT’S A DRAW'):'THE FLOOR IS YOURS';
- $('overlay').querySelector('span').textContent=g.countdown?'Get ready':g.phase==='over'?(g.solo?'How long can you last next time?':'Ready for another game?'):'Play solo or invite friends.';
- $('status').textContent=g.phase==='playing'?(g.solo?'Survive as long as you can.':'Last curve standing wins.') : g.phase==='over'?(g.solo?'Survival time shown above.':'Final scores shown above.') : host?'Play solo or invite your friends.':'Waiting for the host to start.';
+function normalize(angle) { return Math.atan2(Math.sin(angle), Math.cos(angle)); }
+function project(p, dt, turn = p.turn) {
+  const effect = p.effect?.type;
+  const speed = game.field.speed * (effect === 'slow' ? .65 : effect === 'haste' ? 1.45 : 1);
+  const turnRate = game.field.turnRate * (effect === 'turn' ? 1.6 : 1);
+  const result = { x: p.x, y: p.y, yaw: p.yaw };
+  const steps = Math.max(1, Math.ceil(dt * 120)), d = dt / steps;
+  for (let i = 0; i < steps; i++) {
+    result.yaw -= turn * turnRate * d;
+    result.x -= Math.sin(result.yaw) * speed * d;
+    result.y -= Math.cos(result.yaw) * speed * d;
+  }
+  return result;
 }
-clearArena(); requestAnimationFrame(draw);
-async function join(){ try { const saved=JSON.parse(sessionStorage.getItem('curve-'+roomId)||'null'); me=await api(`/games/api/rooms/${roomId}/join`,{name:$('name').value,token:saved?.token});sessionStorage.setItem('curve-'+roomId,JSON.stringify(me)); $('home').hidden=true;$('room').hidden=false;error('');source=new EventSource(`/games/api/rooms/${roomId}/events`);source.onmessage=e=>render(JSON.parse(e.data));source.onerror=()=>{$('status').textContent='Connection interrupted. Reconnecting…';}; }catch(e){error(e.message)} }
-$('create').addEventListener('click',async()=>{try{if(!$('name').value.trim()){error('Enter your name first.');return}const r=await api('/games/api/rooms',{});sessionStorage.setItem('curve-name',$('name').value.trim());const joined=await api(`/games/api/rooms/${r.id}/join`,{name:$('name').value.trim()});sessionStorage.setItem('curve-'+r.id,JSON.stringify(joined));location.href='/games/'+r.id}catch(e){error(e.message)}});
-if(roomId){$('create').textContent='Join room ↗'; $('create').replaceWith($('create').cloneNode(true)); $('create').addEventListener('click',join); const saved=JSON.parse(sessionStorage.getItem('curve-'+roomId)||'null');$('name').value=sessionStorage.getItem('curve-name')||'';if(saved)join();}
-$('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.href);$('invite').textContent='Invite link copied.'}catch{$('invite').textContent='Copy this link: '+location.href}});
-$('start').addEventListener('click',async()=>{try{await api(`/games/api/rooms/${roomId}/start`,{token:me.token});error('')}catch(e){error(e.message)}});
-function turn(n){if(!me||held===n)return;held=n;api(`/games/api/rooms/${roomId}/turn`,{token:me.token,turn:n}).catch(e=>error(e.message))}
-for(const [id,n] of [['left',-1],['right',1]]){const b=$(id);b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);turn(n)});b.addEventListener('pointerup',()=>turn(0));b.addEventListener('pointercancel',()=>turn(0));b.addEventListener('lostpointercapture',()=>turn(0));}
-window.addEventListener('keydown',e=>{if(['ArrowLeft','a','A','ArrowRight','d','D'].includes(e.key)&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();turn(['ArrowLeft','a','A'].includes(e.key)?-1:1)}});window.addEventListener('keyup',e=>{if(['ArrowLeft','a','A','ArrowRight','d','D'].includes(e.key))turn(0)});window.addEventListener('blur',()=>turn(0));
+function receive(g) {
+  const fresh = !game || game.generation !== g.generation;
+  const reset = fresh || g.full || game.trailEpoch !== g.trailEpoch;
+  if (!reset && g.trailFrom !== trailCount) { connect(); return; }
+  if (reset) { clearArena(); trailCount = 0; }
+  const colors = new Map(g.players.map(p => [p.slot, p.color]));
+  for (const [slot, x, y] of g.trails) {
+    ink.fillStyle = colors.get(slot) || '#fff'; ink.beginPath(); ink.arc(x, y, g.field.radius, 0, Math.PI * 2); ink.fill();
+  }
+  if (!reset && game) { game.trails.push(...g.trails); g.trails = game.trails; }
+  trailCount = g.trailTo;
+  const previous = game; game = g; receivedAt = performance.now(); connected = true;
+  const own = g.players.find(p => p.id === me?.id);
+  if (fresh) { rendered.clear(); localView = null; correction = { x: 0, y: 0, yaw: 0 }; }
+  if (own) {
+    const target = project(own, g.countdown || g.phase !== 'playing' ? 0 : Math.min(rtt / 2000, .12));
+    if (!localView || g.countdown || previous?.countdown || !own.alive || g.phase !== 'playing') localView = target;
+    else {
+      const dx = target.x - localView.x, dy = target.y - localView.y;
+      if (Math.hypot(dx, dy) > 45) { localView = target; correction = { x: 0, y: 0, yaw: 0 }; }
+      else
+      correction = own.inputSeq < inputSeq && own.turn !== held ? { x: 0, y: 0, yaw: 0 } : { x: dx, y: dy, yaw: normalize(target.yaw - localView.yaw) };
+    }
+  }
+  dirty = true; updateUI();
+}
+function updateUI() {
+  if (!game) return;
+  const g = game, now = performance.now();
+  const elapsed = g.elapsed + (g.phase === 'playing' && !g.countdown && connected ? Math.min((now - receivedAt) / 1000, .15) : 0);
+  text('clock', `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`);
+  const alive = g.players.filter(p => p.alive).length;
+  text('alive-count', g.phase === 'lobby' ? `${g.players.length} on the floor` : `${alive} / ${g.players.length} alive`);
+  text('phase-label', g.phase === 'lobby' ? 'LOBBY' : g.countdown ? 'GET READY' : g.phase === 'over' ? 'RESULTS' : 'LIVE');
+  const signature = JSON.stringify([g.phase, g.countdown, g.host, g.winner, g.reason, g.players.map(p => [p.id, p.name, p.color, p.score, p.alive, p.effect?.type, Math.ceil((p.effect?.until || 0) - elapsed)])]);
+  if (signature !== rosterSignature) {
+    rosterSignature = signature; text('count', `${g.players.length} / ${g.maxPlayers}`);
+    const list = $('players'); list.replaceChildren();
+    const players = g.phase === 'over' ? [...g.players].sort((a, b) => b.score - a.score) : g.players;
+    for (const p of players) {
+      const li = document.createElement('li'); li.dataset.playerId = p.id; li.className = g.phase === 'playing' && !p.alive ? 'out' : '';
+      const seat = document.createElement('span'); seat.className = 'seat-number'; seat.style.color = p.color; seat.textContent = p.slot + 1;
+      const name = document.createElement('span'); name.className = 'player-name'; name.textContent = p.name + (p.id === me?.id ? ' (you)' : '');
+      const meta = document.createElement('span'); meta.className = 'player-meta';
+      meta.textContent = p.effect && g.phase === 'playing' && p.alive ? `${ITEMS[p.effect.type].name} · ${Math.max(0, Math.ceil(p.effect.until - elapsed))}s` : p.id === g.winner ? 'Winner' : g.phase === 'over' ? 'Finished' : g.phase === 'playing' && !p.alive ? 'Eliminated' : p.id === g.host ? 'Host' : 'Player';
+      name.append(meta);
+      const score = document.createElement('span'); score.className = 'player-score'; score.textContent = g.phase === 'lobby' ? 'Ready' : g.solo ? `${g.phase === 'over' ? p.score.toFixed(1) : Math.floor(elapsed)} sec` : `${p.score} pts`;
+      li.append(seat, name, score); list.append(li);
+    }
+    const host = me?.id === g.host;
+    $('start').hidden = !host || g.phase === 'playing'; $('start').disabled = sending || !connected;
+    $('start').firstChild.textContent = g.phase === 'over' ? 'Play again ' : 'Start game ';
+    $('leave').disabled = g.phase === 'playing';
+    $('overlay').hidden = g.phase === 'playing' && !g.countdown;
+    $('overlay').classList.toggle('countdown', !!g.countdown);
+    const winner = g.players.find(p => p.id === g.winner);
+    $('overlay').querySelector('strong').textContent = g.countdown ? String(g.countdown) : g.phase === 'over' ? (g.solo ? 'RUN COMPLETE' : winner ? `${winner.name} WINS` : 'IT’S A DRAW') : 'THE FLOOR IS YOURS';
+    text('overlay-kicker', g.countdown ? 'FIND YOUR LINE' : g.phase === 'over' ? 'ROUND COMPLETE' : 'READY WHEN YOU ARE');
+    text('overlay-detail', g.countdown ? 'Get ready. Keep your eyes on your colour.' : g.phase === 'over' ? (g.solo ? `${g.players[0].score.toFixed(1)} seconds on the floor` : 'Final scores are on the board. The host can start a rematch.') : 'Play solo or invite friends.');
+    text('status', g.phase === 'playing' ? (g.solo ? 'Survive as long as you can.' : 'Last curve standing wins.') : g.phase === 'over' ? (g.solo ? 'Survival time shown above.' : 'Final scores shown above.') : host ? 'Your room is ready. Start solo or invite friends.' : 'Waiting for the host to start.');
+    $('out-banner').hidden = g.phase !== 'playing' || !!g.countdown || !!g.players.find(p => p.id === me?.id)?.alive;
+    if (g.phase !== 'playing') release();
+  }
+  $('pickup-notice').hidden = !g.pickupNotice || g.phase !== 'playing' || elapsed - g.pickupNotice.at > 2;
+  if (g.pickupNotice) text('pickup-notice', `${g.pickupNotice.name} · ${ITEMS[g.pickupNotice.type].name}`);
+  const own = g.players.find(p => p.id === me?.id);
+  text('effect-status', own?.effect && own.alive && g.phase === 'playing' ? `${ITEMS[own.effect.type].glyph} ${ITEMS[own.effect.type].name} · ${Math.max(0, Math.ceil(own.effect.until - elapsed))}s` : 'Collect a power-up. Change the round.');
+  if (!connected) setConnection('Reconnecting…', 'offline');
+  else if (g.phase === 'playing' && now - receivedAt > 750) setConnection('Waiting for game…', 'connecting');
+  else setConnection(rtt ? `Connected · ${Math.round(rtt)} ms` : 'Connected', 'live');
+}
+function setConnection(label, state) { text('connection', label); $('connection').dataset.state = state; }
+function paint(now) {
+  const dt = Math.min(.04, Math.max(0, (now - (lastFrame || now)) / 1000)); lastFrame = now;
+  if (game && !document.hidden && (!$('room').hidden) && (dirty || game.phase === 'playing')) {
+    dirty = false;
+    for (const [x, y, w, h] of previousRects) ctx.clearRect(x, y, w, h);
+    previousRects = [];
+    for (const item of game.items || []) {
+      const config = ITEMS[item.type];
+      ctx.fillStyle = '#211824'; ctx.strokeStyle = config.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(item.x, item.y, 13, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      previousRects.push([item.x - 16, item.y - 16, 32, 32]);
+      ctx.font = '700 18px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = config.color; ctx.fillText(config.glyph, item.x, item.y + 1);
+    }
+    for (const p of game.players) {
+      if (!p.alive || game.phase !== 'playing') continue;
+      let pose;
+      const playing = !game.countdown && connected && now - receivedAt < 250;
+      if (p.id === me?.id) {
+        if (playing) {
+          const projected = project({ ...p, ...localView }, dt, held);
+          const blend = 1 - Math.exp(-dt * 12);
+          localView = { x: projected.x + correction.x * blend, y: projected.y + correction.y * blend, yaw: projected.yaw + correction.yaw * blend };
+          correction.x *= 1 - blend; correction.y *= 1 - blend; correction.yaw *= 1 - blend;
+        }
+        pose = localView || p;
+      } else pose = project(p, playing ? Math.min((now - receivedAt) / 1000, .1) : 0);
+      rendered.set(p.id, pose);
+      previousRects.push([Math.min(pose.x, p.x) - 16, Math.min(pose.y, p.y) - 30, Math.abs(pose.x - p.x) + 32, Math.abs(pose.y - p.y) + 46]);
+      ctx.fillStyle = p.color;
+      if (p.id === me?.id && playing && !p.inHole && Math.hypot(pose.x - p.x, pose.y - p.y) < 40) {
+        ctx.strokeStyle = p.color; ctx.lineWidth = game.field.radius * 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(pose.x, pose.y); ctx.stroke();
+      }
+      if (p.effect?.type === 'shield' || p.id === me?.id) {
+        ctx.strokeStyle = p.effect?.type === 'shield' ? '#84dfec' : '#f7edf0'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(pose.x, pose.y, p.effect?.type === 'shield' ? 10 : 8, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(pose.x, pose.y, 4, 0, Math.PI * 2); ctx.fill();
+      if (game.countdown) {
+        ctx.font = '700 14px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(String(p.slot + 1), pose.x, pose.y - 12);
+      }
+    }
+  }
+  requestAnimationFrame(paint);
+}
+function connect() {
+  source?.close(); connected = false; setConnection('Connecting…', 'connecting');
+  source = new EventSource(`/games/api/rooms/${roomId}/events`);
+  source.onmessage = event => { try { receive(JSON.parse(event.data)); } catch { error('Could not read the game update. Reconnecting…'); connect(); } };
+  source.onerror = () => { connected = false; release(); setConnection('Reconnecting…', 'offline'); if (game) $('start').disabled = true; };
+}
+async function join() {
+  if (joining) return; joining = true; $('create').disabled = true;
+  try {
+    me = await api(`/games/api/rooms/${roomId}/join`, { name: $('name').value.trim(), token: saved('curve-' + roomId)?.token });
+    inputSeq = me.inputSeq || 0; sessionStorage.setItem('curve-' + roomId, JSON.stringify(me));
+    $('home').hidden = true; $('room').hidden = false; document.body.classList.add('in-room');
+    text('room-code', `ROOM ${roomId.toUpperCase()} · UP TO 10 PLAYERS`); error(); connect();
+  } catch (e) { error(e.message); } finally { joining = false; $('create').disabled = false; }
+}
+$('entry').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (roomId) return join();
+  if (joining) return; joining = true; $('create').disabled = true;
+  try {
+    const name = $('name').value.trim(); if (!name) throw new Error('Enter your name.');
+    const room = await api('/games/api/rooms', {}), player = await api(`/games/api/rooms/${room.id}/join`, { name });
+    sessionStorage.setItem('curve-name', JSON.stringify(name)); sessionStorage.setItem('curve-' + room.id, JSON.stringify(player)); location.href = '/games/' + room.id;
+  } catch (e) { error(e.message); joining = false; $('create').disabled = false; }
+});
+if (roomId) {
+  $('create').textContent = 'Join room ↗'; text('entry-title', 'Your seat is waiting.');
+  text('entry-copy', 'Pick your name and join the room. Your colour is assigned when you arrive.');
+  const name = saved('curve-name'); if (typeof name === 'string') $('name').value = name;
+  if (saved('curve-' + roomId)) join();
+}
+$('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(location.href); text('invite', 'Invite link copied. Send it to your rivals.'); }
+  catch { text('invite', 'Copy this link: ' + location.href); }
+});
+$('start').addEventListener('click', async () => {
+  if (sending || !connected) return; sending = true; $('start').disabled = true; release();
+  try { await api(`/games/api/rooms/${roomId}/start`, { token: me.token }); error(); }
+  catch (e) { error(e.message); }
+  finally { sending = false; rosterSignature = ''; updateUI(); }
+});
+$('leave').addEventListener('click', async () => {
+  try { await api(`/games/api/rooms/${roomId}/leave`, { token: me.token }); source?.close(); sessionStorage.removeItem('curve-' + roomId); location.href = '/games'; }
+  catch (e) { error(e.message); }
+});
+$('fullscreen').addEventListener('click', async () => {
+  try { if (document.fullscreenElement) await document.exitFullscreen(); else if ($('play-stage').requestFullscreen) await $('play-stage').requestFullscreen(); else throw new Error('Fullscreen is not available in this browser.'); }
+  catch (e) { error(e.message); }
+});
+document.addEventListener('fullscreenchange', () => { $('fullscreen').setAttribute('aria-label', document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen'); dirty = true; });
+async function sendTurn() {
+  if (!me || !game) return;
+  const seq = ++inputSeq, gen = game.generation, start = performance.now();
+  try {
+    const reply = await api(`/games/api/rooms/${roomId}/turn`, { token: me.token, turn: held, seq, generation: gen });
+    if (reply.generation === game?.generation && reply.seq === seq) rtt = rtt ? rtt * .7 + (performance.now() - start) * .3 : performance.now() - start;
+  } catch { setConnection('Input delayed. Reconnecting…', 'connecting'); }
+}
+function steering() {
+  const left = keys.has('ArrowLeft') || keys.has('a') || [...pointers.values()].includes(-1);
+  const right = keys.has('ArrowRight') || keys.has('d') || [...pointers.values()].includes(1);
+  const next = Number(right) - Number(left);
+  if (held !== next) { held = next; sendTurn(); }
+  $('left').setAttribute('aria-pressed', String(left)); $('right').setAttribute('aria-pressed', String(right));
+}
+function release() { keys.clear(); pointers.clear(); steering(); }
+for (const [id, dir] of [['left', -1], ['right', 1]]) {
+  const button = $(id);
+  button.addEventListener('pointerdown', event => { event.preventDefault(); if (game?.phase !== 'playing' || !connected) return; button.setPointerCapture(event.pointerId); pointers.set(event.pointerId, dir); steering(); });
+  const up = event => { pointers.delete(event.pointerId); steering(); };
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, up);
+  button.addEventListener('contextmenu', event => event.preventDefault());
+}
+window.addEventListener('keydown', event => {
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  if (!['ArrowLeft', 'ArrowRight', 'a', 'd'].includes(key) || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || game?.phase !== 'playing' || !connected) return;
+  event.preventDefault(); keys.add(key); steering();
+});
+window.addEventListener('keyup', event => { const key = event.key.length === 1 ? event.key.toLowerCase() : event.key; if (keys.delete(key)) { event.preventDefault(); steering(); } });
+window.addEventListener('blur', release);
+document.addEventListener('visibilitychange', () => { release(); dirty = true; lastFrame = 0; });
+setInterval(() => { if (game) updateUI(); }, 200);
+setInterval(() => { if (connected && game?.phase === 'playing' && !document.hidden) sendTurn(); }, 1000);
+clearArena(); requestAnimationFrame(paint);

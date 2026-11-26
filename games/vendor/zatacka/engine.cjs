@@ -2,7 +2,7 @@
 const FIELD_W = 960;
 const FIELD_H = 640;
 const BORDER = 10;
-const RADIUS = 2.35;
+const RADIUS = 1.5;
 const LOOKAHEAD = 3.4;
 const BASE_SPEED = 108;
 const BASE_TURN = 2.85;
@@ -418,7 +418,7 @@ class Sim {
         let steer = 0;
         if (w.left) steer += 1;
         if (w.right) steer -= 1;
-        w.yaw += steer * this.turnRate * dt;
+        w.yaw += steer * this.turnRate * (w.turnMultiplier || 1) * dt;
         if (this.settings.holes) {
             w.holeIn -= dt;
             if (w.holeIn <= 0) {
@@ -433,7 +433,7 @@ class Sim {
         } else {
             w.inHole = false;
         }
-        const dist = this.speed * dt;
+        const dist = this.speed * (w.speedMultiplier || 1) * dt;
         const n = Math.max(1, Math.ceil(dist / 0.7));
         const step = dist / n;
         const fx = -Math.sin(w.yaw);
@@ -444,7 +444,7 @@ class Sim {
             const lx = w.x + fx * LOOKAHEAD;
             const ly = w.y + fy * LOOKAHEAD;
             const grace = this.time < SPAWN_GRACE;
-            if (!inArena(lx, ly) || !grace && hits(this.occ, lx, ly, 1.05)) {
+            if (!inArena(lx, ly) || !grace && !w.shield && hits(this.occ, lx, ly, 1.05)) {
                 this.kill(w);
                 return;
             }
@@ -479,4 +479,4 @@ function wormTemplate(id, name, colorIndex, kind, score = 0) {
     };
 }
 
-module.exports={Sim,wormTemplate,FIELD_W,FIELD_H,PLAYER_COLORS};
+module.exports={Sim,wormTemplate,FIELD_W,FIELD_H,PLAYER_COLORS,RADIUS};

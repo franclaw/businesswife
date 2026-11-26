@@ -1,5 +1,39 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0c0e"><meta name="description" content="Curve Club: a multiplayer game of winding trails."><title>Curve Club · Business Wife</title><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/components/theme.css"><link rel="stylesheet" href="/games/app.css"><script defer src="/games/app.js"></script></head>
-<body><main><nav><a href="/">← Business Wife</a><span>GAMES / 01</span></nav><header><p class="eyebrow">A LITTLE COMPETITIVE BREAK</p><h1>Curve <em>Club.</em></h1><p class="intro">One line. No brakes. Last curve standing wins.</p></header>
-<section id="home" class="panel"><div class="panel-head"><div><p class="eyebrow">THE GAME</p><h2>Make a little room.</h2><p>Invite your colleagues, draw your line, and try not to cross anyone else's. Including yours.</p></div><div class="scribble" aria-hidden="true">〰</div></div><label for="name">Your name</label><input id="name" maxlength="20" autocomplete="nickname" placeholder="Your name"><button id="create" class="primary">Create a room <span>↗</span></button><p class="hint">1–6 players · One device per player · No account needed</p></section>
-<section id="room" hidden><div class="room-top"><div><p class="eyebrow">YOUR PRIVATE ROOM</p><h2>Let’s get curvy.</h2></div><button id="copy" class="secondary">Copy invite link</button></div><p id="invite" class="hint">Share this page with your players.</p><div class="game-layout"><div class="arena-wrap"><canvas id="arena" width="960" height="640" aria-label="Game arena"></canvas><div id="overlay" class="overlay"><strong>THE FLOOR IS YOURS</strong><span>Play solo or invite friends.</span></div></div><aside><div class="aside-title">THE ROOM <span id="count">0 / 6</span></div><ul id="players"></ul><p id="status" class="status" aria-live="polite"></p><button id="start" class="primary" hidden>Start game <span>↗</span></button><p class="hint">Steer with ← and → or A and D. On a phone, hold the buttons below.</p></aside></div><div class="controls"><button id="left" aria-label="Steer left">← <span>LEFT</span></button><button id="right" aria-label="Steer right"><span>RIGHT</span> →</button></div></section><p id="error" class="error" role="alert"></p><footer>BUSINESS WIFE <span>·</span> ALL PLAY, A LITTLE WORK</footer></main></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#100d10"><meta name="description" content="Curve Club. Private multiplayer curve combat for 1–10 players. Create a room, invite friends, and be the last line standing.">
+<title>Curve Club · Business Wife</title><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/components/theme.css"><link rel="stylesheet" href="/games/app.css"><script defer src="/games/app.js"></script>
+</head>
+<body>
+<main>
+<nav class="topbar"><a href="/" class="brand">← Business Wife</a><span class="game-tag">THE BREAK ROOM / 01</span></nav>
+<header class="hero"><p class="eyebrow">A LITTLE FRIENDLY COMPETITION</p><h1>Hold your <em>line.</em></h1><p class="intro">Turn left. Turn right. Outlast everyone.<br>Curve Club is your next five-minute rivalry.</p></header>
+<section id="home" class="home-grid">
+  <form id="entry" class="panel entry-panel">
+    <p class="eyebrow">CURVE CLUB</p><h2 id="entry-title">Your room. Your rivals.</h2><p id="entry-copy" class="muted">Play a solo warm-up or invite up to nine friends. No downloads, no accounts.</p>
+    <label for="name">Your name</label><input id="name" maxlength="20" autocomplete="nickname" placeholder="What should we call you?" required>
+    <button id="create" type="submit" class="primary">Create a room <span aria-hidden="true">↗</span></button>
+    <p class="hint">1–10 players · One device each · Free to play</p>
+  </form>
+  <div class="preview-panel" aria-hidden="true">
+    <svg viewBox="0 0 480 320" class="curve-art"><defs><pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="1" fill="#40313b"/></pattern></defs><rect width="480" height="320" fill="url(#dots)"/><g fill="none" stroke-width="5" stroke-linecap="round"><path d="M-10 85H130Q190 85 190 145V195Q190 245 240 245H335" stroke="#ed8cc9"/><path d="M480 255H422Q370 255 370 203V120Q370 65 315 65H285" stroke="#84dfec"/><path d="M70 330V210Q70 165 115 165H128" stroke="#f4cd70"/><path d="M250-10V125Q250 170 295 170H311" stroke="#7d9dff"/></g><circle cx="335" cy="245" r="8" fill="#ed8cc9"/><circle cx="285" cy="65" r="8" fill="#84dfec"/><circle cx="128" cy="165" r="8" fill="#f4cd70"/><circle cx="311" cy="170" r="8" fill="#7d9dff"/></svg>
+    <div class="preview-caption"><span>NO BRAKES.</span><span>NO SECOND CHANCES.</span></div>
+  </div>
+</section>
+<section id="room" hidden>
+  <div class="room-top"><div><p class="eyebrow"><a href="/" class="room-brand">← BUSINESS WIFE</a><span class="divider">/</span> CURVE CLUB</p><h1 class="room-title">Stay sharp. <em>Stay alive.</em></h1></div><div class="room-actions"><button id="copy" class="secondary">Copy invite link</button><button id="leave" class="quiet">Leave room</button></div></div>
+  <p id="invite" class="hint">Send the link. Settle it on the floor.</p>
+  <div class="game-layout">
+    <div class="play-stage" id="play-stage">
+      <div class="arena-toolbar"><div class="match-info"><span id="phase-label">LOBBY</span><span class="divider">/</span><span id="alive-count">0 on the floor</span><span class="divider">/</span><span id="clock">0:00</span></div><button id="fullscreen" class="icon-button" aria-label="Enter fullscreen" title="Fullscreen">⛶</button></div>
+      <div class="arena-wrap"><canvas id="trail-layer" width="960" height="640" aria-hidden="true"></canvas><canvas id="arena" width="960" height="640" aria-label="Curve Club game arena. Use left and right arrow keys or the buttons below to steer."></canvas><div id="overlay" class="overlay"><span id="overlay-kicker" class="eyebrow">READY WHEN YOU ARE</span><strong>THE FLOOR IS YOURS</strong><span id="overlay-detail">Play solo or invite friends.</span></div><div id="pickup-notice" class="pickup-notice" role="status" hidden></div><div id="out-banner" hidden>You’re out. Watch the finish.</div></div>
+      <div class="controls" aria-label="Steering controls"><button id="left" aria-label="Steer left" aria-pressed="false"><span aria-hidden="true">←</span> <span class="control-word">LEFT</span><kbd>← / A</kbd></button><button id="right" aria-label="Steer right" aria-pressed="false"><kbd>→ / D</kbd><span class="control-word">RIGHT</span> <span aria-hidden="true">→</span></button></div>
+      <p id="effect-status" class="effect-status" role="status">Collect a power-up. Change the round.</p><div class="arena-foot"><span id="connection" data-state="connecting">Connecting…</span><span>Keep moving. Mind the gaps.</span></div>
+    </div>
+    <aside class="roster-panel"><div class="aside-title"><h2>On the floor</h2><span id="count">0 / 10</span></div><ul id="players" aria-label="Players and scores"></ul><p id="status" class="status" role="status"></p><button id="start" class="primary" hidden>Start game <span aria-hidden="true">↗</span></button><p class="hint rules">Avoid walls and every trail—even your own. Gaps are your way through. Last curve standing wins.</p><div class="item-legend" aria-label="Power-ups"><span title="Ignore trails for six seconds. Walls are still lethal.">◇ Shield</span><span title="Move more slowly for six seconds.">− Slow</span><span title="Move faster for six seconds.">+ Rush</span><span title="Turn more tightly for six seconds.">↶ Tight turn</span><span title="Clear all trails from the arena.">× Eraser</span></div><p class="hint" id="room-code"></p></aside>
+  </div>
+</section>
+<p id="error" class="error" role="alert"></p><footer>BUSINESS WIFE <span>·</span> A LITTLE LESS WORK. A LITTLE MORE PLAY.</footer>
+</main>
+</body></html>

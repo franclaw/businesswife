@@ -35,6 +35,9 @@ export type Worm = {
   score: number;
   botHold: number;
   botDir: number;
+  speedMultiplier?: number;
+  turnMultiplier?: number;
+  shield?: boolean;
 };
 
 export type SimEvent =
@@ -329,7 +332,7 @@ export class Sim {
     let steer = 0;
     if (w.left) steer += 1;
     if (w.right) steer -= 1;
-    w.yaw += steer * this.turnRate * dt;
+    w.yaw += steer * this.turnRate * (w.turnMultiplier || 1) * dt;
 
     if (this.settings.holes) {
       w.holeIn -= dt;
@@ -346,7 +349,7 @@ export class Sim {
       w.inHole = false;
     }
 
-    const dist = this.speed * dt;
+    const dist = this.speed * (w.speedMultiplier || 1) * dt;
     const n = Math.max(1, Math.ceil(dist / 0.7));
     const step = dist / n;
     const fx = -Math.sin(w.yaw);
@@ -358,7 +361,7 @@ export class Sim {
       const lx = w.x + fx * LOOKAHEAD;
       const ly = w.y + fy * LOOKAHEAD;
       const grace = this.time < SPAWN_GRACE;
-      if (!inArena(lx, ly) || (!grace && hits(this.occ, lx, ly, 1.05))) {
+      if (!inArena(lx, ly) || (!grace && !w.shield && hits(this.occ, lx, ly, 1.05))) {
         this.kill(w);
         return;
       }
