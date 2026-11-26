@@ -83,25 +83,27 @@ function receive(g) {
 function updateUI() {
   if (!game) return;
   updateFullscreenUI();
+  updateIdentity();
   const g = game, now = performance.now();
   const elapsed = g.elapsed + (g.phase === 'playing' && !g.countdown && connected ? Math.min((now - receivedAt) / 1000, .15) : 0);
   text('clock', `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`);
   const alive = g.players.filter(p => p.alive).length;
   text('alive-count', g.phase === 'lobby' ? `${g.players.length} on the floor` : `${alive} / ${g.players.length} alive`);
   text('phase-label', g.phase === 'lobby' ? 'LOBBY' : g.countdown ? 'GET READY' : g.phase === 'over' ? 'RESULTS' : 'LIVE');
-  const signature = JSON.stringify([g.phase, g.countdown, g.host, g.winner, g.reason, g.players.map(p => [p.id, p.name, p.color, p.score, p.alive, p.effect?.type, Math.ceil((p.effect?.until || 0) - elapsed)])]);
+  const signature = JSON.stringify([g.phase, g.countdown, g.host, g.winner, g.reason, g.players.map(p => [p.id, p.name, p.color, p.score, p.totalScore, p.roundsPlayed, p.alive, p.effect?.type, Math.ceil((p.effect?.until || 0) - elapsed)])]);
   if (signature !== rosterSignature) {
     rosterSignature = signature; text('count', `${g.players.length} / ${g.maxPlayers}`);
     const list = $('players'); list.replaceChildren();
-    const players = g.phase === 'over' ? [...g.players].sort((a, b) => b.score - a.score) : g.players;
+    const players = g.phase === 'over' ? [...g.players].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0)) : g.players;
     for (const p of players) {
-      const li = document.createElement('li'); li.dataset.playerId = p.id; li.className = g.phase === 'playing' && !p.alive ? 'out' : '';
+      const li = document.createElement('li'); li.dataset.playerId = p.id; li.className = g.phase === 'playing' && !p.alive ? 'out' : ''; li.classList.toggle('is-you', p.id === me?.id); if (p.id === me?.id) li.style.setProperty('--player-color', p.color);
       const seat = document.createElement('span'); seat.className = 'seat-number'; seat.style.color = p.color; seat.textContent = p.slot + 1;
       const name = document.createElement('span'); name.className = 'player-name'; name.textContent = p.name + (p.id === me?.id ? ' (you)' : '');
       const meta = document.createElement('span'); meta.className = 'player-meta';
-      meta.textContent = p.effect && g.phase === 'playing' && p.alive ? `${ITEMS[p.effect.type].name} · ${Math.max(0, Math.ceil(p.effect.until - elapsed))}s` : p.id === g.winner ? 'Winner' : g.phase === 'over' ? 'Finished' : g.phase === 'playing' && !p.alive ? 'Eliminated' : p.id === g.host ? 'Host' : 'Player';
+      meta.textContent = p.effect && g.phase === 'playing' && p.alive ? `${ITEMS[p.effect.type].name} · ${Math.max(0, Math.ceil(p.effect.until - elapsed))}s` : p.id === g.winner ? 'Round winner' : g.phase === 'over' ? 'Finished' : g.phase === 'playing' && !p.alive ? 'Eliminated' : p.id === g.host ? 'Host' : 'Player';
+      if (g.phase === 'over') meta.textContent += ` · +${g.solo ? p.score.toFixed(1) + ' sec' : p.score + ' pts'} this round`;
       name.append(meta);
-      const score = document.createElement('span'); score.className = 'player-score'; score.textContent = g.phase === 'lobby' ? 'Ready' : g.solo ? `${g.phase === 'over' ? p.score.toFixed(1) : Math.floor(elapsed)} sec` : `${p.score} pts`;
+      const score = document.createElement('span'); score.className = 'player-score'; score.title = 'Total across games in this room'; score.textContent = g.phase === 'lobby' ? 'Ready' : g.solo ? `${((p.totalScore || 0) + (g.phase === 'playing' ? elapsed : 0)).toFixed(1)} sec` : `${(p.totalScore || 0) + (g.phase === 'playing' ? p.score : 0)} pts`;
       li.append(seat, name, score); list.append(li);
     }
     const host = me?.id === g.host;
@@ -114,7 +116,7 @@ function updateUI() {
     $('overlay').querySelector('strong').textContent = g.countdown ? String(g.countdown) : g.phase === 'over' ? (g.solo ? 'RUN COMPLETE' : winner ? `${winner.name} WINS` : 'IT’S A DRAW') : 'THE FLOOR IS YOURS';
     text('overlay-kicker', g.countdown ? 'FIND YOUR LINE' : g.phase === 'over' ? 'ROUND COMPLETE' : 'READY WHEN YOU ARE');
     text('overlay-detail', g.countdown ? (document.fullscreenElement ? 'Get ready. Keep your eyes on your colour.' : 'Press F for fullscreen. Find your colour.') : g.phase === 'over' ? (g.solo ? `${g.players[0].score.toFixed(1)} seconds on the floor` : 'Final scores are on the board. The host can start a rematch.') : (document.fullscreenElement ? 'Play solo or invite friends.' : 'Press F for the full-size field. Play solo or invite friends.'));
-    if (document.fullscreenElement && g.phase === 'over' && !g.solo) text('overlay-detail', [...g.players].sort((a, b) => b.score - a.score).map(p => `${p.name}: ${p.score} pts`).join(' · '));
+    if (document.fullscreenElement && g.phase === 'over' && !g.solo) text('overlay-detail', [...g.players].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0)).map(p => `${p.name}: ${p.totalScore || 0} pts (+${p.score})`).join(' · '));
     text('status', g.phase === 'playing' ? (g.solo ? 'Survive as long as you can.' : 'Last curve standing wins.') : g.phase === 'over' ? (g.solo ? 'Survival time shown above.' : 'Final scores shown above.') : host ? 'Your room is ready. Start solo or invite friends.' : 'Waiting for the host to start.');
     $('out-banner').hidden = g.phase !== 'playing' || !!g.countdown || !!g.players.find(p => p.id === me?.id)?.alive;
     if (g.phase !== 'playing') release();
@@ -126,6 +128,32 @@ function updateUI() {
   if (!connected) setConnection('Reconnecting…', 'offline');
   else if (g.phase === 'playing' && now - receivedAt > 750) setConnection('Waiting for game…', 'connecting');
   else setConnection(rtt ? `Connected · ${Math.round(rtt)} ms` : 'Connected', 'live');
+}
+function updateIdentity() {
+  const own = game.players.find(p => p.id === me?.id);
+  $('your-player').hidden = !own;
+  $('your-card').hidden = !own || (game.phase !== 'lobby' && !game.countdown);
+  const preview = game.phase === 'lobby' && own?.spawn;
+  $('spawn-marker').hidden = !own || (!preview && !game.countdown);
+  if (!own) return;
+  for (const id of ['your-player', 'your-card', 'spawn-marker']) $(id).style.setProperty('--player-color', own.color);
+  text('your-number', `YOU · #${own.slot + 1}`); text('your-name', own.name);
+  text('your-card-text', `#${own.slot + 1} · ${own.name} — YOU`);
+  $('your-player').setAttribute('aria-label', `Your player: ${own.name}, number ${own.slot + 1}`);
+  text('spawn-label', `YOU · #${own.slot + 1}`);
+  if (preview || game.countdown) {
+    const pose = preview || own;
+    const width = canvas.clientWidth, height = canvas.clientHeight;
+    const px = pose.x / game.field.width * width, py = pose.y / game.field.height * height;
+    const arrowScale = Math.min(1, Math.max(.25, (Math.min(px, width - px, py, height - py) - 4) / 56));
+    $('spawn-direction').style.transform = `rotate(${-pose.yaw * 180 / Math.PI}deg) scale(${arrowScale})`;
+    const marker = $('spawn-marker');
+    marker.style.left = `${pose.x / game.field.width * 100}%`;
+    marker.style.top = `${pose.y / game.field.height * 100}%`;
+    marker.classList.toggle('below', pose.y / game.field.height < .2);
+    marker.classList.toggle('edge-left', pose.x / game.field.width < .16);
+    marker.classList.toggle('edge-right', pose.x / game.field.width > .84);
+  }
 }
 function setConnection(label, state) { text('connection', label); $('connection').dataset.state = state; }
 function paint(now) {
@@ -142,10 +170,12 @@ function paint(now) {
       ctx.font = '700 18px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = config.color; ctx.fillText(config.glyph, item.x, item.y + 1);
     }
     for (const p of game.players) {
-      if (!p.alive || game.phase !== 'playing') continue;
+      const preview = game.phase === 'lobby' && p.spawn;
+      if (!preview && (!p.alive || game.phase !== 'playing')) continue;
       let pose;
       const playing = !game.countdown && connected && now - receivedAt < 250;
-      if (p.id === me?.id) {
+      if (preview) pose = preview;
+      else if (p.id === me?.id) {
         if (playing) {
           const projected = project({ ...p, ...localView }, dt, held);
           const blend = 1 - Math.exp(-dt * 12);
@@ -166,7 +196,7 @@ function paint(now) {
         ctx.beginPath(); ctx.arc(pose.x, pose.y, p.effect?.type === 'shield' ? 10 : 8, 0, Math.PI * 2); ctx.stroke();
       }
       ctx.beginPath(); ctx.arc(pose.x, pose.y, 4, 0, Math.PI * 2); ctx.fill();
-      if (game.countdown) {
+      if (preview || game.countdown) {
         ctx.font = '700 14px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(String(p.slot + 1), pose.x, pose.y - 12);
       }
     }

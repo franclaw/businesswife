@@ -68,3 +68,11 @@ The fullscreen button pulses in the lobby and countdown, never during active pla
 
 
 Isolated follow-up measurement (one rendering client, ten active players throughout, 1512×982 viewport): the 1600×1000 world rendered at **16.7 ms median and p95** over 1400 ms. Visible arena geometry was **1473×921 fullscreen** versus **1147×717 windowed**. The fullscreen sample is local, not an internet-latency guarantee. Follow-up checks: **349 end-to-end passes**, **6 platform-inapplicable skips**, **7 unit passes**, and clean UI lint.
+
+## Player identity, heading and room totals
+
+Your coloured, numbered identity stays in the arena HUD, with a matching highlighted roster row. Before the first start and throughout countdown, a prominent YOU marker and arrow identify your spawn and initial travel direction. The lobby preview uses a server-generated seed; starting reconstructs that same deterministic simulation, so the displayed position and heading are the actual start. Joining or leaving updates everyone's lobby preview. A fresh seed is prepared after each completed round for the next rematch.
+
+Scores now have separate per-round and cumulative fields. `score` is the current/latest round; `totalScore` and `roundsPlayed` are credited exactly once at the end of a round. Rematches reset the round score only, and seat-token reconnects preserve totals. The roster shows room totals and the result shows the latest round's contribution. These totals belong to the in-memory room/seat, not a permanent account; leaving a seat or server restart does not preserve them.
+
+Verification for identity/heading/totals: **352 end-to-end passes**, **7 explicit platform/duplicate skips**, **7 unit passes**, and clean UI lint. Independent desktop and touch contexts verify each user's own identity and a lobby spawn/heading that matches countdown. A two-round room test verifies additive scores, reconnect retention, round resets, and no second credit after the result has settled.

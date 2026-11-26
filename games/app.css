@@ -178,3 +178,33 @@ button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 }
 @media (max-width: 560px) { #fullscreen-label, #fullscreen kbd { display: none; } #fullscreen { padding: 0 8px; } }
 @media (prefers-reduced-motion: reduce) { #fullscreen.fullscreen-nudge { animation: none; background: #5b374c; box-shadow: inset 0 0 0 2px #efb3ce; } }
+
+/* Identify your colour before anyone moves, including in native fullscreen. */
+.your-player, .your-card { display: flex; align-items: center; gap: 9px; color: #f7edf0; border: 1px solid var(--player-color); background: #1a131cf0; border-radius: 8px; }
+.your-player { min-width: 0; max-width: 280px; padding: 7px 10px; font-size: 12px; }
+.your-player strong { white-space: nowrap; }
+#your-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e3d3dd; }
+.identity-swatch { width: 16px; height: 16px; flex: none; border-radius: 50%; background: var(--player-color); box-shadow: 0 0 0 3px #ffffff16; }
+.your-card { padding: 12px 18px; font-size: 20px; font-weight: 750; max-width: 100%; }
+.your-card .identity-swatch { width: 24px; height: 24px; }
+#your-card-text { overflow-wrap: anywhere; }
+#players li.is-you { border: 1px solid var(--player-color); border-radius: 8px; background: #302330; padding-left: 8px; padding-right: 8px; margin-left: -8px; margin-right: -8px; }
+.spawn-marker { position: absolute; width: 0; height: 0; z-index: 2; pointer-events: none; }
+.spawn-marker::before { content: ''; position: absolute; width: 30px; height: 30px; top: -15px; left: -15px; border: 3px solid var(--player-color); border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 22px var(--player-color); animation: identify-player 1.2s ease-in-out infinite; }
+.spawn-callout { position: absolute; left: 0; bottom: 24px; transform: translateX(-50%); border: 2px solid var(--player-color); background: #171019; color: #fff; font-size: 14px; font-weight: 800; line-height: 1.4; padding: 7px 12px; border-radius: 8px; white-space: nowrap; box-shadow: 0 4px 16px #0009; }
+.spawn-marker::after { content: ''; position: absolute; left: -5px; top: -25px; width: 10px; height: 12px; background: var(--player-color); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.spawn-marker.below .spawn-callout { bottom: auto; top: 24px; }
+.spawn-marker.below::after { top: 14px; transform: rotate(180deg); }
+.spawn-marker.edge-left .spawn-callout { left: -12px; transform: none; }
+.spawn-marker.edge-right .spawn-callout { left: 12px; transform: translateX(-100%); }
+@keyframes identify-player { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+@media (max-width: 850px) { #your-name { display: none; } .your-player { padding: 6px 8px; gap: 6px; } .your-player .identity-swatch { width: 12px; height: 12px; } }
+@media (max-width: 560px) { .your-card { font-size: 14px; padding: 9px 12px; gap: 8px; } .your-card .identity-swatch { width: 18px; height: 18px; } .spawn-callout { font-size: 12px; padding: 5px 8px; } .your-player { font-size: 10.88px; } }
+@media (prefers-reduced-motion: reduce) { .spawn-marker::before { animation: none; } }
+@media (max-width: 560px) { .overlay.countdown .your-card { font-size: 12px; padding: 6px 10px; max-width: 94%; } .overlay.countdown #your-card-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
+
+@media (max-width: 560px) { .arena-toolbar { flex-wrap: wrap; } }
+
+.spawn-direction { position: absolute; left: -16px; top: -56px; width: 32px; height: 112px; color: var(--player-color); font-size: 44px; font-weight: 900; line-height: 48px; text-align: center; text-shadow: 0 0 3px #000, 0 0 8px #000; transform-origin: 50% 50%; }
+.spawn-callout { bottom: 64px; }
+.spawn-marker.below .spawn-callout { top: 64px; }

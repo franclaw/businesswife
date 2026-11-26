@@ -214,3 +214,72 @@ test('F never interrupts text entry or browser modifier shortcuts', async ({ pag
   const prevented = await page.evaluate(() => { const event = new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true, cancelable: true }); document.body.dispatchEvent(event); return event.defaultPrevented; });
   expect(prevented).toBeFalsy();
 });
+
+test('each device sees its own identity before moving and a marker at its spawn', async ({ browser, baseURL }, testInfo) => {
+  const use = testInfo.project.use;
+  const device = { viewport: use.viewport, hasTouch: use.hasTouch, isMobile: use.isMobile, deviceScaleFactor: use.deviceScaleFactor };
+  const a = await browser.newContext(device);
+  const b = await browser.newContext(device);
+  try {
+    const host = await a.newPage(), guest = await b.newPage();
+    await host.goto(baseURL + '/games'); await host.locator('#name').fill('Host'); await host.locator('#create').click();
+    await expect(host.locator('#your-card')).toContainText('#1 · Host — YOU');
+    await guest.goto(host.url()); await guest.locator('#name').fill('Guest'); await guest.locator('#create').click();
+    await expect(guest.locator('#your-card')).toContainText('#2 · Guest — YOU');
+    await expect(host.locator('#your-card')).not.toContainText('Guest');
+    await expect(guest.locator('#players li.is-you')).toContainText('Guest (you)');
+    await expect(host.locator('#players li.is-you')).toContainText('Host (you)');
+    const color = await guest.evaluate(() => game.players.find(p => p.id === me.id).color);
+    expect(await guest.locator('#your-player').evaluate(el => el.style.getPropertyValue('--player-color'))).toBe(color);
+    if (testInfo.project.name === 'desktop') { await guest.keyboard.press('f'); await expect.poll(() => guest.evaluate(() => !!document.fullscreenElement)).toBeTruthy(); }
+    await expect(guest.locator('#spawn-direction')).toBeVisible();
+    const spawn = await guest.evaluate(() => game.players.find(p => p.id === me.id).spawn);
+    const angle = await guest.locator('#spawn-direction').evaluate(el => parseFloat(el.style.transform.slice(7)));
+    expect(angle).toBeCloseTo(-spawn.yaw * 180 / Math.PI);
+    await host.locator('#start').click();
+    await expect.poll(() => guest.evaluate(() => game.countdown)).toBeTruthy();
+    const actual = await guest.evaluate(() => { const p = game.players.find(p => p.id === me.id); return { x: p.x, y: p.y, yaw: p.yaw }; });
+    expect(actual.x).toBeCloseTo(spawn.x, 0); expect(actual.y).toBeCloseTo(spawn.y, 0); expect(actual.yaw).toBeCloseTo(spawn.yaw, 3);
+    await expect(guest.locator('#spawn-label')).toBeVisible();
+    await expect(guest.locator('#spawn-label')).toHaveText('YOU · #2');
+    await expect(guest.locator('#your-card')).toContainText('Guest — YOU');
+    const position = await guest.evaluate(() => { const p = game.players.find(p => p.id === me.id), marker = document.querySelector('#spawn-marker'); return { left: parseFloat(marker.style.left), top: parseFloat(marker.style.top), x: p.x / game.field.width * 100, y: p.y / game.field.height * 100, overflow: document.documentElement.scrollWidth > innerWidth }; });
+    expect(position.left).toBeCloseTo(position.x); expect(position.top).toBeCloseTo(position.y); expect(position.overflow).toBeFalsy();
+    await expect(guest.locator('#spawn-marker')).toBeHidden({ timeout: 6000 });
+    await expect(guest.locator('#your-card')).toBeHidden();
+    await expect(guest.locator('#your-player')).toBeVisible();
+  } finally { await a.close(); await b.close(); }
+});
+
+test('room totals accumulate across rematches and survive a reconnect without double credit', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name === 'phone', 'Server score-series behavior runs once; phone identity is covered separately.');
+  test.setTimeout(75000);
+  await page.goto('/games'); await page.locator('#name').fill('Host'); await page.locator('#create').click();
+  await expect(page.locator('#room')).toBeVisible();
+  const auth = await page.evaluate(() => ({ id: game.id, playerId: me.id }));
+  const path = `/games/api/rooms/${auth.id}`;
+  expect((await request.post(path + '/join', { data: { name: 'Guest' } })).ok()).toBeTruthy();
+  const get = async () => (await request.get(path)).json();
+  await page.locator('#start').click();
+  await expect.poll(async () => (await get()).phase, { timeout: 25000 }).toBe('over');
+  const first = await get();
+  expect(first.players.reduce((sum, p) => sum + p.totalScore, 0)).toBeGreaterThan(0);
+  for (const p of first.players) { expect(p.totalScore).toBe(p.score); expect(p.roundsPlayed).toBe(1); }
+  await expect(page.locator('#start')).toContainText('Play again');
+  await page.locator('#start').click();
+  const begun = await get();
+  for (const p of begun.players) { expect(p.totalScore).toBe(first.players.find(old => old.id === p.id).totalScore); expect(p.score).toBe(0); }
+  await page.reload(); await expect(page.locator('#room')).toBeVisible();
+  expect(await page.evaluate(() => me.id)).toBe(auth.playerId);
+  await expect.poll(async () => (await get()).phase, { timeout: 25000 }).toBe('over');
+  const second = await get();
+  for (const p of second.players) {
+    expect(p.totalScore).toBe(first.players.find(old => old.id === p.id).totalScore + p.score);
+    expect(p.roundsPlayed).toBe(2);
+    await expect(page.locator(`li[data-player-id="${p.id}"] .player-score`)).toHaveText(`${p.totalScore} pts`);
+    await expect(page.locator(`li[data-player-id="${p.id}"] .player-meta`)).toContainText(`+${p.score} pts this round`);
+  }
+  await page.waitForTimeout(2000);
+  const stable = await get();
+  expect(stable.players.map(p => p.totalScore)).toEqual(second.players.map(p => p.totalScore));
+});
