@@ -16,7 +16,8 @@ let receivedAt = 0, lastFrame = 0, dirty = true, connected = false, rtt = 0;
 let rosterSignature = '', trailCount = 0, joining = false, sending = false;
 let previousRects = [];
 let fullscreenPending = false;
-let localView = null, correction = { x: 0, y: 0, yaw: 0 }, rendered = new Map();
+let localView = null, rendered = new Map();
+let motionPending = false, lastInputChange = null;
 const keys = new Set(), pointers = new Map();
 
 function saved(key) { try { return JSON.parse(sessionStorage.getItem(key) || 'null'); } catch { return null; } }
@@ -36,20 +37,8 @@ function clearArena() {
   ink.strokeStyle = '#685060'; ink.lineWidth = 1; ink.strokeRect(border, border, w - border * 2, h - border * 2);
   dirty = true;
 }
-function normalize(angle) { return Math.atan2(Math.sin(angle), Math.cos(angle)); }
-function project(p, dt, turn = p.turn) {
-  const effect = p.effect?.type;
-  const speed = game.field.speed * (effect === 'slow' ? .65 : effect === 'haste' ? 1.45 : 1);
-  const turnRate = game.field.turnRate * (effect === 'turn' ? 1.6 : 1);
-  const result = { x: p.x, y: p.y, yaw: p.yaw };
-  const steps = Math.max(1, Math.ceil(dt * 120)), d = dt / steps;
-  for (let i = 0; i < steps; i++) {
-    result.yaw -= turn * turnRate * d;
-    result.x -= Math.sin(result.yaw) * speed * d;
-    result.y -= Math.cos(result.yaw) * speed * d;
-  }
-  return result;
-}
+const normalize = CurveMotion.normalize;
+function project(p, dt, turn = p.turn) { return CurveMotion.project(p, dt, turn, game.field); }
 function receive(g) {
   if (canvas.width !== g.field.width || canvas.height !== g.field.height) {
     canvas.width = layer.width = g.field.width; canvas.height = layer.height = g.field.height;
@@ -60,30 +49,24 @@ function receive(g) {
   if (!reset && g.trailFrom !== trailCount) { connect(); return; }
   if (reset) { clearArena(); trailCount = 0; }
   const colors = new Map(g.players.map(p => [p.slot, p.color]));
+  // Collision hazards are painted immediately, never hidden by smoothing.
   for (const [slot, x, y] of g.trails) {
     ink.fillStyle = colors.get(slot) || '#fff'; ink.beginPath(); ink.arc(x, y, g.field.radius, 0, Math.PI * 2); ink.fill();
   }
   if (!reset && game) { game.trails.push(...g.trails); g.trails = game.trails; }
   trailCount = g.trailTo;
   const previous = game; game = g; receivedAt = performance.now(); connected = true;
+  if (fresh) { rendered.clear(); localView = null; lastInputChange = null; }
   const own = g.players.find(p => p.id === me?.id);
-  if (fresh) { rendered.clear(); localView = null; correction = { x: 0, y: 0, yaw: 0 }; }
-  if (own) {
-    const target = project(own, g.countdown || g.phase !== 'playing' ? 0 : Math.min(rtt / 2000, .12));
-    if (!localView || g.countdown || previous?.countdown || !own.alive || g.phase !== 'playing') localView = target;
-    else {
-      const dx = target.x - localView.x, dy = target.y - localView.y;
-      if (Math.hypot(dx, dy) > 45) { localView = target; correction = { x: 0, y: 0, yaw: 0 }; }
-      else
-      correction = own.inputSeq < inputSeq && own.turn !== held ? { x: 0, y: 0, yaw: 0 } : { x: dx, y: dy, yaw: normalize(target.yaw - localView.yaw) };
-    }
-  }
+  if (own && (!localView || g.countdown || previous?.countdown || g.phase === 'lobby')) localView = { x: own.x, y: own.y, yaw: own.yaw };
+  if (own && own.inputSeq >= lastInputChange?.seq) lastInputChange = null;
   dirty = true; updateUI();
 }
 function updateUI() {
   if (!game) return;
   updateFullscreenUI();
   updateIdentity();
+  $('eraser-legend').hidden = game.players.length >= 3;
   const g = game, now = performance.now();
   const elapsed = g.elapsed + (g.phase === 'playing' && !g.countdown && connected ? Math.min((now - receivedAt) / 1000, .15) : 0);
   text('clock', `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`);
@@ -126,7 +109,8 @@ function updateUI() {
   const own = g.players.find(p => p.id === me?.id);
   text('effect-status', own?.effect && own.alive && g.phase === 'playing' ? `${ITEMS[own.effect.type].glyph} ${ITEMS[own.effect.type].name} · ${Math.max(0, Math.ceil(own.effect.until - elapsed))}s` : 'Collect a power-up. Change the round.');
   if (!connected) setConnection('Reconnecting…', 'offline');
-  else if (g.phase === 'playing' && now - receivedAt > 750) setConnection('Waiting for game…', 'connecting');
+  else if (g.phase === 'playing' && lastInputChange && now - lastInputChange.at > 300) setConnection('Steering delayed…', 'connecting');
+  else if (g.phase === 'playing' && now - receivedAt > 250) setConnection('Waiting for game…', 'connecting');
   else setConnection(rtt ? `Connected · ${Math.round(rtt)} ms` : 'Connected', 'live');
 }
 function updateIdentity() {
@@ -158,8 +142,8 @@ function updateIdentity() {
 function setConnection(label, state) { text('connection', label); $('connection').dataset.state = state; }
 function paint(now) {
   const dt = Math.min(.04, Math.max(0, (now - (lastFrame || now)) / 1000)); lastFrame = now;
-  if (game && !document.hidden && (!$('room').hidden) && (dirty || game.phase === 'playing')) {
-    dirty = false;
+  if (game && !document.hidden && (!$('room').hidden) && (dirty || motionPending || game.phase === 'playing')) {
+    dirty = false; motionPending = false;
     for (const [x, y, w, h] of previousRects) ctx.clearRect(x, y, w, h);
     previousRects = [];
     for (const item of game.items || []) {
@@ -171,22 +155,32 @@ function paint(now) {
     }
     for (const p of game.players) {
       const preview = game.phase === 'lobby' && p.spawn;
-      if (!preview && (!p.alive || game.phase !== 'playing')) continue;
+      if (!preview && game.phase === 'lobby') continue;
       let pose;
-      const playing = !game.countdown && connected && now - receivedAt < 250;
+      const playing = game.phase === 'playing' && !game.countdown && p.alive && connected && now - receivedAt < 250;
       if (preview) pose = preview;
+      else if (game.countdown) pose = p;
+      else if (game.phase === 'playing' && p.alive && !playing) pose = rendered.get(p.id) || p;
       else if (p.id === me?.id) {
-        if (playing) {
-          const projected = project({ ...p, ...localView }, dt, held);
-          const blend = 1 - Math.exp(-dt * 12);
-          localView = { x: projected.x + correction.x * blend, y: projected.y + correction.y * blend, yaw: projected.yaw + correction.yaw * blend };
-          correction.x *= 1 - blend; correction.y *= 1 - blend; correction.yaw *= 1 - blend;
-        }
-        pose = localView || p;
-      } else pose = project(p, playing ? Math.min((now - receivedAt) / 1000, .1) : 0);
+        // Forecast at most 120ms from authority, never an unlimited unacked turn.
+        const horizon = playing ? Math.min(.12, (now - receivedAt) / 1000 + Math.min(rtt / 2000, .075)) : 0;
+        const target = { ...p, ...project(p, horizon, held) };
+        localView = CurveMotion.follow(localView, target, dt, game.field, playing ? held : null);
+        pose = localView;
+      } else {
+        const target = !p.alive || game.phase !== 'playing' ? p : CurveMotion.forecast(p, (now - receivedAt) / 1000, game.field);
+        pose = CurveMotion.follow(rendered.get(p.id), target, dt, game.field, playing ? target.turn : null);
+      }
+      const settling = Math.hypot(pose.x - p.x, pose.y - p.y) > .5;
+      if (game.phase === 'over' && settling) motionPending = true;
       rendered.set(p.id, pose);
       previousRects.push([Math.min(pose.x, p.x) - 16, Math.min(pose.y, p.y) - 30, Math.abs(pose.x - p.x) + 32, Math.abs(pose.y - p.y) + 46]);
       ctx.fillStyle = p.color;
+      if (!p.alive && !preview) {
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(pose.x - 5, pose.y - 5); ctx.lineTo(pose.x + 5, pose.y + 5); ctx.moveTo(pose.x + 5, pose.y - 5); ctx.lineTo(pose.x - 5, pose.y + 5); ctx.stroke();
+        continue;
+      }
       if (p.id === me?.id && playing && !p.inHole && Math.hypot(pose.x - p.x, pose.y - p.y) < 40) {
         ctx.strokeStyle = p.color; ctx.lineWidth = game.field.radius * 2; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(pose.x, pose.y); ctx.stroke();
@@ -292,7 +286,7 @@ function steering() {
   const left = keys.has('ArrowLeft') || keys.has('a') || [...pointers.values()].includes(-1);
   const right = keys.has('ArrowRight') || keys.has('d') || [...pointers.values()].includes(1);
   const next = Number(right) - Number(left);
-  if (held !== next) { held = next; sendTurn(); }
+  if (held !== next) { held = next; sendTurn(); lastInputChange = { seq: inputSeq, at: performance.now() }; }
   $('left').setAttribute('aria-pressed', String(left)); $('right').setAttribute('aria-pressed', String(right));
 }
 function release() { keys.clear(); pointers.clear(); steering(); }

@@ -9,7 +9,7 @@
 - `/games/api/rooms/:id/{join,start,turn,leave}` accept JSON POSTs. Rejoining needs the seat token; a participant cannot start another host's round. Leaving outside play frees a seat and transfers host if necessary.
 - Steering carries `seq` and `generation`. Older, duplicated, or previous-round inputs cannot overwrite a newer release. Every second the client refreshes the held state; the server releases steering after 2.5 seconds without a refresh. Blur, hidden tabs and pointer cancellation release locally too.
 - Streams contain compact trail triples `[slot,x,y]`, a cursor (`trailFrom`, `trailTo`), a round `generation` and a separate `trailEpoch` for erasers. Reconnects send a full snapshot. A cursor mismatch reopens the stream. Slow consumers are disconnected rather than buffering old gameplay indefinitely.
-- Browser prediction reacts immediately to the local held direction, with bounded server reconciliation. It does not decide collisions. Remote positions extrapolate at most 100 ms; local prediction freezes when the stream is stale. High real network latency still matters.
+- Browser prediction reacts immediately to the local held direction, with bounded server reconciliation. It does not decide collisions. Remote extrapolation is capped at 100 ms and corrections are rate-limited; local prediction freezes when the stream is stale. High real network latency still matters.
 - A static trail canvas is updated only for new authoritative points. The transparent animation canvas clears small dirty regions for heads/pickups, not the whole arena. The roster DOM changes only when its displayed content changes.
 
 ## Pickups
@@ -22,7 +22,9 @@
 | Slow − | 65% speed for 6 seconds. |
 | Rush + | 145% speed for 6 seconds. |
 | Tight turn ↶ | 160% turn rate for 6 seconds. |
-| Eraser × | Immediately clears all trail pixels, collision occupancy, and synchronized trail history. |
+| Eraser × | Solo/two-player rooms only; 10% of pickups (down from 20%). Immediately clears all trail pixels, collision occupancy, and synchronized trail history. |
+
+Rooms with three or more seated players never spawn erasers, even after eliminations leave fewer survivors. Their other four pickups remain equally likely, and the pickup cadence is unchanged. The legend hides the unavailable eraser.
 
 One timed effect per player: a new timed pickup replaces the old one. Erasing does not cancel a timed effect. Simulation time controls both effect and pickup expiry. A player sees their effect and remaining time; the roster shows other players' effects, and pickup notices are shared.
 
@@ -76,3 +78,18 @@ Your coloured, numbered identity stays in the arena HUD, with a matching highlig
 Scores now have separate per-round and cumulative fields. `score` is the current/latest round; `totalScore` and `roundsPlayed` are credited exactly once at the end of a round. Rematches reset the round score only, and seat-token reconnects preserve totals. The roster shows room totals and the result shows the latest round's contribution. These totals belong to the in-memory room/seat, not a permanent account; leaving a seat or server restart does not preserve them.
 
 Verification for identity/heading/totals: **352 end-to-end passes**, **7 explicit platform/duplicate skips**, **7 unit passes**, and clean UI lint. Independent desktop and touch contexts verify each user's own identity and a lobby spawn/heading that matches countdown. A two-round room test verifies additive scores, reconnect retention, round resets, and no second credit after the result has settled.
+
+
+## Movement continuity
+
+The former client could ignore reconciliation while a turn was unacknowledged, then replace its displayed pose outright once the error exceeded 45 world pixels. A real isolated-browser reproduction with 900 ms input delay produced a **51.1 px single-frame jump**. It also extrapolated remote heads directly from each newly received packet.
+
+`games/motion.js` now owns testable projection, shortest-angle correction and bounded follow corrections. The local target forecasts at most 120 ms from the latest authoritative position; pending turns no longer disable corrections. In-round corrections are rate-limited (at most 1.35× the current pickup-adjusted speed), including reconnect and terminal collision updates. Remote heads use bounded 100 ms extrapolation with rate-limited corrections rather than snapping to new packets. New authoritative trails are painted immediately: smoothing must not hide collision hazards. Stale streams freeze displayed movement instead of continuing a speculative path. Delayed steering is shown in connection status; a cross settles at the authoritative collision location.
+
+Server movement, collision checks, input ordering and scores remain authoritative and unchanged. This removes the reproduced rendering teleport; it cannot make a genuinely delayed steering command reach the server sooner.
+
+In the repeated local 900 ms delayed-input sample, the maximum frame step was **2.45 px** and maximum own-head separation was **13.0 px**. Deterministic desktop/touch browser checks additionally inject burst arrivals, a full same-round reconnect and death, asserting bounded per-frame motion and convergence to the actual crash location. These are local measurements, not a public-network guarantee.
+
+The representative follow-up rendering sample used one 1512×982 fullscreen client in a ten-seat world (6–10 players alive during the 1400 ms window): **16.7 ms median/p95** frame intervals. This is separate from the many-browser capacity stress test. New tests also read the latest opponent trail pixel immediately after receipt to ensure smoothing does not delay a collision hazard.
+
+Release checks for movement continuity and eraser balancing: **356 end-to-end passes**, **7 explicit platform/duplicate skips**, **13 unit passes**, and clean UI lint.

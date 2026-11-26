@@ -283,3 +283,84 @@ test('room totals accumulate across rematches and survive a reconnect without do
   const stable = await get();
   expect(stable.players.map(p => p.totalScore)).toEqual(second.players.map(p => p.totalScore));
 });
+
+test('eraser legend is available only in solo and two-player rooms', async ({ page, request }) => {
+  await page.goto('/games'); await page.locator('#name').fill('Host'); await page.locator('#create').click();
+  await expect(page.locator('#your-player')).toBeVisible();
+  const room = new URL(page.url()).pathname.split('/').pop();
+  const endpoint = `/games/api/rooms/${room}`;
+  await expect(page.locator('#eraser-legend')).toBeVisible();
+  const second = await request.post(endpoint + '/join', { data: { name: 'Second' } });
+  expect(second.ok()).toBeTruthy();
+  await expect(page.locator('#count')).toHaveText('2 / 10');
+  await expect(page.locator('#eraser-legend')).toBeVisible();
+  const third = await request.post(endpoint + '/join', { data: { name: 'Third' } });
+  expect(third.ok()).toBeTruthy();
+  await expect(page.locator('#count')).toHaveText('3 / 10');
+  await expect(page.locator('#eraser-legend')).toBeHidden();
+  const seat = await third.json();
+  const leave = await request.post(endpoint + '/leave', { data: { token: seat.token } });
+  expect(leave.ok()).toBeTruthy();
+  await expect(page.locator('#count')).toHaveText('2 / 10');
+  await expect(page.locator('#eraser-legend')).toBeVisible();
+});
+
+test('delayed steering, burst snapshots and a crash never teleport a rendered snake', async ({ page }) => {
+  await page.goto('/games'); await page.locator('#name').fill('Continuity'); await page.locator('#create').click();
+  await expect(page.locator('#your-player')).toBeVisible();
+  const result = await page.evaluate(async () => {
+    // Drive the real renderer with a known authoritative trajectory. Arrival
+    // jitter and the 900ms input acknowledgement are independent of frame rate.
+    source.close();
+    const template = structuredClone(game), id = me.id;
+    const remote = { ...template.players[0], id: 'remote', slot: 1, name: 'Remote', color: '#ff737e' };
+    template.players.push(remote); template.solo = false; template.generation++;
+    template.phase = 'playing'; template.countdown = null; template.items = []; template.tick = 180;
+    const path = t => {
+      const angle = Math.max(0, t - .9) * 2.85;
+      return t <= .9 ? { x: 800, y: 700 - 108 * t, yaw: 0 } : { x: 800 + 108 / 2.85 * (Math.cos(angle) - 1), y: 700 - 108 * .9 - 108 / 2.85 * Math.sin(angle), yaw: angle };
+    };
+    const history = [];
+    let cursor = 0;
+    const snapshot = (n, full = false, dead = false) => {
+      const time = n / 20, g = structuredClone(template);
+      g.tick = 180 + n * 3; g.elapsed = time; g.full = full; g.phase = dead ? 'over' : 'playing';
+      g.players[0] = { ...g.players[0], ...path(time), alive: !dead, turn: time < .9 ? 0 : -1, inputSeq: time < .9 ? 0 : 50 };
+      g.players[1] = { ...remote, x: 1000, y: 700 - 108 * time, yaw: 0, alive: true, turn: 0 };
+      if (n) {
+        for (let tick = g.tick - 2; tick <= g.tick; tick++) {
+          const t = (tick - 180) / 60, p = path(t);
+          history.push([0, p.x, p.y], [1, 1000, 700 - 108 * t]);
+        }
+      }
+      g.trailFrom = full ? 0 : cursor; g.trailTo = history.length;
+      g.trails = full ? [...history] : history.slice(cursor); cursor = history.length;
+      receive(g);
+    };
+    snapshot(0, true); held = -1; inputSeq = 50; rtt = 900;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const samples = [];
+    let running = true;
+    const frame = now => {
+      samples.push({ at: now, own: { ...rendered.get(id) }, remote: { ...rendered.get('remote') } });
+      if (running) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    const delays = [50, 25, 75, 150, 0, 0];
+    for (let n = 1; n <= 36; n++) {
+      await new Promise(resolve => setTimeout(resolve, delays[(n - 1) % delays.length]));
+      snapshot(n, n === 27, n === 36); // full same-round reconnect, then collision
+    }
+    const pixel = ink.getImageData(1000, Math.floor(700 - 108 * 1.8), 1, 1).data;
+    const latestHazardVisible = pixel[0] === 255 && pixel[1] === 115 && pixel[2] === 126;
+    await new Promise(resolve => setTimeout(resolve, 650)); running = false;
+    const speeds = samples.slice(1).flatMap((p, i) => ['own', 'remote'].map(key => Math.hypot(p[key].x - samples[i][key].x, p[key].y - samples[i][key].y) / Math.min(.04, (p.at - samples[i].at) / 1000)));
+    const actual = path(1.8), visible = rendered.get(id);
+    return { maxSpeed: Math.max(...speeds), crashError: Math.hypot(actual.x - visible.x, actual.y - visible.y), samples: samples.length, latestHazardVisible };
+  });
+  expect(result.samples).toBeGreaterThan(20);
+  expect(result.maxSpeed).toBeLessThan(108 * 1.36);
+  expect(result.crashError).toBeLessThan(1);
+  expect(result.latestHazardVisible).toBeTruthy();
+  console.log('900ms acknowledgement + burst/reconnect/death continuity:', result);
+});

@@ -47,3 +47,38 @@ test('larger world keeps collision occupancy and spawns pickups beyond the old b
   r.sim.occ.data[item.y * r.sim.occ.w + item.x] = 1;
   collectItems(r); assert.equal(r.items.length, 0, 'new-area trail cells must prevent spawning a pickup');
 });
+
+
+test('erasers occur at 10% for one or two players and never at three or ten, even after eliminations', () => {
+  for (const count of [1, 2, 3, 10]) {
+    const r = fixture('slow');
+    while (r.players.length < count) {
+      const id = 'p' + r.players.length;
+      r.players.push({ id, effect: null });
+      r.sim.worms.push({ ...r.sim.worms[0], id, alive: false });
+    }
+    const types = [];
+    for (let i = 0; i < 100; i++) {
+      r.items = []; r.nextItem = 0;
+      const draws = [.8, .8, (i + .5) / 100];
+      r.sim.rng = () => draws.shift();
+      collectItems(r);
+      assert.equal(r.items.length, 1);
+      types.push(r.items[0].type);
+    }
+    assert.equal(types.filter(t => t === 'erase').length, count < 3 ? 10 : 0);
+    for (const type of ['shield', 'slow', 'haste', 'turn']) assert.ok(types.includes(type));
+  }
+});
+test('a three-player room cannot collect a stale eraser or clear existing trails', () => {
+  const r = fixture('erase');
+  for (const id of ['q', 's']) {
+    r.players.push({ id, effect: null });
+    r.sim.worms.push({ ...r.sim.worms[0], id, alive: false });
+  }
+  r.sim.occ.data[20] = 1;
+  collectItems(r);
+  assert.equal(r.items.length, 0); assert.equal(r.trailEpoch, 0);
+  assert.equal(r.sim.occ.data[20], 1); assert.deepEqual(r.trails, [[0, 20, 20]]);
+  assert.equal(r.pickupNotice, undefined);
+});
